@@ -13,6 +13,13 @@
 ## Qué es este proyecto
 API de mensajes multientorno con catálogo jerárquico (Organización → Aplicación → Módulo → Funcionalidad → Parámetro), soporte de tokens, traducción asistida por IA, caché Redis y eventos SSE en memoria. Diseñada para desplegarse en Azure con secretos en Key Vault/Doppler y observabilidad vía Grafana/Prometheus/Loki.
 
+### Propósito del producto: Building Block
+- Este proyecto es un **Building Block de gestión y distribución de mensajes**, consumido por otras aplicaciones mediante su API para obtener y mostrar mensajes y sus traducciones.
+- Tendrá un **minifront administrativo** para gestionar aplicaciones, catálogos y crear o mantener mensajes y traducciones.
+- Distinguir siempre el minifront administrativo de las aplicaciones consumidoras: la navegación, las pantallas y la selección de idioma de los usuarios finales pertenecen a estas últimas.
+- El idioma base registrado para una aplicación corresponde a esa aplicación consumidora. La traducción dinámica debe diseñarse como una capacidad reutilizable de la API, respetando el contexto de aplicación y ambiente y la arquitectura hexagonal.
+- Las propuestas de consulta o preparación de traducciones no deben asumir conocimiento de las pantallas del consumidor; pueden definir contratos por aplicación, módulo, funcionalidad o conjunto de códigos de mensajes.
+
 ## Estructura del monorepo
 | Módulo | Contenido | Genera jar ejecutable |
 |---|---|---|

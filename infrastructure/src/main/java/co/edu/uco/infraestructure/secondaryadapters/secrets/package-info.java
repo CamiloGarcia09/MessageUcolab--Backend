@@ -1,1 +1,0 @@
-package co.edu.uco.infraestructure.secondaryadapters.secrets;
