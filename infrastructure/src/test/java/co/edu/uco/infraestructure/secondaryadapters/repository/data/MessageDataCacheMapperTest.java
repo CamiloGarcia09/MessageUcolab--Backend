@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -32,6 +33,7 @@ class MessageDataCacheMapperTest {
             model.setCategory("CATEGORY");
             model.setApplication("APP");
             model.setFunctionality("FUNC");
+            model.setCreatedAt(Instant.parse("2025-01-02T03:04:05Z"));
 
             MessageData data = mapper.mapperData(model);
 
@@ -43,7 +45,8 @@ class MessageDataCacheMapperTest {
                     () -> assertThat(data.getType().getName()).isEqualTo("TYPE"),
                     () -> assertThat(data.getCategory().getName()).isEqualTo("CATEGORY"),
                     () -> assertThat(data.getApplication()).isEqualTo("APP"),
-                    () -> assertThat(data.getFunctionality().getName()).isEqualTo("FUNC"));
+                    () -> assertThat(data.getFunctionality().getName()).isEqualTo("FUNC"),
+                    () -> assertThat(data.getCreatedAt()).isEqualTo(Instant.parse("2025-01-02T03:04:05Z")));
         }
 
         @Test
@@ -65,6 +68,7 @@ class MessageDataCacheMapperTest {
             MessageData data = new MessageData(id, "CODE", "Title", "Content",
                     MessageTypeData.build("Functional"), MessageCategoryData.build("Information"),
                     "APP", FunctionalityData.build("FUNC"));
+            data.setCreatedAt(Instant.parse("2025-01-02T03:04:05Z"));
 
             MessageRedis model = mapper.mapperModel(data);
 
@@ -77,7 +81,8 @@ class MessageDataCacheMapperTest {
                     () -> assertThat(model.getCategory()).isEqualTo("Information"),
                     () -> assertThat(model.getApplication()).isEqualTo("APP"),
                     () -> assertThat(model.getFunctionality()).isEqualTo("FUNC"),
-                    () -> assertThat(model.getEnvironmentId()).isEmpty());
+                    () -> assertThat(model.getEnvironmentId()).isEmpty(),
+                    () -> assertThat(model.getCreatedAt()).isEqualTo(Instant.parse("2025-01-02T03:04:05Z")));
         }
 
         @Test

@@ -13,6 +13,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -95,6 +96,19 @@ class JsonSerializerTest {
                     () -> assertThat(time.isNumber()).as("time no debe serializarse como timestamp numerico").isFalse()
             );
         }
+    }
+
+    @Test
+    void serialize_messageDto_usesCreatedAtSnakeCaseAndUtcIsoInstant() throws Exception {
+        var dto = co.edu.uco.application.primaryports.dto.message.MessageDTO.create(
+                "MSG_WELCOME", "Welcome", "Hello", "info", "general", "app", "func",
+                Instant.parse("2025-01-02T03:04:05Z"));
+
+        JsonNode json = JSON_PARSER.readTree(serializer.serialize(dto));
+
+        assertAll(
+                () -> assertThat(json.get("created_at").asText()).isEqualTo("2025-01-02T03:04:05Z"),
+                () -> assertThat(json.has("createdAt")).isFalse());
     }
 
     @Test

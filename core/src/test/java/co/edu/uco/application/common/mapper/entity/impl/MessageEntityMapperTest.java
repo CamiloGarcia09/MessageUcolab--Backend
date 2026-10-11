@@ -12,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.modelmapper.ModelMapper;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -66,7 +67,9 @@ class MessageEntityMapperTest {
 
     @Test
     void mapperDTO_buildsDtoFromEntityComposites() {
-        MessageDTO dto = mapper.mapperDTO(messageData());
+        MessageData data = messageData();
+        data.setCreatedAt(Instant.parse("2025-01-02T03:04:05Z"));
+        MessageDTO dto = mapper.mapperDTO(data);
 
         assertAll(
                 () -> assertThat(dto.getCode()).isEqualTo("CODE"),
@@ -75,7 +78,8 @@ class MessageEntityMapperTest {
                 () -> assertThat(dto.getType()).isEqualTo("info"),
                 () -> assertThat(dto.getCategory()).isEqualTo("general"),
                 () -> assertThat(dto.getApplication()).isEqualTo("app"),
-                () -> assertThat(dto.getFunctionality()).isEqualTo("func"));
+                () -> assertThat(dto.getFunctionality()).isEqualTo("func"),
+                () -> assertThat(dto.getCreatedAt()).isEqualTo(Instant.parse("2025-01-02T03:04:05Z")));
     }
 
     @Test

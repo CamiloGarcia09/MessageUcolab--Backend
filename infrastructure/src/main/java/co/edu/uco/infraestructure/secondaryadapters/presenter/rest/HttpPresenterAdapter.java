@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -97,6 +98,15 @@ public final class HttpPresenterAdapter<T> implements PresenterPort<T> {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public void handleUnreadableBody(
             HttpMessageNotReadableException ex,
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws IOException {
+        writeClientError(HttpStatus.BAD_REQUEST.value(), request, response, ex);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public void handleMissingParameter(
+            MissingServletRequestParameterException ex,
             HttpServletRequest request,
             HttpServletResponse response
     ) throws IOException {

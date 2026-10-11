@@ -97,6 +97,10 @@ class MessageSurrealRepositoryAdapterImplTest {
     }
 
     private Object messageDocument(String uuid, String code) {
+        return messageDocument(uuid, code, null);
+    }
+
+    private Object messageDocument(String uuid, String code, Value createdAt) {
         Object doc = mock(Object.class);
         lenient().when(doc.get("message")).thenReturn(null);
         doReturn(recordIdValue("message", uuid)).when(doc).get("id");
@@ -108,6 +112,7 @@ class MessageSurrealRepositoryAdapterImplTest {
         doReturn(nameValue("CATEGORY")).when(doc).get("category");
         doReturn(nameValue("ACTIVE")).when(doc).get("status");
         doReturn(nameValue("FUNC")).when(doc).get("functionality");
+        doReturn(createdAt).when(doc).get("created_at");
         return doc;
     }
 
@@ -273,6 +278,32 @@ class MessageSurrealRepositoryAdapterImplTest {
         assertThat(page.getTotalPages()).isEqualTo(2);
         assertThat(page.getData()).hasSize(1);
         assertThat(page.getData().get(0).getCode()).isEqualTo("CODE-4");
+    }
+
+    @Test
+    void findById_parsesIsoCreatedAt_whenDocumentContainsStringTimestamp() {
+        String uuid = UUID.randomUUID().toString();
+        Value timestamp = mock(Value.class);
+        when(timestamp.isNull()).thenReturn(false);
+        when(timestamp.isNone()).thenReturn(false);
+        when(timestamp.isDateTime()).thenReturn(false);
+        when(timestamp.getString()).thenReturn("2025-01-02T03:04:05Z");
+        doReturn(responseWithOne(messageDocument(uuid, "CODE-1", timestamp)))
+                .when(surreal).query(anyString());
+
+        MessageData message = adapter.findById(uuid).orElseThrow();
+
+        assertThat(message.getCreatedAt()).isEqualTo(java.time.Instant.parse("2025-01-02T03:04:05Z"));
+    }
+
+    @Test
+    void findById_leavesCreatedAtNull_whenDocumentHasNoTimestamp() {
+        String uuid = UUID.randomUUID().toString();
+        doReturn(responseWithOne(messageDocument(uuid, "CODE-1"))).when(surreal).query(anyString());
+
+        MessageData message = adapter.findById(uuid).orElseThrow();
+
+        assertThat(message.getCreatedAt()).isNull();
     }
 
     @Test

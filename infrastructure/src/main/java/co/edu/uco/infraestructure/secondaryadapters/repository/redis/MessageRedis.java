@@ -7,6 +7,7 @@ import org.springframework.data.redis.core.RedisHash;
 import org.springframework.data.redis.core.index.Indexed;
 
 import java.util.UUID;
+import java.time.Instant;
 
 import static co.edu.uco.crosscutting.helpers.UtilText.EMPTY;
 import static co.edu.uco.crosscutting.helpers.UtilText.trim;
@@ -28,6 +29,7 @@ public final class MessageRedis {
     private String status;
     private String application;
     private String functionality;
+    private Instant createdAt;
     @Indexed
     private String environmentId;
     public MessageRedis() {
@@ -84,5 +86,8 @@ public final class MessageRedis {
     }
     public void setEnvironmentId(String environmentId) {
         this.environmentId = trim(environmentId);
+    }
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 }

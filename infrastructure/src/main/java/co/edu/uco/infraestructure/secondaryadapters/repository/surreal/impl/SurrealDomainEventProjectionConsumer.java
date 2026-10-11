@@ -266,6 +266,7 @@ public final class SurrealDomainEventProjectionConsumer {
                 + ", status: " + catalogLiteral(statusId, findByRecordId(statusId), "name")
                 + ", application: " + quote(applicationName(applicationId))
                 + ", functionality: " + catalogLiteral(functionalityId, findByRecordId(functionalityId), "name")
+                + ", created_at: " + literal(message.get("created_at"))
                 + " }";
     }
 

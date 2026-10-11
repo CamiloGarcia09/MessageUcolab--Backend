@@ -261,7 +261,7 @@ class SurrealDomainEventProjectionConsumerTest {
         doReturn(stringValue("CODE")).when(message).get("code");
         doReturn(stringValue("Title")).when(message).get("title");
         doReturn(stringValue("Content")).when(message).get("content");
-        when(message.get("created_at")).thenReturn(null);
+        doReturn(stringValue("2020-03-04T05:06:07Z")).when(message).get("created_at");
         when(message.get("updated_at")).thenReturn(null);
 
         stubEvents(eventObject("event-1", "MESSAGE_CREATED", "message:msg-1", "message", 1));
@@ -276,6 +276,7 @@ class SurrealDomainEventProjectionConsumerTest {
 
         assertThat(documentQuery("UPSERT message_data_collection:`msg-1`"))
                 .contains("application: 'APP'")
+                .contains("created_at: '2020-03-04T05:06:07Z'")
                 .doesNotContain(", version: ");
     }
 
