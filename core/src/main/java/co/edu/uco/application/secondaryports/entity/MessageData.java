@@ -6,6 +6,7 @@ import co.edu.uco.crosscutting.helpers.UtilUUID;
 import lombok.Getter;
 
 import java.util.UUID;
+import java.time.Instant;
 
 import static co.edu.uco.crosscutting.helpers.UtilText.trim;
 import static co.edu.uco.crosscutting.helpers.UtilUUID.getDefaultUUID;
@@ -22,6 +23,7 @@ public final class MessageData {
     private StatusMessageData status;
     private String application;
     private FunctionalityData functionality;
+    private Instant createdAt;
     public MessageData() {
         setId(UtilUUID.getNewUUID());
         setCode(UtilText.EMPTY);
@@ -66,5 +68,8 @@ public final class MessageData {
     public void setFunctionality(FunctionalityData functionality) {this.functionality = getDefaultIsNullObject(functionality, FunctionalityData.build());}
     public static MessageData build() {
         return new MessageData();
+    }
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 }

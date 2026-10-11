@@ -16,15 +16,19 @@ import static co.edu.uco.crosscutting.helpers.UtilText.EMPTY;
 public final class MessageDataCacheMapper implements DataMapper<MessageData, MessageRedis> {
     @Override
     public MessageData mapperData(MessageRedis model) {
-        return new MessageData(model.getId(), model.getCode(), model.getTitle(),
+        var data = new MessageData(model.getId(), model.getCode(), model.getTitle(),
                 model.getContent(), MessageTypeData.build(model.getType()),
                 MessageCategoryData.build(model.getCategory()), model.getApplication(), FunctionalityData.build(model.getFunctionality()));
+        data.setCreatedAt(model.getCreatedAt());
+        return data;
     }
     @Override
     public MessageRedis mapperModel(MessageData data) {
-        return new MessageRedis(data.getId(), data.getCode(), data.getTitle(), data.getContent(),
+        var model = new MessageRedis(data.getId(), data.getCode(), data.getTitle(), data.getContent(),
                 data.getType().getName(),
                 data.getCategory().getName(), data.getStatus().getName(), data.getApplication(),
                 data.getFunctionality().getName(), EMPTY);
+        model.setCreatedAt(data.getCreatedAt());
+        return model;
     }
 }

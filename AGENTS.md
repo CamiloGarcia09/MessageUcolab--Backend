@@ -13,6 +13,13 @@
 ## Qué es este proyecto
 API de mensajes multientorno con catálogo jerárquico (Organización → Aplicación → Módulo → Funcionalidad → Parámetro), soporte de tokens, traducción asistida por IA, caché Redis y eventos SSE en memoria. Diseñada para desplegarse en Azure con secretos en Key Vault/Doppler y observabilidad vía Grafana/Prometheus/Loki.
 
+### Propósito del producto: Building Block
+- Este proyecto es un **Building Block de gestión y distribución de mensajes**, consumido por otras aplicaciones mediante su API para obtener y mostrar mensajes y sus traducciones.
+- Tendrá un **minifront administrativo** para gestionar aplicaciones, catálogos y crear o mantener mensajes y traducciones.
+- Distinguir siempre el minifront administrativo de las aplicaciones consumidoras: la navegación, las pantallas y la selección de idioma de los usuarios finales pertenecen a estas últimas.
+- El idioma base registrado para una aplicación corresponde a esa aplicación consumidora. La traducción dinámica debe diseñarse como una capacidad reutilizable de la API, respetando el contexto de aplicación y ambiente y la arquitectura hexagonal.
+- Las propuestas de consulta o preparación de traducciones no deben asumir conocimiento de las pantallas del consumidor; pueden definir contratos por aplicación, módulo, funcionalidad o conjunto de códigos de mensajes.
+
 ## Estructura del monorepo
 | Módulo | Contenido | Genera jar ejecutable |
 |---|---|---|
@@ -56,6 +63,7 @@ cd ../..
 - Después de realizar un cambio de producción, no crear ni ejecutar pruebas automáticamente. Preguntar al usuario si autoriza invocar `unit-test-agent` y esperar su respuesta.
 - Si el usuario pide explícitamente crear, modificar, auditar o ejecutar pruebas, esa petición constituye autorización para invocar `unit-test-agent`; no es necesario volver a preguntar.
 - La autorización corresponde a la ejecución completa de `unit-test-agent`. Una vez concedida, el subagente puede crear o modificar pruebas, auditarlas y ejecutar los comandos Maven necesarios sin solicitar permisos adicionales por cada comando.
+- Si una verificación autorizada falla y se corrige la causa dentro de la misma tarea, `unit-test-agent` tiene autorización permanente para volver a ejecutar `./mvnw clean verify` sin preguntar de nuevo. Aplica también al reanudar el subagente para cerrar una validación pendiente. No dar por validada una corrección hasta confirmar una verificación exitosa; si existe un bloqueo que no se puede resolver dentro del alcance, reportarlo.
 - El agente principal no debe ejecutar pruebas ni comandos que las incluyan indirectamente, como `./mvnw clean verify`, como consecuencia automática de una tarea de producción.
 - Si el usuario no autoriza `unit-test-agent`, finalizar la tarea de producción e indicar que no se crearon ni ejecutaron pruebas.
 
@@ -74,7 +82,7 @@ Aplica en todas las sesiones, incluso nuevas:
 2. **Crear o modificar pruebas unitarias** → delegar SIEMPRE al agente `unit-test-agent` (subagente con contexto aislado). No editar archivos de test en la conversación principal.
 3. **Auditar pruebas ya escritas** → aplicar el skill `unit-test-validator` dentro de `unit-test-agent`, no en la conversación principal.
 4. **Tareas de producción** → el agente principal implementa únicamente el cambio solicitado; no debe añadir pruebas por iniciativa propia ni invocar automáticamente el subagente.
-5. **Verificación autorizada** → `unit-test-agent` realiza una única ejecución de `./mvnw clean verify` al final de su trabajo. No se requiere una segunda autorización para ese comando ni una segunda verificación desde la conversación principal.
+5. **Verificación autorizada** → `unit-test-agent` ejecuta `./mvnw clean verify` al final de su trabajo. Si falla, puede corregir la causa y repetir la verificación completa sin solicitar una nueva autorización, hasta confirmar el resultado o identificar un bloqueo fuera del alcance. Evitar repeticiones sin cambios ni motivo. La conversación principal no duplica la verificación.
 6. **Conversación principal** → coordina la autorización, lanza el subagente, revisa su resumen y reporta el resultado; no reescribe tests salvo un fallo puntual que el subagente no pueda resolver.
 
 ## Manejo de errores

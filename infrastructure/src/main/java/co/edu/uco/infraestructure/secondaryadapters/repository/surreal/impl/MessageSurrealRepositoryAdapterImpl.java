@@ -22,6 +22,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
 
 import static co.edu.uco.crosscutting.helpers.UtilObject.isNullObject;
 import static co.edu.uco.crosscutting.helpers.UtilUUID.DEFAULT_UUID;
@@ -155,6 +156,7 @@ public class MessageSurrealRepositoryAdapterImpl extends SurrealCatalogSupport i
         data.setCode(stringOf(message.get("code")));
         data.setTitle(stringOf(message.get("title")));
         data.setContent(stringOf(message.get("content")));
+        data.setCreatedAt(instantOf(message.get("created_at")));
         data.setApplication(stringOf(message.get("application")));
         data.setType(new MessageTypeData(catalogIdOf(message.get("type")), nameOf(message.get("type"))));
         data.setCategory(new MessageCategoryData(catalogIdOf(message.get("category")), nameOf(message.get("category"))));
@@ -169,6 +171,16 @@ public class MessageSurrealRepositoryAdapterImpl extends SurrealCatalogSupport i
             return Optional.empty();
         }
         return Optional.of(value.getObject());
+    }
+
+    private static Instant instantOf(final Value value) {
+        if (isNullObject(value) || value.isNull() || value.isNone()) {
+            return null;
+        }
+        if (value.isDateTime()) {
+            return value.getDateTime().toInstant();
+        }
+        return Instant.parse(value.getString());
     }
 
     private static UUID catalogIdOf(final Value value) {

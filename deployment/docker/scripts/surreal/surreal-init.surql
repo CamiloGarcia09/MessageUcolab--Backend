@@ -1418,6 +1418,7 @@ UPSERT message_data_collection:`b6d3f821-7a4e-49c5-8d12-3f0b9e6a274c` CONTENT {
     category: { id: "message_category:3b337f14-dde1-436e-829a-eebacb556eb4", name: "Information" },
     status: { id: "message_state:4223b3dc-c991-4603-a746-d37ce5ecd976", name: "Active" },
     functionality: { id: "functionality:5a8e2c74-1d39-4f6b-b7c2-0e9a3d5f8164", name: "General Messages" },
+    created_at: $init_now,
     projection_version: 1,
     generated_at: $init_now
 };
@@ -1436,7 +1437,8 @@ UPSERT message_environment_readmodel:`2e7a4c91-6b35-48fd-a2e8-1c9d5f703b64` CONT
         type: { id: "message_type:0c71601d-96b3-417e-b385-06b10ba126d9", name: "Functional" },
         category: { id: "message_category:3b337f14-dde1-436e-829a-eebacb556eb4", name: "Information" },
         status: { id: "message_state:4223b3dc-c991-4603-a746-d37ce5ecd976", name: "Active" },
-        functionality: { id: "functionality:5a8e2c74-1d39-4f6b-b7c2-0e9a3d5f8164", name: "General Messages" }
+        functionality: { id: "functionality:5a8e2c74-1d39-4f6b-b7c2-0e9a3d5f8164", name: "General Messages" },
+        created_at: $init_now
     },
     status: { id: "message_environment_state:10ddbab2-352e-48de-b9eb-de0895ddb944", name: "Active" },
     projection_version: 1,

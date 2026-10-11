@@ -1,19 +1,20 @@
 openapi: 3.0.3
 info:
   title: MessageUcoLab API
-  description: API para crear tokens y consultar mensajes por ambiente.
+  description: |
+    Contrato de la API de MessageUcoLab bajo el enfoque Contract First.
+    Define las operaciones, parametros, modelos de entrada y salida, respuestas
+    y autenticacion Bearer para la integracion del equipo.
   version: 1.0.0
 
 servers:
-  - url: /
-    description: Servidor actual
+  - url: http://localhost:8000
+    description: Servidor local
 
 security:
-  - tokenAuth: []
+  - bearerAuth: []
 
 tags:
-  - name: Tokens
-    description: Creacion de tokens de acceso.
   - name: Mensajes
     description: Consulta y traduccion de mensajes.
   - name: Contexto
@@ -28,10 +29,13 @@ paths:
     post:
       tags: [Administracion]
       summary: Crear aplicacion
-      description: Crea una aplicacion asociada a una organizacion y aprovisiona atomicamente sus ambientes Develop, Testing y Production en estado Active.
+      description: |
+        Crea una aplicacion asociada a una organizacion y aprovisiona atomicamente
+        sus ambientes Develop, Testing y Production en estado Active.
+        organizationId
+        debe coincidir con la organizacion del contexto activo y se requiere APPLICATION_CREATE.
       operationId: createApplication
       security:
-        - tokenAuth: []
         - bearerAuth: []
       requestBody:
         required: true
@@ -42,12 +46,35 @@ paths:
       responses:
         '200':
           description: Aplicacion creada correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+              example:
+                data: [Aplicación creada exitosamente]
+                errors: []
+            application/yaml:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+            text/plain:
+              schema:
+                type: string
+            text/html:
+              schema:
+                type: string
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -55,10 +82,12 @@ paths:
     post:
       tags: [Administracion]
       summary: Crear funcionalidad
-      description: Crea una funcionalidad para una aplicacion. El contrato no recibe fechas de inicio o fin.
+      description: |
+        Crea una funcionalidad para una aplicacion. No recibe fechas de inicio o fin.
+        applicationId
+        debe coincidir con la aplicacion del contexto activo y se requiere FUNCTIONALITY_CREATE.
       operationId: createFunctionality
       security:
-        - tokenAuth: []
         - bearerAuth: []
       requestBody:
         required: true
@@ -69,39 +98,35 @@ paths:
       responses:
         '200':
           description: Funcionalidad creada correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+              example:
+                data: [Funcionalidad creada exitosamente]
+                errors: []
+            application/yaml:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+            text/plain:
+              schema:
+                type: string
+            text/html:
+              schema:
+                type: string
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /messageucolab/v1/application/{id}/token:
-    post:
-      tags: [Tokens]
-      summary: Crear token de aplicacion
-      description: Crea un token para autenticar solicitudes de una aplicacion en un ambiente.
-      operationId: createToken
-      security: []
-      parameters:
-        - $ref: '#/components/parameters/ApplicationId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateTokenRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/TokenCreated'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '406':
           $ref: '#/components/responses/NotAcceptable'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -109,10 +134,9 @@ paths:
     post:
       tags: [Mensajes]
       summary: Crear mensaje
-      description: Crea un mensaje en el ambiente autenticado. La aplicacion y el ambiente se derivan del contexto activo o del Token legacy.
+      description: Crea un mensaje en el ambiente autorizado. La aplicacion y el ambiente se derivan del contexto activo de la identidad autenticada con Bearer.
       operationId: createMessage
       security:
-        - tokenAuth: []
         - bearerAuth: []
       requestBody:
         required: true
@@ -123,21 +147,49 @@ paths:
       responses:
         '200':
           description: Mensaje creado correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+              example:
+                data: [Mensaje creado exitosamente]
+                errors: []
+            application/yaml:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+            text/plain:
+              schema:
+                type: string
+            text/html:
+              schema:
+                type: string
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
         '500':
           $ref: '#/components/responses/InternalServerError'
     get:
       tags: [Mensajes]
       summary: Consultar mensajes
-      description: Busca un mensaje por code cuando se envia ese parametro; de lo contrario retorna los mensajes paginados del ambiente autenticado.
+      description: |
+        Con code retorna data como una lista con el mensaje encontrado; los parametros
+        de paginacion no se usan. Sin code retorna data como una lista con un objeto
+        de pagina, cuyo campo data contiene los mensajes.
+        El ambiente procede del contexto activo de la identidad autenticada con Bearer.
       operationId: findMessages
       security:
-        - tokenAuth: []
         - bearerAuth: []
       parameters:
         - name: code
@@ -158,7 +210,7 @@ paths:
           schema:
             type: integer
             minimum: 1
-            maximum: 50
+            maximum: 100
             default: 50
         - name: sort
           in: query
@@ -186,6 +238,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '406':
           $ref: '#/components/responses/NotAcceptable'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -193,10 +247,9 @@ paths:
     post:
       tags: [Mensajes]
       summary: Traducir mensaje
-      description: Traduce un mensaje del ambiente legado o del contexto activo de la identidad sin guardar la traduccion.
+      description: Traduce un mensaje del ambiente del contexto activo de la identidad autenticada con Bearer sin guardar la traduccion.
       operationId: translateMessageByCode
       security:
-        - tokenAuth: []
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/MessageCode'
@@ -219,6 +272,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '406':
           $ref: '#/components/responses/NotAcceptable'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -241,6 +296,82 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /messageucolab/v1/catalog/applications:
+    get:
+      tags: [Catalogos]
+      summary: Listar aplicaciones
+      description: |
+        Lista las aplicaciones autorizadas para la identidad autenticada con
+        Bearer y el permiso CONTEXT_SELECT.
+      operationId: findApplications
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /messageucolab/v1/catalog/applications/{applicationId}/environments:
+    get:
+      tags: [Catalogos]
+      summary: Listar ambientes de una aplicacion
+      description: |
+        La aplicacion debe coincidir con el contexto activo de la identidad
+        autenticada con Bearer y la lista
+        se filtra por los ambientes autorizados con CONTEXT_SELECT.
+      operationId: findEnvironmentsByApplication
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /messageucolab/v1/catalog/applications/{applicationId}/functionalities:
+    get:
+      tags: [Catalogos]
+      summary: Listar funcionalidades de una aplicacion
+      description: |
+        La aplicacion debe coincidir con el contexto activo de la identidad
+        autenticada con Bearer y se
+        requiere CONTEXT_SELECT sobre esa aplicacion.
+      operationId: findFunctionalitiesByApplication
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -253,6 +384,12 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/CatalogFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /messageucolab/v1/catalog/message-categories:
     get:
@@ -263,6 +400,12 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/CatalogFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /messageucolab/v1/catalog/message-states:
     get:
@@ -273,6 +416,12 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/CatalogFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /messageucolab/v1/catalog/message-environment-states:
     get:
@@ -283,6 +432,12 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/CatalogFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
   /messageucolab/v1/me/context:
     get:
@@ -305,6 +460,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
         '500':
           $ref: '#/components/responses/InternalServerError'
     put:
@@ -335,6 +492,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
@@ -344,11 +503,6 @@ paths:
 
 components:
   securitySchemes:
-    tokenAuth:
-      type: apiKey
-      in: header
-      name: Token
-      description: Token asociado a la aplicacion y al ambiente.
     bearerAuth:
       type: http
       scheme: bearer
@@ -356,7 +510,7 @@ components:
 
   parameters:
     ApplicationId:
-      name: id
+      name: applicationId
       in: path
       required: true
       description: Identificador unico de la aplicacion.
@@ -374,48 +528,324 @@ components:
         example: MSG_001
 
   responses:
-    TokenCreated:
-      description: Token creado correctamente.
     MessagesFound:
-      description: Mensajes obtenidos correctamente.
-    MessageFound:
-      description: Mensaje encontrado.
+      description: Mensaje por codigo o pagina de mensajes, segun la presencia del parametro code.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/MessageResponse'
+            oneOf:
+              - $ref: '#/components/schemas/MessageResponse'
+              - $ref: '#/components/schemas/PaginatedMessagesResponse'
+          examples:
+            byCode:
+              summary: Consulta con code=MSG_WELCOME
+              value:
+                data:
+                  - code: MSG_WELCOME
+                    title: Mensaje de bienvenida
+                    content: Bienvenido a nuestra aplicacion
+                    type: Informacion
+                    category: General
+                    application: Aplicacion de ejemplo
+                    functionality: Inicio
+                errors: []
+            paginated:
+              summary: Consulta sin code
+              value:
+                data:
+                  - data:
+                      - code: MSG_WELCOME
+                        title: Mensaje de bienvenida
+                        content: Bienvenido a nuestra aplicacion
+                        type: Informacion
+                        category: General
+                        application: Aplicacion de ejemplo
+                        functionality: Inicio
+                    page: 1
+                    size: 50
+                    totalItems: 1
+                    totalPages: 1
+                errors: []
+        application/yaml:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/MessageResponse'
+              - $ref: '#/components/schemas/PaginatedMessagesResponse'
+        application/xml:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/MessageResponse'
+              - $ref: '#/components/schemas/PaginatedMessagesResponse'
+        text/plain:
+          schema:
+            type: string
+        text/html:
+          schema:
+            type: string
     MessageTranslated:
       description: Mensaje traducido correctamente.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/TranslatedMessageResponse'
+        application/yaml:
+          schema:
+            $ref: '#/components/schemas/TranslatedMessageResponse'
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/TranslatedMessageResponse'
+        text/plain:
+          schema:
+            type: string
+        text/html:
+          schema:
+            type: string
     CatalogFound:
       description: Catalogo obtenido correctamente. Cada id es un UUID persistente.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/CatalogResponse'
+          example:
+            data:
+              - id: 123e4567-e89b-12d3-a456-426614174000
+                name: Elemento de ejemplo
+            errors: []
+        application/yaml:
+          schema:
+            $ref: '#/components/schemas/CatalogResponse'
+        application/xml:
+          schema:
+            $ref: '#/components/schemas/CatalogResponse'
+        text/plain:
+          schema:
+            type: string
+        text/html:
+          schema:
+            type: string
     BadRequest:
       description: Solicitud o parametros invalidos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
-      description: La identidad no esta autenticada.
+      description: Credencial ausente o invalida. Tambien aplica a Bearer invalido enviado a una operacion publica.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Forbidden:
-      description: Token ausente, invalido o sin autorizacion.
+      description: Sin permisos para el recurso o fuera del contexto autorizado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     NotFound:
       description: Recurso no encontrado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     NotAcceptable:
       description: Formato de respuesta no soportado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     Conflict:
-      description: El recurso no respeta la jerarquia requerida.
+      description: Conflicto por duplicidad o por jerarquia de recursos.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     UnprocessableEntity:
-      description: Los identificadores no cumplen las reglas de validacion.
+      description: Los datos no cumplen las reglas de validacion del dominio.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     InternalServerError:
       description: Error interno del servidor.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
+    CreationResponse:
+      type: object
+      required: [data, errors]
+      properties:
+        data:
+          type: array
+          description: Confirmacion de creacion; no devuelve el identificador del recurso.
+          items:
+            type: string
+        errors:
+          type: array
+          maxItems: 0
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+    ErrorDetail:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Codigo de dominio o codigo HTTP simbolico; no es un enum cerrado.
+          example: UNAUTHORIZED
+        message:
+          type: string
+          example: Credencial ausente o invalida.
+    ErrorResponse:
+      type: object
+      required: [data, errors, timestamp, path]
+      description: |
+        Estructura de los errores gestionados por el presenter y los interceptores.
+        Los errores generados directamente por Spring o un proxy pueden tener otra estructura.
+        Los ejemplos de esta documentacion usan Accept application/json.
+      properties:
+        data:
+          type: array
+          maxItems: 0
+          items: {}
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+      example:
+        data: []
+        errors:
+          - code: UNAUTHORIZED
+            message: Credencial ausente o invalida.
+        timestamp: '2026-10-06T12:00:00.000Z'
+        path: /messageucolab/v1/messages
+    MessagePage:
+      type: object
+      required: [data, page, size, totalItems, totalPages]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+        totalItems:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+    PaginatedMessagesResponse:
+      type: object
+      required: [data, errors]
+      properties:
+        data:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items:
+            $ref: '#/components/schemas/MessagePage'
+        errors:
+          type: array
+          maxItems: 0
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+    TranslatedMessage:
+      type: object
+      required: [code, sourceLanguage, targetLanguage, originalTitle, originalContent, translatedTitle, translatedContent, type, category, application, functionality, translationProvider, translationModel, translationElapsedMs, dynamicTranslation]
+      properties:
+        code:
+          type: string
+        sourceLanguage:
+          type: string
+        targetLanguage:
+          type: string
+        originalTitle:
+          type: string
+        originalContent:
+          type: string
+        translatedTitle:
+          type: string
+        translatedContent:
+          type: string
+        type:
+          type: string
+        category:
+          type: string
+        application:
+          type: string
+        functionality:
+          type: string
+        translationProvider:
+          type: string
+          description: Proveedor utilizado; depende de la configuracion del despliegue.
+        translationModel:
+          type: string
+          description: Modelo utilizado; depende de la configuracion del despliegue.
+        translationElapsedMs:
+          type: integer
+          format: int64
+          description: Tiempo de traduccion en milisegundos.
+        dynamicTranslation:
+          type: boolean
+      example:
+        code: MSG_WELCOME
+        sourceLanguage: es
+        targetLanguage: en
+        originalTitle: Mensaje de bienvenida
+        originalContent: Bienvenido a nuestra aplicacion
+        translatedTitle: Welcome message
+        translatedContent: Welcome to our application
+        type: Informacion
+        category: General
+        application: Aplicacion de ejemplo
+        functionality: Inicio
+        translationProvider: ollama
+        translationModel: modelo-configurado
+        translationElapsedMs: 1200
+        dynamicTranslation: true
+    TranslatedMessageResponse:
+      type: object
+      required: [data, errors]
+      properties:
+        data:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items:
+            $ref: '#/components/schemas/TranslatedMessage'
+        errors:
+          type: array
+          maxItems: 0
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
     CreateApplicationRequest:
       type: object
       required: [name, organizationId, languageId, stateId]
+      example:
+        name: Aplicacion de ejemplo
+        organizationId: 123e4567-e89b-12d3-a456-426614174010
+        languageId: 123e4567-e89b-12d3-a456-426614174020
+        stateId: 123e4567-e89b-12d3-a456-426614174030
       properties:
         name:
           type: string
+          minLength: 1
+          maxLength: 50
+          example: Aplicacion de ejemplo
         organizationId:
           type: string
           format: uuid
@@ -428,9 +858,16 @@ components:
     CreateFunctionalityRequest:
       type: object
       required: [name, applicationId, stateId]
+      example:
+        name: Inicio
+        applicationId: 123e4567-e89b-12d3-a456-426614174000
+        stateId: 123e4567-e89b-12d3-a456-426614174030
       properties:
         name:
           type: string
+          minLength: 1
+          maxLength: 50
+          example: Inicio
         applicationId:
           type: string
           format: uuid
@@ -440,18 +877,31 @@ components:
     CreateMessageRequest:
       type: object
       required: [code, title, content, typeId, categoryId, statusId, functionalityId]
+      example:
+        code: WELCOME
+        title: Mensaje de bienvenida
+        content: Bienvenido a nuestra aplicacion
+        typeId: 123e4567-e89b-12d3-a456-426614174040
+        categoryId: 123e4567-e89b-12d3-a456-426614174050
+        statusId: 123e4567-e89b-12d3-a456-426614174060
+        functionalityId: 123e4567-e89b-12d3-a456-426614174070
       properties:
         code:
           type: string
-          description: Suffix used to build MSG_{suffix}; spaces are normalized to underscores.
+          description: Sufijo para construir MSG_{sufijo}; los espacios se normalizan a guiones bajos. No enviar el prefijo MSG_.
+          minLength: 1
           maxLength: 10
           pattern: '^[A-Za-z0-9 ]+$'
           example: WELCOME
         title:
           type: string
+          minLength: 10
+          maxLength: 50
           example: Welcome message
         content:
           type: string
+          minLength: 10
+          maxLength: 100
           example: Welcome to MessageUcoLab
         typeId:
           type: string
@@ -475,6 +925,9 @@ components:
           example: auto
         targetLanguage:
           type: string
+          minLength: 2
+          maxLength: 50
+          pattern: '^[a-zA-Z][a-zA-Z\s_-]{1,49}$'
           example: en
     Message:
       type: object
@@ -505,24 +958,16 @@ components:
             $ref: '#/components/schemas/Message'
         errors:
           type: array
+          maxItems: 0
           items:
-            type: string
-    CreateTokenRequest:
-      type: object
-      required: [expirationDate, environmentId]
-      properties:
-        expirationDate:
-          type: string
-          format: date-time
-          description: Fecha y hora de expiracion. Sin offset se interpreta como UTC; cualquier offset se normaliza a UTC.
-          example: '2026-12-31T23:59:59Z'
-        environmentId:
-          type: string
-          format: uuid
-          example: 123e4567-e89b-12d3-a456-426614174111
+            $ref: '#/components/schemas/ErrorDetail'
     SelectActiveContextRequest:
       type: object
       required: [organizationId, applicationId, environmentId]
+      example:
+        organizationId: 123e4567-e89b-12d3-a456-426614174010
+        applicationId: 123e4567-e89b-12d3-a456-426614174000
+        environmentId: 123e4567-e89b-12d3-a456-426614174080
       properties:
         organizationId:
           type: string
@@ -571,8 +1016,9 @@ components:
             $ref: '#/components/schemas/CatalogItem'
         errors:
           type: array
+          maxItems: 0
           items:
-            type: string
+            $ref: '#/components/schemas/ErrorDetail'
     AvailableContextsResponse:
       type: object
       required: [data, errors]
@@ -583,8 +1029,21 @@ components:
             $ref: '#/components/schemas/AvailableContext'
         errors:
           type: array
+          maxItems: 0
           items:
-            type: string
+            $ref: '#/components/schemas/ErrorDetail'
+      example:
+        data:
+          - organization:
+              id: 123e4567-e89b-12d3-a456-426614174010
+              name: Organizacion de ejemplo
+            application:
+              id: 123e4567-e89b-12d3-a456-426614174000
+              name: Aplicacion de ejemplo
+            environment:
+              id: 123e4567-e89b-12d3-a456-426614174080
+              name: Develop
+        errors: []
     ActiveContextResponse:
       type: object
       required: [data, errors]
@@ -595,5 +1054,13 @@ components:
             $ref: '#/components/schemas/ActiveContext'
         errors:
           type: array
+          maxItems: 0
           items:
-            type: string
+            $ref: '#/components/schemas/ErrorDetail'
+      example:
+        data:
+          - organizationId: 123e4567-e89b-12d3-a456-426614174010
+            applicationId: 123e4567-e89b-12d3-a456-426614174000
+            environmentId: 123e4567-e89b-12d3-a456-426614174080
+            updatedAt: '2026-10-06T12:00:00Z'
+        errors: []

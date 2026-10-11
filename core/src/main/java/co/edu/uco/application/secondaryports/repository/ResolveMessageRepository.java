@@ -1,0 +1,11 @@
+package co.edu.uco.application.secondaryports.repository;
+
+import co.edu.uco.application.secondaryports.entity.MessageData;
+
+import java.util.Optional;
+
+public interface ResolveMessageRepository {
+
+    /** Finds an active message enabled in the environment and belonging to its application. */
+    Optional<MessageData> findAvailableByCodeAndEnvironment(String code, String environmentId);
+}
