@@ -108,7 +108,8 @@ class MessagesControllerImplTest {
     void translateByCodeMessageAndEnvironment_presentsTranslatedMessage() {
         when(request.getAttribute("environmentId")).thenReturn("env-1");
         TranslatedMessageDTO dto = TranslatedMessageDTO.create("CODE", "es", "en", "T", "C", "TT", "TC",
-                "TYPE", "CAT", "APP", "FUNC", "provider", "model", 10);
+                "TYPE", "translated TYPE", "CAT", "translated CAT", "FUNC", "translated FUNC",
+                "provider", "model", 10);
         TranslateMessageDTO body = new TranslateMessageDTO();
         body.setSourceLanguage("es");
         body.setTargetLanguage("en");
@@ -129,7 +130,8 @@ class MessagesControllerImplTest {
     void translateByCodeMessageAndEnvironment_usesAutomaticSourceLanguageWhenBodyOmitsIt() {
         when(request.getAttribute("environmentId")).thenReturn("env-1");
         TranslatedMessageDTO dto = TranslatedMessageDTO.create("CODE", "auto", "en", "T", "C", "TT", "TC",
-                "TYPE", "CAT", "APP", "FUNC", "provider", "model", 10);
+                "TYPE", "translated TYPE", "CAT", "translated CAT", "FUNC", "translated FUNC",
+                "provider", "model", 10);
         TranslateMessageDTO body = new TranslateMessageDTO();
         body.setTargetLanguage("en");
         when(translateMessageByCodeAndEnvironmentUseCaseFacade.execute(

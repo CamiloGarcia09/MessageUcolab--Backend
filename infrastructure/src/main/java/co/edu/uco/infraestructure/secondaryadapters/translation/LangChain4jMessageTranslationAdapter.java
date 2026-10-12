@@ -10,6 +10,8 @@ import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import co.edu.uco.infraestructure.config.TranslationAiProperties;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
@@ -22,6 +24,7 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.util.Map;
 
 import static co.edu.uco.crosscutting.helpers.UtilObject.isNullObject;
 import static co.edu.uco.crosscutting.helpers.UtilText.isEmptyOrNull;
@@ -68,6 +71,9 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
             var response = model().chat(buildChatRequest(requestData));
             var output = response.aiMessage().text();
             var translated = objectMapper.readValue(output, TranslationModelResponse.class);
+            if (!translated.isComplete()) {
+                throw BusinessException.buildUserException(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_048.getCode()));
+            }
             var elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
             var providerLabel = providerName();
             log.info(
@@ -81,6 +87,9 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
             return MessageTranslationResponseData.create(
                     translated.translatedTitle(),
                     translated.translatedContent(),
+                    translated.translatedType(),
+                    translated.translatedCategory(),
+                    translated.translatedFunctionality(),
                     providerLabel,
                     properties.getModelName(),
                     elapsedMillis
@@ -139,7 +148,10 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
                 : catalogPort.getMessage(MessageCatalogCodeEnum.FUN_059.getCode()).formatted(properties.getProvider());
     }
 
-    private ChatRequest buildChatRequest(MessageTranslationRequestData requestData) {
+    private ChatRequest buildChatRequest(MessageTranslationRequestData requestData) throws JsonProcessingException {
+        var translatedTypeField = catalogPort.getMessage(MessageCatalogCodeEnum.FUN_203.getCode());
+        var translatedCategoryField = catalogPort.getMessage(MessageCatalogCodeEnum.FUN_204.getCode());
+        var translatedFunctionalityField = catalogPort.getMessage(MessageCatalogCodeEnum.FUN_205.getCode());
         var responseFormat = ResponseFormat.builder()
                 .type(ResponseFormatType.JSON)
                 .jsonSchema(JsonSchema.builder()
@@ -147,18 +159,24 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
                         .rootElement(JsonObjectSchema.builder()
                                 .addStringProperty(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_056.getCode()))
                                 .addStringProperty(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_057.getCode()))
-                                .required(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_056.getCode()), catalogPort.getMessage(MessageCatalogCodeEnum.FUN_057.getCode()))
+                                .addStringProperty(translatedTypeField)
+                                .addStringProperty(translatedCategoryField)
+                                .addStringProperty(translatedFunctionalityField)
+                                .required(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_056.getCode()),
+                                        catalogPort.getMessage(MessageCatalogCodeEnum.FUN_057.getCode()),
+                                        translatedTypeField, translatedCategoryField, translatedFunctionalityField)
                                 .build())
                         .build())
                 .build();
 
         return ChatRequest.builder()
-                .messages(UserMessage.from(buildPrompt(requestData)))
+                .messages(SystemMessage.from(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_201.getCode())),
+                        UserMessage.from(buildPrompt(requestData)))
                 .responseFormat(responseFormat)
                 .build();
     }
 
-    private String buildPrompt(MessageTranslationRequestData requestData) {
+    private String buildPrompt(MessageTranslationRequestData requestData) throws JsonProcessingException {
         return catalogPort.getMessage(MessageCatalogCodeEnum.FUN_054.getCode()).formatted(
                 requestData.getCode(),
                 requestData.getSourceLanguage(),
@@ -169,9 +187,23 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
                 requestData.getCategory(),
                 trim(requestData.getTitle()),
                 trim(requestData.getContent())
-        );
+        ) + catalogPort.getMessage(MessageCatalogCodeEnum.FUN_202.getCode()).formatted(
+                requestData.getTargetLanguage(),
+                objectMapper.writeValueAsString(Map.of(
+                        "title", trim(requestData.getTitle()),
+                        "content", trim(requestData.getContent()),
+                        "type", trim(requestData.getType()),
+                        "category", trim(requestData.getCategory()),
+                        "functionality", trim(requestData.getFunctionality())
+                )));
     }
 
-    private record TranslationModelResponse(String translatedTitle, String translatedContent) {
+    private record TranslationModelResponse(String translatedTitle, String translatedContent,
+                                            String translatedType, String translatedCategory,
+                                            String translatedFunctionality) {
+        private boolean isComplete() {
+            return translatedTitle != null && translatedContent != null && translatedType != null
+                    && translatedCategory != null && translatedFunctionality != null;
+        }
     }
 }

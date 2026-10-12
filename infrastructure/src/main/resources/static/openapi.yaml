@@ -765,7 +765,7 @@ components:
             $ref: '#/components/schemas/ErrorDetail'
     TranslatedMessage:
       type: object
-      required: [code, sourceLanguage, targetLanguage, originalTitle, originalContent, translatedTitle, translatedContent, type, category, application, functionality, translationProvider, translationModel, translationElapsedMs, dynamicTranslation]
+      required: [code, sourceLanguage, targetLanguage, originalTitle, originalContent, originalType, originalCategory, originalFunctionality, translatedTitle, translatedContent, translatedType, translatedCategory, translatedFunctionality, translationProvider, translationModel, translationElapsedMs, dynamicTranslation]
       properties:
         code:
           type: string
@@ -777,17 +777,21 @@ components:
           type: string
         originalContent:
           type: string
+        originalType:
+          type: string
+        originalCategory:
+          type: string
+        originalFunctionality:
+          type: string
         translatedTitle:
           type: string
         translatedContent:
           type: string
-        type:
+        translatedType:
           type: string
-        category:
+        translatedCategory:
           type: string
-        application:
-          type: string
-        functionality:
+        translatedFunctionality:
           type: string
         translationProvider:
           type: string
@@ -807,12 +811,14 @@ components:
         targetLanguage: en
         originalTitle: Mensaje de bienvenida
         originalContent: Bienvenido a nuestra aplicacion
+        originalType: Informacion
+        originalCategory: General
+        originalFunctionality: Inicio
         translatedTitle: Welcome message
         translatedContent: Welcome to our application
-        type: Informacion
-        category: General
-        application: Aplicacion de ejemplo
-        functionality: Inicio
+        translatedType: Information
+        translatedCategory: General
+        translatedFunctionality: Home
         translationProvider: ollama
         translationModel: modelo-configurado
         translationElapsedMs: 1200

@@ -86,6 +86,12 @@ Aplica en todas las sesiones, incluso nuevas:
 6. **Conversación principal** → coordina la autorización, lanza el subagente, revisa su resumen y reporta el resultado; no reescribe tests salvo un fallo puntual que el subagente no pueda resolver.
 
 ## Manejo de errores
+### Textos y catálogo Redis
+- Mantener el enfoque del proyecto en todos los desarrollos: los mensajes, prompts, instrucciones de IA y plantillas de texto se registran en el catálogo Redis y se consultan mediante `CatalogPort` y `MessageCatalogCodeEnum`; no escribirlos como literales ni bloques de texto en las clases Java.
+- Al incorporar textos nuevos, actualizar los códigos del catálogo y su seed en `deployment/docker/scripts/redis/CatalogMessageInit.sh`. No añadir fallbacks de texto hardcodeados que oculten entradas faltantes del catálogo.
+- En traducción, separar las instrucciones de sistema de los datos del usuario, pero obtener las instrucciones y plantillas del mismo catálogo. Mantener los nombres del esquema de traducción catalogados siguiendo el patrón existente.
+
+### Jerarquía y validaciones
 - Jerarquía base en `core`: `BusinessException`, `ValidationException`, `ConflictException`, `NotFoundException`, `TechnicalException`.
 - Excepciones específicas por feature (ej. `MessageNotFoundException`) extienden la jerarquía base.
 - `GlobalExceptionHandler` en `infrastructure` traduce excepciones de dominio a respuestas HTTP.

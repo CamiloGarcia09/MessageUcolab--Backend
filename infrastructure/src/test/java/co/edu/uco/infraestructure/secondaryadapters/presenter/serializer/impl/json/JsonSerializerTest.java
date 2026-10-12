@@ -133,6 +133,40 @@ class JsonSerializerTest {
     }
 
     @Test
+    void serialize_translatedMessage_preservesExactPropertyOrderDirectlyAndInsideResponse() throws Exception {
+        var dto = co.edu.uco.application.primaryports.dto.message.TranslatedMessageDTO.create(
+                "CODE", "en", "es", "Original title", "Original content", "Título", "Contenido",
+                "Type", "Tipo", "Category", "Categoría", "Functionality", "Funcionalidad",
+                "provider", "model", 123L);
+        var expectedOrder = List.of("code", "sourceLanguage", "targetLanguage", "originalTitle", "originalContent",
+                "originalType", "originalCategory", "originalFunctionality", "translatedTitle", "translatedContent",
+                "translatedType", "translatedCategory", "translatedFunctionality", "translationProvider",
+                "translationModel", "translationElapsedMs", "dynamicTranslation");
+
+        String directJson = serializer.serialize(dto);
+        String wrappedJson = serializer.serialize(new Response<>(List.of(dto), List.of()));
+        JsonNode direct = JSON_PARSER.readTree(directJson);
+        JsonNode wrapped = JSON_PARSER.readTree(wrappedJson).get("data").get(0);
+
+        assertAll(
+                () -> assertThat(fieldNames(direct)).containsExactlyElementsOf(expectedOrder),
+                () -> assertThat(fieldNames(wrapped)).containsExactlyElementsOf(expectedOrder),
+                () -> assertThat(direct.has("application")).isFalse(),
+                () -> assertThat(direct.has("type")).isFalse(),
+                () -> assertThat(direct.has("category")).isFalse(),
+                () -> assertThat(direct.has("functionality")).isFalse(),
+                () -> assertThat(direct.get("originalFunctionality").asText()).isEqualTo("Functionality"),
+                () -> assertThat(direct.get("translatedFunctionality").asText()).isEqualTo("Funcionalidad"),
+                () -> assertThat(direct.get("targetLanguage").asText()).isEqualTo("es"));
+    }
+
+    private List<String> fieldNames(JsonNode node) {
+        List<String> names = new java.util.ArrayList<>();
+        node.fieldNames().forEachRemaining(names::add);
+        return names;
+    }
+
+    @Test
     void serialize_throwsCrossWordsException_onSerializationError() {
         CatalogPort catalogPort = mock(CatalogPort.class);
         when(catalogPort.getMessage("TCH_018")).thenReturn("serialization error");

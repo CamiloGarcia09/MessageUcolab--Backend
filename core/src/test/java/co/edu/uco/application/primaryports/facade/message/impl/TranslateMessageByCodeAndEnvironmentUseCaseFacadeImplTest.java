@@ -26,7 +26,8 @@ class TranslateMessageByCodeAndEnvironmentUseCaseFacadeImplTest {
     void execute_delegatesToHandlingPortAndReturnsResult() {
         TranslatedMessageDTO expected = TranslatedMessageDTO.create(
                 "CODE001", "en", "es", "title", "content",
-                "título", "contenido", "type", "category", "app", "func",
+                "título", "contenido", "original type", "translated type",
+                "original category", "translated category", "original function", "translated function",
                 "provider", "model", 100L
         );
         MessageAccessContext context = new MessageAccessContext("env-123", null);

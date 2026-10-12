@@ -22,7 +22,8 @@ class TranslatedMessageDTOTest {
         void create_returnsTrimmedValues_andMarksDynamicTranslation() {
             TranslatedMessageDTO dto = TranslatedMessageDTO.create(
                     "  CODE  ", "  es  ", "  en  ", "  OrigTitle  ", "  OrigContent  ",
-                    "  TransTitle  ", "  TransContent  ", " info ", " general ", " app ", " func ",
+                    "  TransTitle  ", "  TransContent  ", " original info ", " translated info ",
+                    " original general ", " translated general ", " original func ", " translated func ",
                     " ollama ", " llama3.2 ", 120L);
 
             assertAll(
@@ -33,10 +34,12 @@ class TranslatedMessageDTOTest {
                     () -> assertThat(dto.getOriginalContent()).isEqualTo("OrigContent"),
                     () -> assertThat(dto.getTranslatedTitle()).isEqualTo("TransTitle"),
                     () -> assertThat(dto.getTranslatedContent()).isEqualTo("TransContent"),
-                    () -> assertThat(dto.getType()).isEqualTo("info"),
-                    () -> assertThat(dto.getCategory()).isEqualTo("general"),
-                    () -> assertThat(dto.getApplication()).isEqualTo("app"),
-                    () -> assertThat(dto.getFunctionality()).isEqualTo("func"),
+                    () -> assertThat(dto.getOriginalType()).isEqualTo("original info"),
+                    () -> assertThat(dto.getTranslatedType()).isEqualTo("translated info"),
+                    () -> assertThat(dto.getOriginalCategory()).isEqualTo("original general"),
+                    () -> assertThat(dto.getTranslatedCategory()).isEqualTo("translated general"),
+                    () -> assertThat(dto.getOriginalFunctionality()).isEqualTo("original func"),
+                    () -> assertThat(dto.getTranslatedFunctionality()).isEqualTo("translated func"),
                     () -> assertThat(dto.getTranslationProvider()).isEqualTo("ollama"),
                     () -> assertThat(dto.getTranslationModel()).isEqualTo("llama3.2"),
                     () -> assertThat(dto.getTranslationElapsedMs()).isEqualTo(120L),
@@ -46,7 +49,7 @@ class TranslatedMessageDTOTest {
         @Test
         void canonicalConstructor_keepsDynamicTranslationFlagAndElapsedTime() {
             TranslatedMessageDTO dto = new TranslatedMessageDTO(
-                    "CODE", "es", "en", "T", "C", "TT", "TC", "info", "general", "app", "func",
+                    "CODE", "es", "en", "T", "C", "TT", "TC", "ot", "tt", "oc", "tc", "of", "tf",
                     "ollama", "m", 10L, false);
 
             assertAll(
@@ -86,10 +89,10 @@ class TranslatedMessageDTOTest {
         @Test
         void equals_returnsTrueAndSameHashCode_whenAllFieldsMatch() {
             TranslatedMessageDTO first = TranslatedMessageDTO.create(
-                    "CODE", "es", "en", "T", "C", "TT", "TC", "info", "general", "app", "func",
+                    "CODE", "es", "en", "T", "C", "TT", "TC", "ot", "tt", "oc", "tc", "of", "tf",
                     "ollama", "m", 10L);
             TranslatedMessageDTO second = new TranslatedMessageDTO(
-                    "CODE", "es", "en", "T", "C", "TT", "TC", "info", "general", "app", "func",
+                    "CODE", "es", "en", "T", "C", "TT", "TC", "ot", "tt", "oc", "tc", "of", "tf",
                     "ollama", "m", 10L, true);
 
             assertAll(
@@ -100,7 +103,7 @@ class TranslatedMessageDTOTest {
         @Test
         void equals_returnsTrue_whenComparingTheSameInstance() {
             TranslatedMessageDTO dto = TranslatedMessageDTO.create(
-                    "CODE", "es", "en", "T", "C", "TT", "TC", "info", "general", "app", "func",
+                    "CODE", "es", "en", "T", "C", "TT", "TC", "ot", "tt", "oc", "tc", "of", "tf",
                     "ollama", "m", 10L);
 
             assertThat(dto).isEqualTo(dto);
@@ -109,10 +112,10 @@ class TranslatedMessageDTOTest {
         @Test
         void equals_returnsFalse_whenTheElapsedTimeDiffersWithEqualTextFields() {
             TranslatedMessageDTO dto = TranslatedMessageDTO.create(
-                    "CODE", "es", "en", "T", "C", "TT", "TC", "info", "general", "app", "func",
+                    "CODE", "es", "en", "T", "C", "TT", "TC", "ot", "tt", "oc", "tc", "of", "tf",
                     "ollama", "m", 10L);
             TranslatedMessageDTO other = new TranslatedMessageDTO(
-                    "CODE", "es", "en", "T", "C", "TT", "TC", "info", "general", "app", "func",
+                    "CODE", "es", "en", "T", "C", "TT", "TC", "ot", "tt", "oc", "tc", "of", "tf",
                     "ollama", "m", 11L, true);
 
             assertThat(dto).isNotEqualTo(other);
@@ -121,15 +124,15 @@ class TranslatedMessageDTOTest {
         @Test
         void equals_returnsFalse_whenAnyFieldDiffersOrComparedValueIsNotATranslatedMessage() {
             TranslatedMessageDTO dto = TranslatedMessageDTO.create(
-                    "CODE", "es", "en", "T", "C", "TT", "TC", "info", "general", "app", "func",
+                    "CODE", "es", "en", "T", "C", "TT", "TC", "ot", "tt", "oc", "tc", "of", "tf",
                     "ollama", "m", 10L);
 
             assertAll(
                     () -> assertThat(dto).isNotEqualTo(TranslatedMessageDTO.create(
-                            "OTHER", "es", "en", "T", "C", "TT", "TC", "info", "general", "app", "func",
+                            "OTHER", "es", "en", "T", "C", "TT", "TC", "ot", "tt", "oc", "tc", "of", "tf",
                             "ollama", "m", 10L)),
                     () -> assertThat(dto).isNotEqualTo(new TranslatedMessageDTO(
-                            "CODE", "es", "en", "T", "C", "TT", "TC", "info", "general", "app", "func",
+                            "CODE", "es", "en", "T", "C", "TT", "TC", "ot", "tt", "oc", "tc", "of", "tf",
                             "ollama", "m", 10L, false)),
                     () -> assertThat(dto).isNotEqualTo(null),
                     () -> assertThat(dto).isNotEqualTo("CODE"));
@@ -142,10 +145,10 @@ class TranslatedMessageDTOTest {
         @Test
         void toJson_usesJavaBeanPropertyNames_andExposesDynamicTranslationBoolean() {
             TranslatedMessageDTO dynamic = TranslatedMessageDTO.create(
-                    "CODE", "es", "en", "T", "C", "TT", "TC", "info", "general", "app", "func",
+                    "CODE", "es", "en", "T", "C", "TT", "TC", "ot", "tt", "oc", "tc", "of", "tf",
                     "ollama", "m", 120L);
             TranslatedMessageDTO cached = new TranslatedMessageDTO(
-                    "CODE", "es", "en", "T", "C", "TT", "TC", "info", "general", "app", "func",
+                    "CODE", "es", "en", "T", "C", "TT", "TC", "ot", "tt", "oc", "tc", "of", "tf",
                     "ollama", "m", 120L, false);
 
             String dynamicJson = new UtilMapperJson().execute(dynamic).orElseThrow();
@@ -160,10 +163,12 @@ class TranslatedMessageDTOTest {
                             "\"originalContent\":\"C\"",
                             "\"translatedTitle\":\"TT\"",
                             "\"translatedContent\":\"TC\"",
-                            "\"type\":\"info\"",
-                            "\"category\":\"general\"",
-                            "\"application\":\"app\"",
-                            "\"functionality\":\"func\"",
+                            "\"originalType\":\"ot\"",
+                            "\"translatedType\":\"tt\"",
+                            "\"originalCategory\":\"oc\"",
+                            "\"translatedCategory\":\"tc\"",
+                            "\"originalFunctionality\":\"of\"",
+                            "\"translatedFunctionality\":\"tf\"",
                             "\"translationProvider\":\"ollama\"",
                             "\"translationModel\":\"m\"",
                             "\"translationElapsedMs\":120",

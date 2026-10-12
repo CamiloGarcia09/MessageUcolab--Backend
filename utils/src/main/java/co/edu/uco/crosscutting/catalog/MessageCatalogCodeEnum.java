@@ -823,7 +823,22 @@ public enum MessageCatalogCodeEnum {
     FUN_199("FUN_199"),
 
     /** Ya existe un mensaje con el mismo código para la aplicación. */
-    FUN_200("FUN_200");
+    FUN_200("FUN_200"),
+
+    /** Instrucciones de sistema para la traducción dinámica. */
+    FUN_201("FUN_201"),
+
+    /** Plantilla del bloque JSON de textos a traducir. */
+    FUN_202("FUN_202"),
+
+    /** Campo de tipo traducido. */
+    FUN_203("FUN_203"),
+
+    /** Campo de categoría traducida. */
+    FUN_204("FUN_204"),
+
+    /** Campo de funcionalidad traducida. */
+    FUN_205("FUN_205");
 
     // =========================================================================
 
