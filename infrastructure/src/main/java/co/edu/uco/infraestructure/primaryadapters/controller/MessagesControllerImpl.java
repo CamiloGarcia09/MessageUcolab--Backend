@@ -1,102 +1,85 @@
 package co.edu.uco.infraestructure.primaryadapters.controller;
 
-import co.edu.uco.application.primaryports.dto.message.MessageDTO;
-import co.edu.uco.application.primaryports.dto.message.TranslateMessageDTO;
-import co.edu.uco.application.primaryports.dto.message.TranslatedMessageDTO;
+import co.edu.uco.application.primaryports.dto.message.*;
 import co.edu.uco.application.primaryports.dto.page.PageRequestDTO;
-import co.edu.uco.application.primaryports.facade.message.FindMessageByCodeAndEnvironmentUseCaseFacade;
-import co.edu.uco.application.primaryports.facade.message.FindMessagesByEnvironmentUsecaseFacade;
-import co.edu.uco.application.primaryports.facade.message.TranslateMessageByCodeAndEnvironmentUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.message.*;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
+import co.edu.uco.application.secondaryports.event.MessageEvent;
+import co.edu.uco.application.secondaryports.event.MessageEventStreamPort;
 import co.edu.uco.application.secondaryports.repository.SimplePage;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
-import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
+import co.edu.uco.application.usecase.domain.security.*;
 import co.edu.uco.infraestructure.primaryadapters.MessagesController;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import co.edu.uco.infraestructure.primaryadapters.ReactiveHttpResponse;
 import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+import org.springframework.http.codec.ServerSentEvent;
 import java.util.List;
-
-import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
-import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
+import java.time.Duration;
+import java.util.UUID;
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.*;
 
 @RestController
 final class MessagesControllerImpl implements MessagesController {
+    private final FindMessagesByEnvironmentUsecaseFacade findPage;
+    private final FindMessageByCodeAndEnvironmentUseCaseFacade findOne;
+    private final TranslateMessageByCodeAndEnvironmentUseCaseFacade translate;
+    private final PresenterPort<MessageDTO> presenter;
+    private final PresenterPort<TranslatedMessageDTO> translationPresenter;
+    private final PresenterPort<SimplePage<MessageDTO>> pagePresenter;
+    private final MessageEventStreamPort eventStream;
 
-        private final FindMessagesByEnvironmentUsecaseFacade findMessagesByEnvironmentUsecaseFacade;
-        private final FindMessageByCodeAndEnvironmentUseCaseFacade findMessageByCodeAndEnvironmentUseCaseFacade;
-        private final TranslateMessageByCodeAndEnvironmentUseCaseFacade translateMessageByCodeAndEnvironmentUseCaseFacade;
-        private final PresenterPort<MessageDTO> restPresenter;
-        private final PresenterPort<TranslatedMessageDTO> translationPresenter;
-        private final PresenterPort<SimplePage<MessageDTO>> restPresenterPage;
-
-        public MessagesControllerImpl(FindMessagesByEnvironmentUsecaseFacade findMessagesByEnvironmentUsecaseFacade,
-                                      FindMessageByCodeAndEnvironmentUseCaseFacade findMessageByCodeAndEnvironmentUseCaseFacade,
-                                      TranslateMessageByCodeAndEnvironmentUseCaseFacade translateMessageByCodeAndEnvironmentUseCaseFacade,
-                                      PresenterPort<MessageDTO> restPresenter,
-                                      PresenterPort<TranslatedMessageDTO> translationPresenter,
-                                      PresenterPort<SimplePage<MessageDTO>> restPresenterPage) {
-            this.findMessagesByEnvironmentUsecaseFacade = findMessagesByEnvironmentUsecaseFacade;
-            this.findMessageByCodeAndEnvironmentUseCaseFacade = findMessageByCodeAndEnvironmentUseCaseFacade;
-            this.translateMessageByCodeAndEnvironmentUseCaseFacade = translateMessageByCodeAndEnvironmentUseCaseFacade;
-            this.restPresenter = restPresenter;
-            this.translationPresenter = translationPresenter;
-            this.restPresenterPage = restPresenterPage;
-        }
-
-        @Override
-        public void findByEnvironmentAndMessage(
-                        String page,
-                        String size,
-                        String sort,
-                        String columnSort,
-                        HttpServletRequest httpServletRequest,
-                        HttpServletResponse httpServletResponse) {
-
-                var accessContext = accessContext(httpServletRequest);
-                var pageRequestDTO = PageRequestDTO.builder()
-                        .page(page)
-                        .size(size)
-                        .sort(sort)
-                        .columnSort(columnSort)
-                        .build();
-                
-                var messageDTOSimplePage = findMessagesByEnvironmentUsecaseFacade.execute(accessContext, pageRequestDTO);
-                restPresenterPage.presentRestSuccess(List.of(messageDTOSimplePage), httpServletRequest,
-                                httpServletResponse);
-        }
-
-        @Override
-        public void findByCodeMessageAndEnvironment(
-                        String messageCode,
-                        HttpServletRequest httpServletRequest,
-                        HttpServletResponse httpServletResponse) {
-                var accessContext = accessContext(httpServletRequest);
-                var messageDTO = findMessageByCodeAndEnvironmentUseCaseFacade.execute(messageCode,
-                                accessContext);
-                restPresenter.presentRestSuccess(List.of(messageDTO), httpServletRequest, httpServletResponse);
-        }
-
-        @Override
-        public void translateByCodeMessageAndEnvironment(
-                        String messageCode,
-                        TranslateMessageDTO translateMessageDTO,
-                        HttpServletRequest httpServletRequest,
-                        HttpServletResponse httpServletResponse) {
-                var accessContext = accessContext(httpServletRequest);
-                var translatedMessageDTO = translateMessageByCodeAndEnvironmentUseCaseFacade.execute(
-                                messageCode,
-                                accessContext,
-                                translateMessageDTO.getSourceLanguage(),
-                                translateMessageDTO.getTargetLanguage());
-                translationPresenter.presentRestSuccess(List.of(translatedMessageDTO), httpServletRequest,
-                                httpServletResponse);
-        }
-
-        private static MessageAccessContext accessContext(final HttpServletRequest request) {
-                return new MessageAccessContext(
-                        (String) request.getAttribute(ENVIRONMENT_ID_ATTRIBUTE),
-                        (ExternalIdentity) request.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE));
-        }
+    MessagesControllerImpl(FindMessagesByEnvironmentUsecaseFacade findPage,
+                            FindMessageByCodeAndEnvironmentUseCaseFacade findOne,
+                            TranslateMessageByCodeAndEnvironmentUseCaseFacade translate,
+                            PresenterPort<MessageDTO> presenter,
+                            PresenterPort<TranslatedMessageDTO> translationPresenter,
+                            PresenterPort<SimplePage<MessageDTO>> pagePresenter,
+                            MessageEventStreamPort eventStream) {
+        this.findPage = findPage; this.findOne = findOne; this.translate = translate;
+        this.presenter = presenter; this.translationPresenter = translationPresenter; this.pagePresenter = pagePresenter;
+        this.eventStream = eventStream;
+    }
+    public Flux<ServerSentEvent<MessageEvent>> events(ServerWebExchange exchange) {
+        String environment = (String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE);
+        Flux<ServerSentEvent<MessageEvent>> events = Flux.<ServerSentEvent<MessageEvent>>create(emitter -> eventStream.subscribe(environment).subscribe(new java.util.concurrent.Flow.Subscriber<>() {
+            public void onSubscribe(java.util.concurrent.Flow.Subscription subscription) {
+                emitter.onDispose(subscription::cancel);
+                subscription.request(Long.MAX_VALUE);
+            }
+            public void onNext(MessageEvent event) {
+                emitter.next(ServerSentEvent.<MessageEvent>builder(event).id(event.id()).event(event.type()).build());
+            }
+            public void onError(Throwable throwable) { emitter.error(throwable); }
+            public void onComplete() { emitter.complete(); }
+        }));
+        Flux<ServerSentEvent<MessageEvent>> heartbeat = Flux.interval(Duration.ofSeconds(30))
+                .map(value -> {
+                    MessageEvent event = new MessageEvent(UUID.randomUUID().toString(), "heartbeat",
+                            environment, "");
+                    return ServerSentEvent.<MessageEvent>builder(event).id(event.id()).event(event.type()).build();
+                });
+        return Flux.merge(events, heartbeat);
+    }
+    public Mono<Void> findByEnvironmentAndMessage(String page, String size, String sort, String columnSort,
+                                                   ServerWebExchange exchange) {
+        var request = PageRequestDTO.builder().page(page).size(size).sort(sort).columnSort(columnSort).build();
+        return ReactiveHttpResponse.blocking(() -> findPage.execute(context(exchange), request))
+                .flatMap(value -> ReactiveHttpResponse.present(pagePresenter, List.of(value), exchange));
+    }
+    public Mono<Void> findByCodeMessageAndEnvironment(String code, ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(() -> findOne.execute(code, context(exchange)))
+                .flatMap(value -> ReactiveHttpResponse.present(presenter, List.of(value), exchange));
+    }
+    public Mono<Void> translateByCodeMessageAndEnvironment(String code, TranslateMessageDTO dto,
+                                                            ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(() -> translate.execute(code, context(exchange),
+                        dto.getSourceLanguage(), dto.getTargetLanguage()))
+                .flatMap(value -> ReactiveHttpResponse.present(translationPresenter, List.of(value), exchange));
+    }
+    private MessageAccessContext context(ServerWebExchange exchange) {
+        return new MessageAccessContext((String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE),
+                (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE));
+    }
 }

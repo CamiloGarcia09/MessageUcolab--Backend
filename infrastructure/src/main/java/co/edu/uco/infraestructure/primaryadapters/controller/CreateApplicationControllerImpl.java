@@ -4,36 +4,25 @@ import co.edu.uco.application.primaryports.dto.application.CreateApplicationDTO;
 import co.edu.uco.application.primaryports.facade.application.CreateApplicationUseCaseFacade;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
-import co.edu.uco.infraestructure.primaryadapters.CreateApplicationController;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import co.edu.uco.infraestructure.primaryadapters.*;
 import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 import java.util.List;
-
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
 
 @RestController
 final class CreateApplicationControllerImpl implements CreateApplicationController {
-
-    private final CreateApplicationUseCaseFacade createApplicationUseCaseFacade;
-    private final PresenterPort<String> restPresenter;
-
-    public CreateApplicationControllerImpl(CreateApplicationUseCaseFacade createApplicationUseCaseFacade,
-                                           PresenterPort<String> restPresenter) {
-        this.createApplicationUseCaseFacade = createApplicationUseCaseFacade;
-        this.restPresenter = restPresenter;
+    private final CreateApplicationUseCaseFacade facade;
+    private final PresenterPort<String> presenter;
+    CreateApplicationControllerImpl(CreateApplicationUseCaseFacade facade, PresenterPort<String> presenter) {
+        this.facade = facade; this.presenter = presenter;
     }
-
-    @Override
-    public void createApplication(CreateApplicationDTO createApplicationDTO, HttpServletRequest httpServletRequest,
-                                  HttpServletResponse httpServletResponse) {
-        createApplicationUseCaseFacade.execute(
-                createApplicationDTO, identity(httpServletRequest));
-        restPresenter.presentRestSuccess(List.of("Aplicación creada exitosamente"), httpServletRequest, httpServletResponse);
+    public Mono<Void> createApplication(CreateApplicationDTO dto, ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(() -> { facade.execute(dto, identity(exchange)); return "Aplicación creada exitosamente"; })
+                .flatMap(value -> ReactiveHttpResponse.present(presenter, List.of(value), exchange));
     }
-
-    private static ExternalIdentity identity(final HttpServletRequest request) {
-        return (ExternalIdentity) request.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE);
+    private ExternalIdentity identity(ServerWebExchange exchange) {
+        return (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE);
     }
 }

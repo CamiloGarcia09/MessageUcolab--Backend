@@ -1,106 +1,49 @@
 package co.edu.uco.infraestructure.primaryadapters.interceptors;
 
-import co.edu.uco.application.primaryports.facade.token.FindEnvironmentIdTokenUseCaseFacade;
-import co.edu.uco.application.primaryports.facade.token.VerifyAccessUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.token.*;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
+import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import co.edu.uco.crosscutting.exceptions.NotFoundException;
 import co.edu.uco.crosscutting.exceptions.UnauthorizedException;
-import co.edu.uco.infraestructure.secondaryadapters.presenter.rest.ErrorResponseFactory;
-import co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.SerializerRegistry;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import org.jetbrains.annotations.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-import org.springframework.web.servlet.HandlerInterceptor;
-
-import java.io.IOException;
+import org.springframework.core.annotation.Order;
+import org.springframework.web.server.*;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import java.util.Optional;
-
-import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.*;
 import static co.edu.uco.crosscutting.helpers.UtilText.isEmptyOrNull;
 
 @Component
-public final class TokenHeaderInterceptor implements HandlerInterceptor {
-
-    private final SerializerRegistry serializerRegistry;
-    private final VerifyAccessUseCaseFacade verifyAccessUseCaseFacade;
-    private final FindEnvironmentIdTokenUseCaseFacade findEnvironmentIdTokenUseCaseFacade;
-    private final CatalogPort catalogPort;
-
-    public TokenHeaderInterceptor(SerializerRegistry serializerRegistry,
-                                  VerifyAccessUseCaseFacade verifyAccessUseCaseFacade,
-                                  FindEnvironmentIdTokenUseCaseFacade findEnvironmentIdTokenUseCaseFacade,
-                                  CatalogPort catalogPort) {
-        this.serializerRegistry = serializerRegistry;
-        this.verifyAccessUseCaseFacade = verifyAccessUseCaseFacade;
-        this.findEnvironmentIdTokenUseCaseFacade = findEnvironmentIdTokenUseCaseFacade;
-        this.catalogPort = catalogPort;
+@Order(0)
+public final class TokenHeaderInterceptor implements WebFilter {
+    private final VerifyAccessUseCaseFacade verify;
+    private final FindEnvironmentIdTokenUseCaseFacade environment;
+    private final CatalogPort catalog;
+    public TokenHeaderInterceptor(VerifyAccessUseCaseFacade verify, FindEnvironmentIdTokenUseCaseFacade environment,
+                                  CatalogPort catalog) {
+        this.verify = verify; this.environment = environment; this.catalog = catalog;
     }
-
-    @Override
-    public boolean preHandle(HttpServletRequest request, @NotNull HttpServletResponse response,
-                             @NotNull Object handler) throws Exception {
-        if (request.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE) != null) {
-            return true;
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        if (!exchange.getRequest().getPath().value().startsWith("/messageucolab/v1/")) {
+            return chain.filter(exchange);
         }
-        var token = request.getHeader(REQUEST_GET_HEADER_TOKEN);
-        var acceptHeader = request.getHeader(REQUEST_GET_HEADER_ACCEPT);
-
-        if (isEmptyOrNull(token)) {
-            sendErrorResponse(request, response, acceptHeader,
-                    HttpStatus.UNAUTHORIZED.value(),
-                    catalogPort.getMessage(MessageCatalogCodeEnum.TCH_032.getCode()));
-            return false;
-        }
-
-        if (!isValidToken(token, request, response, acceptHeader)) {
-            return false;
-        }
-
-        try {
-            var environmentId = findEnvironmentIdTokenUseCaseFacade.execute(token);
-            request.setAttribute(ENVIRONMENT_ID_ATTRIBUTE, environmentId);
-        } catch (NotFoundException exception) {
-            sendErrorResponse(request, response, acceptHeader,
-                    HttpStatus.UNAUTHORIZED.value(),
-                    catalogPort.getMessage(MessageCatalogCodeEnum.TCH_031.getCode()));
-            return false;
-        }
-        return true;
+        if (exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE) != null) return chain.filter(exchange);
+        String token = exchange.getRequest().getHeaders().getFirst(REQUEST_GET_HEADER_TOKEN);
+        if (isEmptyOrNull(token)) return unauthorized(exchange);
+        return Mono.fromCallable(() -> {
+            if (!verify.execute(token)) throw UnauthorizedException.buildUserException(
+                    catalog.getMessage(MessageCatalogCodeEnum.TCH_031.getCode()));
+            return environment.execute(token);
+        }).subscribeOn(Schedulers.boundedElastic()).flatMap(id -> {
+            exchange.getAttributes().put(ENVIRONMENT_ID_ATTRIBUTE, id);
+            return chain.filter(exchange);
+        }).onErrorResume(NotFoundException.class, error -> unauthorized(exchange))
+          .onErrorResume(UnauthorizedException.class, error -> unauthorized(exchange));
     }
-
-    private boolean isValidToken(String token, HttpServletRequest request, HttpServletResponse response,
-                                 String acceptHeader) throws IOException {
-        try {
-            if (!verifyAccessUseCaseFacade.execute(token)) {
-                sendErrorResponse(request, response, acceptHeader,
-                        HttpStatus.UNAUTHORIZED.value(),
-                        catalogPort.getMessage(MessageCatalogCodeEnum.TCH_031.getCode()));
-                return false;
-            }
-            return true;
-        } catch (UnauthorizedException ex) {
-            var message = Optional.ofNullable(ex.getUserMessage())
-                    .filter(msg -> !msg.isEmpty())
-                    .orElseGet(() -> catalogPort.getMessage(MessageCatalogCodeEnum.TCH_031.getCode()));
-            sendErrorResponse(request, response, acceptHeader, HttpStatus.UNAUTHORIZED.value(), message);
-            return false;
-        }
-    }
-
-    private void sendErrorResponse(HttpServletRequest request, HttpServletResponse response,
-                                   String acceptHeader, int status, String errorMessage) throws IOException {
-        var serializer = serializerRegistry.getSerializerForMediaType(acceptHeader);
-        var errorResponse = ErrorResponseFactory.build(
-                ErrorResponseFactory.codeForStatus(status),
-                errorMessage,
-                request
-        );
-        String formattedError = serializer.serialize(errorResponse);
-        response.setStatus(status);
-        response.setContentType(serializer.getSupportedContentType());
-        response.getWriter().write(formattedError);
+    private Mono<Void> unauthorized(ServerWebExchange exchange) {
+        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+        return exchange.getResponse().setComplete();
     }
 }

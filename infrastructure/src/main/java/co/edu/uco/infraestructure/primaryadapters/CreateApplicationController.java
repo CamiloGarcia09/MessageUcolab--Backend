@@ -1,8 +1,8 @@
 package co.edu.uco.infraestructure.primaryadapters;
 
 import co.edu.uco.application.primaryports.dto.application.CreateApplicationDTO;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,9 +14,8 @@ public interface CreateApplicationController {
             consumes = "application/json",
             produces = {"application/json", "application/yaml", "application/xml", "text/plain", "text/html"}
     )
-    void createApplication(
+    Mono<Void> createApplication(
             @RequestBody CreateApplicationDTO createApplicationDTO,
-            HttpServletRequest httpServletRequest,
-            HttpServletResponse httpServletResponse
+            ServerWebExchange exchange
     );
 }

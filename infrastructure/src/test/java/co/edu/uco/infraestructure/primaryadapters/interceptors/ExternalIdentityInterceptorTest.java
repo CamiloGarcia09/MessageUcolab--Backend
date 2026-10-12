@@ -1,144 +1,129 @@
 package co.edu.uco.infraestructure.primaryadapters.interceptors;
 
-import co.edu.uco.application.secondaryports.ErrorResponse;
-import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.security.ExternalIdentityResolverPort;
 import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.crosscutting.exceptions.UnauthorizedException;
-import co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.SerializerRegistry;
-import co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.SerializerType;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.web.server.WebFilterChain;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.time.Instant;
 
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@DisplayName("ExternalIdentityInterceptor")
 class ExternalIdentityInterceptorTest {
 
     @Mock
-    private ExternalIdentityResolverPort identityResolver;
+    private ExternalIdentityResolverPort resolver;
     @Mock
-    private SerializerRegistry serializerRegistry;
-    @Mock
-    private CatalogPort catalogPort;
-    @Mock
-    private SerializerType serializer;
-    @Mock
-    private HttpServletRequest request;
-    @Mock
-    private HttpServletResponse response;
+    private WebFilterChain chain;
 
     private ExternalIdentityInterceptor interceptor;
-    private StringWriter responseBody;
 
     @BeforeEach
     void setUp() {
-        interceptor = new ExternalIdentityInterceptor(identityResolver, serializerRegistry, catalogPort);
+        interceptor = new ExternalIdentityInterceptor(resolver);
     }
 
-    @Test
-    void preHandle_preservesLegacyFlow_whenAuthorizationHeaderIsMissing() throws Exception {
-        boolean result = interceptor.preHandle(request, response, new Object());
-
-        assertThat(result).isTrue();
-        verify(identityResolver, never()).resolve(any());
+    private MockServerWebExchange exchangeWithAuthorization(String value) {
+        return MockServerWebExchange.from(
+                MockServerHttpRequest.get("/messageucolab/v1/messages").header("Authorization", value).build());
     }
 
-    @Test
-    void preHandle_preservesLegacyFlow_whenAuthorizationHeaderIsBlank() throws Exception {
-        when(request.getHeader("Authorization")).thenReturn(" ");
+    @Nested
+    @DisplayName("filter")
+    class Filter {
 
-        boolean result = interceptor.preHandle(request, response, new Object());
+        @Test
+        @DisplayName("Continúa la cadena cuando no hay cabecera Authorization")
+        void absentAuthorization_continuesChain() {
+            MockServerWebExchange exchange = MockServerWebExchange.from(
+                    MockServerHttpRequest.get("/messageucolab/v1/messages").build());
+            when(chain.filter(exchange)).thenReturn(Mono.empty());
 
-        assertThat(result).isTrue();
-        verify(identityResolver, never()).resolve(any());
-    }
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
 
-    @Test
-    void preHandle_setsExternalIdentity_whenBearerTokenIsValid() throws Exception {
-        var identity = new ExternalIdentity("issuer", "subject", "email",
-                Instant.parse("2030-01-01T00:00:00Z"));
-        when(request.getHeader("Authorization")).thenReturn("Bearer valid-token");
-        when(identityResolver.resolve("valid-token")).thenReturn(identity);
+            verify(chain).filter(exchange);
+        }
 
-        boolean result = interceptor.preHandle(request, response, new Object());
+        @Test
+        @DisplayName("Continúa la cadena cuando la cabecera Authorization está en blanco")
+        void blankAuthorization_continuesChain() {
+            MockServerWebExchange exchange = exchangeWithAuthorization("   ");
+            when(chain.filter(exchange)).thenReturn(Mono.empty());
 
-        assertThat(result).isTrue();
-        verify(request).setAttribute("externalIdentity", identity);
-    }
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
 
-    @Test
-    void preHandle_acceptsCaseInsensitiveBearerScheme() throws Exception {
-        var identity = new ExternalIdentity("issuer", "subject", "service@example.com",
-                Instant.parse("2030-01-01T00:00:00Z"));
-        when(request.getHeader("Authorization")).thenReturn("bearer valid-token");
-        when(identityResolver.resolve("valid-token")).thenReturn(identity);
+            verify(chain).filter(exchange);
+        }
 
-        boolean result = interceptor.preHandle(request, response, new Object());
+        @Test
+        @DisplayName("Resuelve la identidad, la publica en el exchange y continúa la cadena")
+        void validBearer_resolvesIdentityAndContinues() {
+            MockServerWebExchange exchange = exchangeWithAuthorization("Bearer token-abc");
+            ExternalIdentity identity = new ExternalIdentity("issuer", "subject", "user@uco.edu.co", Instant.MAX);
+            when(resolver.resolve("token-abc")).thenReturn(identity);
+            when(chain.filter(exchange)).thenReturn(Mono.empty());
 
-        assertThat(result).isTrue();
-        verify(request).setAttribute("externalIdentity", identity);
-    }
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
 
-    @Test
-    void preHandle_returns401_whenAuthorizationHeaderIsMalformed() throws Exception {
-        when(request.getHeader("Authorization")).thenReturn("Bearer  token-with-extra-space");
-        stubUnauthorizedResponse();
+            assertThat((ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE)).isSameAs(identity);
+            verify(chain).filter(exchange);
+        }
 
-        boolean result = interceptor.preHandle(request, response, new Object());
+        @Test
+        @DisplayName("Acepta el esquema Bearer sin distinguir mayúsculas")
+        void lowercaseBearer_resolvesIdentity() {
+            MockServerWebExchange exchange = exchangeWithAuthorization("bearer token-abc");
+            ExternalIdentity identity = new ExternalIdentity("issuer", "subject", "user@uco.edu.co", Instant.MAX);
+            when(resolver.resolve("token-abc")).thenReturn(identity);
+            when(chain.filter(exchange)).thenReturn(Mono.empty());
 
-        assertThat(result).isFalse();
-        verify(response).setStatus(401);
-        verifyUnauthorizedResponse();
-        verify(identityResolver, never()).resolve(any());
-    }
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
 
-    @Test
-    void preHandle_returns401_whenResolverRejectsToken() throws Exception {
-        when(request.getHeader("Authorization")).thenReturn("Bearer expired-token");
-        when(identityResolver.resolve("expired-token"))
-                .thenThrow(UnauthorizedException.buildUserException("invalid or expired"));
-        stubUnauthorizedResponse();
+            assertThat((ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE)).isSameAs(identity);
+        }
 
-        boolean result = interceptor.preHandle(request, response, new Object());
+        @Test
+        @DisplayName("Responde 401 y no continúa cuando el esquema Bearer es inválido")
+        void malformedAuthorization_returns401() {
+            MockServerWebExchange exchange = exchangeWithAuthorization("Token sinBearer");
 
-        assertThat(result).isFalse();
-        verify(response).setStatus(401);
-        verifyUnauthorizedResponse();
-    }
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
 
-    private void stubUnauthorizedResponse() throws Exception {
-        responseBody = new StringWriter();
-        when(request.getHeader("Accept")).thenReturn("application/json");
-        when(serializerRegistry.getSerializerForMediaType("application/json")).thenReturn(serializer);
-        when(catalogPort.getMessage("TCH_031")).thenReturn("Invalid token");
-        when(serializer.getSupportedContentType()).thenReturn("application/json");
-        when(serializer.serialize(any(ErrorResponse.class))).thenReturn("unauthorized");
-        when(response.getWriter()).thenReturn(new PrintWriter(responseBody));
-    }
+            assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+            verify(chain, never()).filter(exchange);
+        }
 
-    private void verifyUnauthorizedResponse() throws Exception {
-        var errorResponseCaptor = ArgumentCaptor.forClass(ErrorResponse.class);
-        verify(serializer).serialize(errorResponseCaptor.capture());
-        verify(response).setContentType("application/json");
-        assertThat(responseBody).hasToString("unauthorized");
-        assertThat(errorResponseCaptor.getValue().errors())
-                .singleElement()
-                .extracting("code", "message")
-                .containsExactly("UNAUTHORIZED", "Invalid token");
+        @Test
+        @DisplayName("Responde 401 cuando el resolvedor lanza UnauthorizedException")
+        void resolverFailure_returns401() {
+            MockServerWebExchange exchange = exchangeWithAuthorization("Bearer token-abc");
+            when(resolver.resolve("token-abc")).thenThrow(UnauthorizedException.buildUserException("token inválido"));
+
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
+
+            assertAll(
+                    () -> assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat((ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE)).isNull());
+            verify(chain, never()).filter(exchange);
+        }
     }
 }

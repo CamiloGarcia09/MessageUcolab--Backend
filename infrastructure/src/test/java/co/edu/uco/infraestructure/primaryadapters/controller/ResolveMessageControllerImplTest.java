@@ -2,63 +2,111 @@ package co.edu.uco.infraestructure.primaryadapters.controller;
 
 import co.edu.uco.application.primaryports.dto.message.ResolvedMessageDTO;
 import co.edu.uco.application.primaryports.facade.message.ResolveMessageUseCaseFacade;
+import co.edu.uco.application.secondaryports.presenter.PresenterPort;
+import co.edu.uco.application.secondaryports.presenter.RenderedResponse;
+import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import co.edu.uco.crosscutting.exceptions.NotFoundException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpHeaders;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
+import reactor.test.StepVerifier;
+
+import java.util.List;
 
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@DisplayName("ResolveMessageControllerImpl")
 class ResolveMessageControllerImplTest {
-    @Mock private ResolveMessageUseCaseFacade facade;
-    @Mock private HttpServletRequest request;
-    @Mock private HttpServletResponse response;
 
-    @Test
-    void resolve_returnsMinimalDtoAndSetsNoStore_forExternalIdentityContext() {
-        var identity = new co.edu.uco.application.usecase.domain.security.ExternalIdentity("issuer", "subject", "email", null);
-        when(request.getAttribute(ENVIRONMENT_ID_ATTRIBUTE)).thenReturn("env");
-        when(request.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE)).thenReturn(identity);
-        var expected = new ResolvedMessageDTO("CODE", "Title", "Content");
-        when(facade.execute(eq("CODE"), any()))
-                .thenReturn(expected);
-        var controller = new ResolveMessageControllerImpl(facade);
+    @Mock
+    private ResolveMessageUseCaseFacade facade;
+    @Mock
+    private PresenterPort<ResolvedMessageDTO> presenter;
 
-        var actual = controller.resolve("CODE", request, response);
+    private ResolveMessageControllerImpl controller;
 
-        assertThat(actual).isSameAs(expected);
-        ArgumentCaptor<MessageAccessContext> context = ArgumentCaptor.forClass(MessageAccessContext.class);
-        verify(facade).execute(eq("CODE"), context.capture());
-        assertThat(context.getValue().externalIdentity()).isSameAs(identity);
-        assertThat(context.getValue().legacyEnvironmentId()).isEqualTo("env");
-        verify(response).setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+    @BeforeEach
+    void setUp() {
+        controller = new ResolveMessageControllerImpl(facade, presenter);
     }
 
-    @Test
-    void resolve_preservesLegacyEnvironment_whenNoExternalIdentityExists() {
-        when(request.getAttribute(ENVIRONMENT_ID_ATTRIBUTE)).thenReturn("legacy-env");
-        var expected = new ResolvedMessageDTO("CODE", "Title", "Content");
-        when(facade.execute(eq("CODE"), any()))
-                .thenReturn(expected);
-        var controller = new ResolveMessageControllerImpl(facade);
+    private void stubRender() {
+        when(presenter.presentRestSuccess(anyList(), any()))
+                .thenReturn(new RenderedResponse("{\"data\":[]}", "application/json"));
+    }
 
-        controller.resolve("CODE", request, response);
+    private MockServerWebExchange exchange(String environmentId) {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/messageucolab/v1/messages/resolve").build());
+        exchange.getAttributes().put(ENVIRONMENT_ID_ATTRIBUTE, environmentId);
+        return exchange;
+    }
 
-        ArgumentCaptor<MessageAccessContext> context = ArgumentCaptor.forClass(MessageAccessContext.class);
-        verify(facade).execute(eq("CODE"), context.capture());
-        assertThat(context.getValue().legacyEnvironmentId()).isEqualTo("legacy-env");
-        assertThat(context.getValue().externalIdentity()).isNull();
+    @Nested
+    @DisplayName("resolve")
+    class Resolve {
+
+        @Test
+        @DisplayName("Delega con el código y presenta el mensaje resuelto")
+        void delegatesAndPresentsResolvedMessage() {
+            stubRender();
+            var expected = new ResolvedMessageDTO("CODE", "Title", "Content");
+            when(facade.execute(eq("CODE"), any(MessageAccessContext.class))).thenReturn(expected);
+
+            StepVerifier.create(controller.resolve("CODE", exchange("env-1"))).verifyComplete();
+
+            verify(facade).execute(eq("CODE"), any(MessageAccessContext.class));
+            verify(presenter).presentRestSuccess(List.of(expected), null);
+        }
+
+        @Test
+        @DisplayName("Construye el contexto con el ambiente del token y la identidad externa")
+        void buildsContextWithEnvironmentAndExternalIdentity() {
+            stubRender();
+            ExternalIdentity identity = new ExternalIdentity("issuer", "subject", "user@uco.edu.co", null);
+            MockServerWebExchange exchange = exchange("env-1");
+            exchange.getAttributes().put(EXTERNAL_IDENTITY_ATTRIBUTE, identity);
+            var expected = new ResolvedMessageDTO("CODE", "Title", "Content");
+            when(facade.execute(eq("CODE"), any(MessageAccessContext.class))).thenReturn(expected);
+
+            StepVerifier.create(controller.resolve("CODE", exchange)).verifyComplete();
+
+            ArgumentCaptor<MessageAccessContext> contextCaptor = ArgumentCaptor.forClass(MessageAccessContext.class);
+            verify(facade).execute(eq("CODE"), contextCaptor.capture());
+            assertAll(
+                    () -> assertThat(contextCaptor.getValue().legacyEnvironmentId()).isEqualTo("env-1"),
+                    () -> assertThat(contextCaptor.getValue().externalIdentity()).isSameAs(identity));
+        }
+
+        @Test
+        @DisplayName("Propaga el error del caso de uso sin presentar")
+        void propagatesFacadeFailure() {
+            NotFoundException failure = NotFoundException.buildUserException("mensaje inexistente");
+            when(facade.execute(eq("CODE"), any(MessageAccessContext.class))).thenThrow(failure);
+
+            StepVerifier.create(controller.resolve("CODE", exchange("env-1")))
+                    .expectErrorSatisfies(error -> assertThat(error).isSameAs(failure))
+                    .verify();
+
+            verify(presenter, never()).presentRestSuccess(anyList(), any());
+        }
     }
 }

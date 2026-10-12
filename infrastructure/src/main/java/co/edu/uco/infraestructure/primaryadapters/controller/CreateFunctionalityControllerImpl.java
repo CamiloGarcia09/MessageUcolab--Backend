@@ -4,36 +4,25 @@ import co.edu.uco.application.primaryports.dto.functionality.CreateFunctionality
 import co.edu.uco.application.primaryports.facade.functionality.CreateFunctionalityUseCaseFacade;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
-import co.edu.uco.infraestructure.primaryadapters.CreateFunctionalityController;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import co.edu.uco.infraestructure.primaryadapters.*;
 import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 import java.util.List;
-
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
 
 @RestController
 final class CreateFunctionalityControllerImpl implements CreateFunctionalityController {
-
-    private final CreateFunctionalityUseCaseFacade createFunctionalityUseCaseFacade;
-    private final PresenterPort<String> restPresenter;
-
-    public CreateFunctionalityControllerImpl(CreateFunctionalityUseCaseFacade createFunctionalityUseCaseFacade,
-                                             PresenterPort<String> restPresenter) {
-        this.createFunctionalityUseCaseFacade = createFunctionalityUseCaseFacade;
-        this.restPresenter = restPresenter;
+    private final CreateFunctionalityUseCaseFacade facade;
+    private final PresenterPort<String> presenter;
+    CreateFunctionalityControllerImpl(CreateFunctionalityUseCaseFacade facade, PresenterPort<String> presenter) {
+        this.facade = facade; this.presenter = presenter;
     }
-
-    @Override
-    public void createFunctionality(CreateFunctionalityDTO createFunctionalityDTO, HttpServletRequest httpServletRequest,
-                                    HttpServletResponse httpServletResponse) {
-        createFunctionalityUseCaseFacade.execute(
-                createFunctionalityDTO, identity(httpServletRequest));
-        restPresenter.presentRestSuccess(List.of("Funcionalidad creada exitosamente"), httpServletRequest, httpServletResponse);
+    public Mono<Void> createFunctionality(CreateFunctionalityDTO dto, ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(() -> { facade.execute(dto, identity(exchange)); return "Funcionalidad creada exitosamente"; })
+                .flatMap(value -> ReactiveHttpResponse.present(presenter, List.of(value), exchange));
     }
-
-    private static ExternalIdentity identity(final HttpServletRequest request) {
-        return (ExternalIdentity) request.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE);
+    private ExternalIdentity identity(ServerWebExchange exchange) {
+        return (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE);
     }
 }

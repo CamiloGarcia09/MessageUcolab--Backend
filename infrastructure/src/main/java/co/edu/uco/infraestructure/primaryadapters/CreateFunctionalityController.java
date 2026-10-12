@@ -1,8 +1,8 @@
 package co.edu.uco.infraestructure.primaryadapters;
 
 import co.edu.uco.application.primaryports.dto.functionality.CreateFunctionalityDTO;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,9 +14,8 @@ public interface CreateFunctionalityController {
             consumes = "application/json",
             produces = {"application/json", "application/yaml", "application/xml", "text/plain", "text/html"}
     )
-    void createFunctionality(
+    Mono<Void> createFunctionality(
             @RequestBody CreateFunctionalityDTO createFunctionalityDTO,
-            HttpServletRequest httpServletRequest,
-            HttpServletResponse httpServletResponse
+            ServerWebExchange exchange
     );
 }
