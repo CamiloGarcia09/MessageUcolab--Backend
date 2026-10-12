@@ -142,9 +142,11 @@ public final class TranslateMessageByCodeAndEnvironmentUseCase
                 translationData.getTranslatedTitle(),
                 translationData.getTranslatedContent(),
                 type,
+                translationData.getTranslatedType(),
                 category,
-                messageData.getApplication(),
+                translationData.getTranslatedCategory(),
                 functionality,
+                translationData.getTranslatedFunctionality(),
                 translationData.getProvider(),
                 translationData.getModel(),
                 translationData.getElapsedMillis()

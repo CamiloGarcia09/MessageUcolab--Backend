@@ -18,21 +18,19 @@ public final class MessageDTO {
     private final String content;
     private final String type;
     private final String category;
-    private final String application;
     private final String functionality;
     private final Instant createdAt;
 
-    public MessageDTO(String code, String title, String content, String type, String category, String application,
+    public MessageDTO(String code, String title, String content, String type, String category,
                       String functionality) {
-        this(code, title, content, type, category, application, functionality, null);
+        this(code, title, content, type, category, functionality, null);
     }
 
-    public MessageDTO(String code, String title, String content, String type, String category, String application,
+    public MessageDTO(String code, String title, String content, String type, String category,
                       String functionality, Instant createdAt) {
         this.code = trim(code);
         this.title = trim(title);
         this.content = trim(content);
-        this.application = trim(application);
         this.type = trim(type);
         this.category = trim(category);
         this.functionality = trim(functionality);
@@ -40,12 +38,12 @@ public final class MessageDTO {
     }
 
     public static MessageDTO create(String code, String title, String content, String type, String category,
-                                    String application, String functionality) {
-        return new MessageDTO(code, title, content, type, category, application, functionality);
+                                    String functionality) {
+        return new MessageDTO(code, title, content, type, category, functionality);
     }
 
     public static MessageDTO create(String code, String title, String content, String type, String category,
-                                    String application, String functionality, Instant createdAt) {
-        return new MessageDTO(code, title, content, type, category, application, functionality, createdAt);
+                                    String functionality, Instant createdAt) {
+        return new MessageDTO(code, title, content, type, category, functionality, createdAt);
     }
 }

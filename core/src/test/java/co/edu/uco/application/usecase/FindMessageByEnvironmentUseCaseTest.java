@@ -65,7 +65,7 @@ class FindMessageByEnvironmentUseCaseTest {
     @Test
     void execute_returnsMappedPage_whenMessagesExist() {
         MessageData message = new MessageData();
-        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "type", "category", "app", "func");
+        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "type", "category", "func");
         SimplePage<MessageData> page = SimplePage.of(List.of(message), 1, 10, 1, 1);
         SimplePageRequest request = new SimplePageRequest();
         when(messageCatalogStrategy.getMessagesWithEnvironment("env", request)).thenReturn(page);

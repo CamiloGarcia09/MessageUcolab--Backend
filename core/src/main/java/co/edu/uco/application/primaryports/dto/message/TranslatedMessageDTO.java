@@ -18,10 +18,12 @@ public final class TranslatedMessageDTO {
     private final String originalContent;
     private final String translatedTitle;
     private final String translatedContent;
-    private final String type;
-    private final String category;
-    private final String application;
-    private final String functionality;
+    private final String originalType;
+    private final String translatedType;
+    private final String originalCategory;
+    private final String translatedCategory;
+    private final String originalFunctionality;
+    private final String translatedFunctionality;
     private final String translationProvider;
     private final String translationModel;
     private final long translationElapsedMs;
@@ -35,10 +37,12 @@ public final class TranslatedMessageDTO {
             String originalContent,
             String translatedTitle,
             String translatedContent,
-            String type,
-            String category,
-            String application,
-            String functionality,
+            String originalType,
+            String translatedType,
+            String originalCategory,
+            String translatedCategory,
+            String originalFunctionality,
+            String translatedFunctionality,
             String translationProvider,
             String translationModel,
             long translationElapsedMs,
@@ -51,10 +55,12 @@ public final class TranslatedMessageDTO {
         this.originalContent = trim(originalContent);
         this.translatedTitle = trim(translatedTitle);
         this.translatedContent = trim(translatedContent);
-        this.type = trim(type);
-        this.category = trim(category);
-        this.application = trim(application);
-        this.functionality = trim(functionality);
+        this.originalType = trim(originalType);
+        this.translatedType = trim(translatedType);
+        this.originalCategory = trim(originalCategory);
+        this.translatedCategory = trim(translatedCategory);
+        this.originalFunctionality = trim(originalFunctionality);
+        this.translatedFunctionality = trim(translatedFunctionality);
         this.translationProvider = trim(translationProvider);
         this.translationModel = trim(translationModel);
         this.translationElapsedMs = translationElapsedMs;
@@ -69,10 +75,12 @@ public final class TranslatedMessageDTO {
             String originalContent,
             String translatedTitle,
             String translatedContent,
-            String type,
-            String category,
-            String application,
-            String functionality,
+            String originalType,
+            String translatedType,
+            String originalCategory,
+            String translatedCategory,
+            String originalFunctionality,
+            String translatedFunctionality,
             String translationProvider,
             String translationModel,
             long translationElapsedMs
@@ -85,10 +93,12 @@ public final class TranslatedMessageDTO {
                 originalContent,
                 translatedTitle,
                 translatedContent,
-                type,
-                category,
-                application,
-                functionality,
+                originalType,
+                translatedType,
+                originalCategory,
+                translatedCategory,
+                originalFunctionality,
+                translatedFunctionality,
                 translationProvider,
                 translationModel,
                 translationElapsedMs,

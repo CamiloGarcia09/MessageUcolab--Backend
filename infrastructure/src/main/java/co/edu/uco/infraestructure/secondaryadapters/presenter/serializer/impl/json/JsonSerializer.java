@@ -2,11 +2,13 @@ package co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.impl.j
 
 import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
 import co.edu.uco.application.primaryports.dto.message.MessageDTO;
+import co.edu.uco.application.primaryports.dto.message.TranslatedMessageDTO;
 import co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.AbstractSerializer;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -26,6 +28,7 @@ public final class JsonSerializer extends AbstractSerializer {
             var mapper = new ObjectMapper();
             mapper.registerModule(new JavaTimeModule());
             mapper.addMixIn(MessageDTO.class, MessageDTOMixIn.class);
+            mapper.addMixIn(TranslatedMessageDTO.class, TranslatedMessageDTOMixIn.class);
             mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
             return mapper.writeValueAsString(data);
         } catch (JsonProcessingException e) {
@@ -40,5 +43,14 @@ public final class JsonSerializer extends AbstractSerializer {
     private abstract static class MessageDTOMixIn {
         @JsonProperty("created_at")
         public abstract Instant getCreatedAt();
+    }
+
+    @JsonPropertyOrder({
+            "code", "sourceLanguage", "targetLanguage",
+            "originalTitle", "originalContent", "originalType", "originalCategory", "originalFunctionality",
+            "translatedTitle", "translatedContent", "translatedType", "translatedCategory", "translatedFunctionality",
+            "translationProvider", "translationModel", "translationElapsedMs", "dynamicTranslation"
+    })
+    private abstract static class TranslatedMessageDTOMixIn {
     }
 }

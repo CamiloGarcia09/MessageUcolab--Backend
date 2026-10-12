@@ -27,6 +27,10 @@ import static co.edu.uco.infraestructure.config.InfrastructureConstant.TRANSLATI
 public final class MessageTranslationRedisAdapter implements MessageTranslationCachePort {
     private static final String FIELD_TRANSLATED_TITLE = "translatedTitle";
     private static final String FIELD_TRANSLATED_CONTENT = "translatedContent";
+    private static final String FIELD_TRANSLATED_TYPE = "translatedType";
+    private static final String FIELD_TRANSLATED_CATEGORY = "translatedCategory";
+    private static final String FIELD_TRANSLATED_FUNCTIONALITY = "translatedFunctionality";
+    private static final String CACHE_VERSION = "translation-v3";
     private static final String FIELD_PROVIDER = "provider";
     private static final String FIELD_MODEL = "model";
 
@@ -63,7 +67,11 @@ public final class MessageTranslationRedisAdapter implements MessageTranslationC
             if (isEmptyOrNull(json)) {
                 return Optional.empty();
             }
-            return Optional.of(toResponseData(objectMapper.readTree(json)));
+            var node = objectMapper.readTree(json);
+            if (!isComplete(node)) {
+                return Optional.empty();
+            }
+            return Optional.of(toResponseData(node));
         } catch (DataAccessException ex) {
             log.error(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_014.getCode()), ex);
             return Optional.empty();
@@ -90,6 +98,9 @@ public final class MessageTranslationRedisAdapter implements MessageTranslationC
             var json = objectMapper.writeValueAsString(Map.of(
                     FIELD_TRANSLATED_TITLE, translation.getTranslatedTitle(),
                     FIELD_TRANSLATED_CONTENT, translation.getTranslatedContent(),
+                    FIELD_TRANSLATED_TYPE, translation.getTranslatedType(),
+                    FIELD_TRANSLATED_CATEGORY, translation.getTranslatedCategory(),
+                    FIELD_TRANSLATED_FUNCTIONALITY, translation.getTranslatedFunctionality(),
                     FIELD_PROVIDER, translation.getProvider(),
                     FIELD_MODEL, translation.getModel()
             ));
@@ -106,7 +117,8 @@ public final class MessageTranslationRedisAdapter implements MessageTranslationC
     }
 
     private String buildKey(String messageCode, String environmentId, String sourceLanguage, String targetLanguage) {
-        return trim(messageCode) + TRANSLATION_CACHE_KEY_SEPARATOR
+        return CACHE_VERSION + TRANSLATION_CACHE_KEY_SEPARATOR
+                + trim(messageCode) + TRANSLATION_CACHE_KEY_SEPARATOR
                 + trim(environmentId) + TRANSLATION_CACHE_KEY_SEPARATOR
                 + trim(sourceLanguage) + TRANSLATION_CACHE_KEY_SEPARATOR
                 + trim(targetLanguage);
@@ -116,9 +128,20 @@ public final class MessageTranslationRedisAdapter implements MessageTranslationC
         return MessageTranslationResponseData.create(
                 node.path(FIELD_TRANSLATED_TITLE).asText(),
                 node.path(FIELD_TRANSLATED_CONTENT).asText(),
+                node.path(FIELD_TRANSLATED_TYPE).asText(),
+                node.path(FIELD_TRANSLATED_CATEGORY).asText(),
+                node.path(FIELD_TRANSLATED_FUNCTIONALITY).asText(),
                 node.path(FIELD_PROVIDER).asText(),
                 node.path(FIELD_MODEL).asText(),
                 0L
         );
+    }
+
+    private boolean isComplete(JsonNode node) {
+        return node != null && node.path(FIELD_TRANSLATED_TITLE).isTextual()
+                && node.path(FIELD_TRANSLATED_CONTENT).isTextual()
+                && node.path(FIELD_TRANSLATED_TYPE).isTextual()
+                && node.path(FIELD_TRANSLATED_CATEGORY).isTextual()
+                && node.path(FIELD_TRANSLATED_FUNCTIONALITY).isTextual();
     }
 }

@@ -91,7 +91,8 @@ class TranslateMessageByCodeAndEnvironmentUseCaseTest {
         when(messageCatalogStrategy.getMessageByCodeAndEnvironment("CODE", "env"))
                 .thenReturn(Optional.of(message));
         MessageTranslationResponseData response = MessageTranslationResponseData.create(
-                "Translated Title", "Translated Content", "ollama", "llama3.2", 120L);
+                "Translated Title", "Translated Content", "translated type", "translated category",
+                "translated functionality", "ollama", "llama3.2", 120L);
         when(messageTranslationPort.translate(any(MessageTranslationRequestData.class)))
                 .thenReturn(response);
 
@@ -101,7 +102,13 @@ class TranslateMessageByCodeAndEnvironmentUseCaseTest {
                 () -> assertThat(result.getCode()).isEqualTo("CODE"),
                 () -> assertThat(result.getSourceLanguage()).isEqualTo("auto"),
                 () -> assertThat(result.getTargetLanguage()).isEqualTo("en"),
-                () -> assertThat(result.getTranslatedTitle()).isEqualTo("Translated Title"),
+                 () -> assertThat(result.getTranslatedTitle()).isEqualTo("Translated Title"),
+                 () -> assertThat(result.getOriginalType()).isEqualTo("info"),
+                 () -> assertThat(result.getTranslatedType()).isEqualTo("translated type"),
+                 () -> assertThat(result.getOriginalCategory()).isEqualTo("general"),
+                 () -> assertThat(result.getTranslatedCategory()).isEqualTo("translated category"),
+                 () -> assertThat(result.getOriginalFunctionality()).isEqualTo("func"),
+                 () -> assertThat(result.getTranslatedFunctionality()).isEqualTo("translated functionality"),
                 () -> assertThat(result.getTranslationProvider()).isEqualTo("ollama"),
                 () -> assertThat(result.getTranslationElapsedMs()).isEqualTo(120L),
                 () -> assertThat(result.isDynamicTranslation()).isTrue());
@@ -114,7 +121,7 @@ class TranslateMessageByCodeAndEnvironmentUseCaseTest {
         when(messageCatalogStrategy.getMessageByCodeAndEnvironment("CODE", "env"))
                 .thenReturn(Optional.of(message));
         MessageTranslationResponseData response = MessageTranslationResponseData.create(
-                "t", "c", "ollama", "m", 1L);
+                "t", "c", "tt", "tc", "tf", "ollama", "m", 1L);
         when(messageTranslationPort.translate(any(MessageTranslationRequestData.class)))
                 .thenReturn(response);
 
@@ -129,7 +136,8 @@ class TranslateMessageByCodeAndEnvironmentUseCaseTest {
         when(messageCatalogStrategy.getMessageByCodeAndEnvironment("CODE", "env"))
                 .thenReturn(Optional.of(message));
         MessageTranslationResponseData cached = MessageTranslationResponseData.create(
-                "Cached Title", "Cached Content", "ollama", "llama3.2", 5L);
+                "Cached Title", "Cached Content", "cached type", "cached category",
+                "cached functionality", "ollama", "llama3.2", 5L);
         when(messageTranslationCachePort.findTranslation("CODE", "env", "es", "en"))
                 .thenReturn(Optional.of(cached));
 
@@ -137,7 +145,13 @@ class TranslateMessageByCodeAndEnvironmentUseCaseTest {
 
         assertAll(
                 () -> assertThat(result.getTranslatedTitle()).isEqualTo("Cached Title"),
-                () -> assertThat(result.getTranslatedContent()).isEqualTo("Cached Content"),
+                 () -> assertThat(result.getTranslatedContent()).isEqualTo("Cached Content"),
+                 () -> assertThat(result.getOriginalType()).isEqualTo("info"),
+                 () -> assertThat(result.getTranslatedType()).isEqualTo("cached type"),
+                 () -> assertThat(result.getOriginalCategory()).isEqualTo("general"),
+                 () -> assertThat(result.getTranslatedCategory()).isEqualTo("cached category"),
+                 () -> assertThat(result.getOriginalFunctionality()).isEqualTo("func"),
+                 () -> assertThat(result.getTranslatedFunctionality()).isEqualTo("cached functionality"),
                 () -> assertThat(result.getTranslationElapsedMs()).isEqualTo(5L));
         verify(messageTranslationPort, never()).translate(any());
         verify(messageTranslationCachePort).findTranslation("CODE", "env", "es", "en");

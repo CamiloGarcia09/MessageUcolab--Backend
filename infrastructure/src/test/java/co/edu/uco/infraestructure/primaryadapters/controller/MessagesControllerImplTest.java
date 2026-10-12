@@ -92,7 +92,7 @@ class MessagesControllerImplTest {
     @Test
     void findByCodeMessageAndEnvironment_presentsSingleMessage() {
         when(request.getAttribute("environmentId")).thenReturn("env-1");
-        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "TYPE", "CAT", "APP", "FUNC");
+        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "TYPE", "CAT", "FUNC");
         when(findMessageByCodeAndEnvironmentUseCaseFacade.execute(eq("CODE"), any(MessageAccessContext.class)))
                 .thenReturn(dto);
 
@@ -108,7 +108,8 @@ class MessagesControllerImplTest {
     void translateByCodeMessageAndEnvironment_presentsTranslatedMessage() {
         when(request.getAttribute("environmentId")).thenReturn("env-1");
         TranslatedMessageDTO dto = TranslatedMessageDTO.create("CODE", "es", "en", "T", "C", "TT", "TC",
-                "TYPE", "CAT", "APP", "FUNC", "provider", "model", 10);
+                "TYPE", "translated TYPE", "CAT", "translated CAT", "FUNC", "translated FUNC",
+                "provider", "model", 10);
         TranslateMessageDTO body = new TranslateMessageDTO();
         body.setSourceLanguage("es");
         body.setTargetLanguage("en");
@@ -129,7 +130,8 @@ class MessagesControllerImplTest {
     void translateByCodeMessageAndEnvironment_usesAutomaticSourceLanguageWhenBodyOmitsIt() {
         when(request.getAttribute("environmentId")).thenReturn("env-1");
         TranslatedMessageDTO dto = TranslatedMessageDTO.create("CODE", "auto", "en", "T", "C", "TT", "TC",
-                "TYPE", "CAT", "APP", "FUNC", "provider", "model", 10);
+                "TYPE", "translated TYPE", "CAT", "translated CAT", "FUNC", "translated FUNC",
+                "provider", "model", 10);
         TranslateMessageDTO body = new TranslateMessageDTO();
         body.setTargetLanguage("en");
         when(translateMessageByCodeAndEnvironmentUseCaseFacade.execute(
@@ -147,7 +149,7 @@ class MessagesControllerImplTest {
     void findByCodeMessageAndEnvironment_propagatesExternalIdentityAlongsideLegacyAttribute() {
         when(request.getAttribute("environmentId")).thenReturn("legacy-env");
         when(request.getAttribute("externalIdentity")).thenReturn(IDENTITY);
-        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "TYPE", "CAT", "APP", "FUNC");
+        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "TYPE", "CAT", "FUNC");
         when(findMessageByCodeAndEnvironmentUseCaseFacade.execute(eq("CODE"), any(MessageAccessContext.class)))
                 .thenReturn(dto);
 

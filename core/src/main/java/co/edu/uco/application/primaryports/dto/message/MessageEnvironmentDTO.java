@@ -26,7 +26,7 @@ public final class MessageEnvironmentDTO {
     public MessageEnvironmentDTO() {
         setId(getNewUUID());
         setMessageId(getNewUUID());
-        setMessage(MessageDTO.create(EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY));
+        setMessage(MessageDTO.create(EMPTY,EMPTY,EMPTY,EMPTY,EMPTY,EMPTY));
         setEnvironmentTypeId(getNewUUID());
         setStateId(getNewUUID());
     }
@@ -44,7 +44,7 @@ public final class MessageEnvironmentDTO {
     }
     public void setMessage(MessageDTO message) {
         this.message = UtilObject.getDefaultIsNullObject(message, MessageDTO.create(message.getCode(), message.getTitle(),
-                message.getContent(), message.getType(), message.getCategory(), message.getApplication(),
+                message.getContent(), message.getType(), message.getCategory(),
                 message.getFunctionality()));
     }
     public static MessageEnvironmentDTO create(UUID id, UUID messageId, MessageDTO message, UUID environmentTypeId, UUID stateId) {

@@ -2,6 +2,7 @@ package co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.impl.j
 
 import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
 import co.edu.uco.application.secondaryports.Response;
+import co.edu.uco.application.secondaryports.repository.SimplePage;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -101,14 +102,68 @@ class JsonSerializerTest {
     @Test
     void serialize_messageDto_usesCreatedAtSnakeCaseAndUtcIsoInstant() throws Exception {
         var dto = co.edu.uco.application.primaryports.dto.message.MessageDTO.create(
-                "MSG_WELCOME", "Welcome", "Hello", "info", "general", "app", "func",
+                "MSG_WELCOME", "Welcome", "Hello", "info", "general", "func",
                 Instant.parse("2025-01-02T03:04:05Z"));
 
         JsonNode json = JSON_PARSER.readTree(serializer.serialize(dto));
 
         assertAll(
                 () -> assertThat(json.get("created_at").asText()).isEqualTo("2025-01-02T03:04:05Z"),
-                () -> assertThat(json.has("createdAt")).isFalse());
+                () -> assertThat(json.has("createdAt")).isFalse(),
+                () -> assertThat(json.has("application")).isFalse(),
+                () -> assertThat(json.get("code").asText()).isEqualTo("MSG_WELCOME"),
+                () -> assertThat(json.get("functionality").asText()).isEqualTo("func"));
+    }
+
+    @Test
+    void serialize_messagePage_omitsApplicationAndPreservesMessageFields() throws Exception {
+        var dto = co.edu.uco.application.primaryports.dto.message.MessageDTO.create(
+                "MSG_LIST", "Listed", "Body", "info", "general", "catalog/functionality");
+        var page = SimplePage.of(List.of(dto), 1, 10, 1, 1);
+
+        JsonNode json = JSON_PARSER.readTree(serializer.serialize(page));
+        JsonNode message = json.get("data").get(0);
+
+        assertAll(
+                () -> assertThat(message.has("application")).isFalse(),
+                () -> assertThat(message.get("code").asText()).isEqualTo("MSG_LIST"),
+                () -> assertThat(message.get("title").asText()).isEqualTo("Listed"),
+                () -> assertThat(message.get("content").asText()).isEqualTo("Body"),
+                () -> assertThat(message.get("functionality").asText()).isEqualTo("catalog/functionality"));
+    }
+
+    @Test
+    void serialize_translatedMessage_preservesExactPropertyOrderDirectlyAndInsideResponse() throws Exception {
+        var dto = co.edu.uco.application.primaryports.dto.message.TranslatedMessageDTO.create(
+                "CODE", "en", "es", "Original title", "Original content", "Título", "Contenido",
+                "Type", "Tipo", "Category", "Categoría", "Functionality", "Funcionalidad",
+                "provider", "model", 123L);
+        var expectedOrder = List.of("code", "sourceLanguage", "targetLanguage", "originalTitle", "originalContent",
+                "originalType", "originalCategory", "originalFunctionality", "translatedTitle", "translatedContent",
+                "translatedType", "translatedCategory", "translatedFunctionality", "translationProvider",
+                "translationModel", "translationElapsedMs", "dynamicTranslation");
+
+        String directJson = serializer.serialize(dto);
+        String wrappedJson = serializer.serialize(new Response<>(List.of(dto), List.of()));
+        JsonNode direct = JSON_PARSER.readTree(directJson);
+        JsonNode wrapped = JSON_PARSER.readTree(wrappedJson).get("data").get(0);
+
+        assertAll(
+                () -> assertThat(fieldNames(direct)).containsExactlyElementsOf(expectedOrder),
+                () -> assertThat(fieldNames(wrapped)).containsExactlyElementsOf(expectedOrder),
+                () -> assertThat(direct.has("application")).isFalse(),
+                () -> assertThat(direct.has("type")).isFalse(),
+                () -> assertThat(direct.has("category")).isFalse(),
+                () -> assertThat(direct.has("functionality")).isFalse(),
+                () -> assertThat(direct.get("originalFunctionality").asText()).isEqualTo("Functionality"),
+                () -> assertThat(direct.get("translatedFunctionality").asText()).isEqualTo("Funcionalidad"),
+                () -> assertThat(direct.get("targetLanguage").asText()).isEqualTo("es"));
+    }
+
+    private List<String> fieldNames(JsonNode node) {
+        List<String> names = new java.util.ArrayList<>();
+        node.fieldNames().forEachRemaining(names::add);
+        return names;
     }
 
     @Test
