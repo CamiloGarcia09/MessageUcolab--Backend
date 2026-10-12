@@ -24,7 +24,7 @@ class MessageDTOMapperTest {
 
     @Test
     void mapperDomain_delegatesToModelMapper() {
-        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "info", "general", "app", "func");
+        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "info", "general", "func");
         MessageDomain domain = new MessageDomain();
         when(modelMapper.map(dto, MessageDomain.class)).thenReturn(domain);
 
@@ -38,7 +38,7 @@ class MessageDTOMapperTest {
     void mapperDTO_delegatesToModelMapper() {
         MessageDomain domain = new MessageDomain();
         domain.setCode("CODE");
-        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "info", "general", "app", "func");
+        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "info", "general", "func");
         when(modelMapper.map(domain, MessageDTO.class)).thenReturn(dto);
 
         MessageDTO result = mapper.mapperDTO(domain);

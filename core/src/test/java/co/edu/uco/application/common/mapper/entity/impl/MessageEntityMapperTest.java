@@ -77,7 +77,6 @@ class MessageEntityMapperTest {
                 () -> assertThat(dto.getContent()).isEqualTo("Content"),
                 () -> assertThat(dto.getType()).isEqualTo("info"),
                 () -> assertThat(dto.getCategory()).isEqualTo("general"),
-                () -> assertThat(dto.getApplication()).isEqualTo("app"),
                 () -> assertThat(dto.getFunctionality()).isEqualTo("func"),
                 () -> assertThat(dto.getCreatedAt()).isEqualTo(Instant.parse("2025-01-02T03:04:05Z")));
     }

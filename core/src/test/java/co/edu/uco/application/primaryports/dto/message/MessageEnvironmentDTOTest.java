@@ -25,7 +25,7 @@ class MessageEnvironmentDTOTest {
     void parameterizedConstructor_setsValues() {
         UUID id = UUID.randomUUID();
         UUID messageId = UUID.randomUUID();
-        MessageDTO message = MessageDTO.create("CODE", "Title", "Content", "info", "general", "app", "func");
+        MessageDTO message = MessageDTO.create("CODE", "Title", "Content", "info", "general", "func");
         UUID envTypeId = UUID.randomUUID();
         UUID stateId = UUID.randomUUID();
 
@@ -43,7 +43,7 @@ class MessageEnvironmentDTOTest {
     void create_buildsInstance() {
         MessageEnvironmentDTO dto = MessageEnvironmentDTO.create(
                 UUID.randomUUID(), UUID.randomUUID(),
-                MessageDTO.create("CODE", "Title", "Content", "info", "general", "app", "func"),
+                MessageDTO.create("CODE", "Title", "Content", "info", "general", "func"),
                 UUID.randomUUID(), UUID.randomUUID());
 
         assertAll(

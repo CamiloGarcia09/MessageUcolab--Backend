@@ -92,7 +92,7 @@ class MessagesControllerImplTest {
     @Test
     void findByCodeMessageAndEnvironment_presentsSingleMessage() {
         when(request.getAttribute("environmentId")).thenReturn("env-1");
-        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "TYPE", "CAT", "APP", "FUNC");
+        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "TYPE", "CAT", "FUNC");
         when(findMessageByCodeAndEnvironmentUseCaseFacade.execute(eq("CODE"), any(MessageAccessContext.class)))
                 .thenReturn(dto);
 
@@ -147,7 +147,7 @@ class MessagesControllerImplTest {
     void findByCodeMessageAndEnvironment_propagatesExternalIdentityAlongsideLegacyAttribute() {
         when(request.getAttribute("environmentId")).thenReturn("legacy-env");
         when(request.getAttribute("externalIdentity")).thenReturn(IDENTITY);
-        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "TYPE", "CAT", "APP", "FUNC");
+        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "TYPE", "CAT", "FUNC");
         when(findMessageByCodeAndEnvironmentUseCaseFacade.execute(eq("CODE"), any(MessageAccessContext.class)))
                 .thenReturn(dto);
 

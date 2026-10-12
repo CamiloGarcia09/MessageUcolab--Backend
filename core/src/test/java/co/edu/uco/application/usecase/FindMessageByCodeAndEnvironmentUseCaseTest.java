@@ -59,7 +59,7 @@ class FindMessageByCodeAndEnvironmentUseCaseTest {
     @Test
     void execute_returnsMappedDto_whenMessageExists() {
         MessageData message = new MessageData();
-        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "type", "category", "app", "func");
+        MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "type", "category", "func");
         when(messageCatalogStrategy.getMessageByCodeAndEnvironment("CODE", "env"))
                 .thenReturn(Optional.of(message));
         when(entityMapper.mapperDTO(message)).thenReturn(dto);
