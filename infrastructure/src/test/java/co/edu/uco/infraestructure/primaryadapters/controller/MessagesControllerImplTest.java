@@ -9,11 +9,13 @@ import co.edu.uco.application.primaryports.facade.message.FindMessagesByEnvironm
 import co.edu.uco.application.primaryports.facade.message.TranslateMessageByCodeAndEnvironmentUseCaseFacade;
 import co.edu.uco.application.secondaryports.event.MessageEvent;
 import co.edu.uco.application.secondaryports.event.MessageEventStreamPort;
+import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.secondaryports.presenter.RenderedResponse;
 import co.edu.uco.application.secondaryports.repository.SimplePage;
 import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
+import co.edu.uco.crosscutting.exceptions.UnauthorizedException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -40,6 +42,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("MessagesControllerImpl")
@@ -61,13 +64,15 @@ class MessagesControllerImplTest {
     private PresenterPort<SimplePage<MessageDTO>> pagePresenter;
     @Mock
     private MessageEventStreamPort eventStream;
+    @Mock
+    private CatalogPort catalog;
 
     private MessagesControllerImpl controller;
 
     @BeforeEach
     void setUp() {
         controller = new MessagesControllerImpl(findPage, findOne, translate, presenter, translationPresenter,
-                pagePresenter, eventStream);
+                pagePresenter, eventStream, catalog);
     }
 
     private MockServerWebExchange exchange() {
@@ -240,6 +245,20 @@ class MessagesControllerImplTest {
             } finally {
                 publisher.close();
             }
+        }
+
+        @Test
+        @DisplayName("Rechaza el stream cuando no existe ambiente en el contexto")
+        void rejectsMissingEnvironment() {
+            MockServerWebExchange exchange = MockServerWebExchange.from(
+                    MockServerHttpRequest.get("/messageucolab/v1/messages").build());
+            when(catalog.getMessage("FUN_152")).thenReturn("ambiente requerido");
+
+            StepVerifier.create(controller.events(exchange))
+                    .expectError(UnauthorizedException.class)
+                    .verify();
+
+            verify(eventStream, never()).subscribe(any());
         }
     }
 }

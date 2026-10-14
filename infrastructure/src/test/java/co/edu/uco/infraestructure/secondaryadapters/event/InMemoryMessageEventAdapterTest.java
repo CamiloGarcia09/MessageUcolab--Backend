@@ -57,8 +57,8 @@ class InMemoryMessageEventAdapterTest {
         }
 
         @Test
-        @DisplayName("Entrega todos los ambientes cuando el filtro es nulo")
-        void nullEnvironmentReceivesEveryEvent() {
+        @DisplayName("No entrega eventos cuando el filtro de ambiente es nulo")
+        void nullEnvironmentDoesNotReceiveEvents() {
             MessageEvent first = event("id-1", "env-1");
             MessageEvent second = event("id-2", "env-2");
 
@@ -67,7 +67,7 @@ class InMemoryMessageEventAdapterTest {
                         adapter.publish(first);
                         adapter.publish(second);
                     })
-                    .expectNext(first, second)
+                    .expectNoEvent(Duration.ofMillis(200))
                     .thenCancel()
                     .verify();
         }

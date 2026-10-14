@@ -2,8 +2,6 @@ package co.edu.uco.infraestructure.primaryadapters.controller;
 
 import co.edu.uco.application.primaryports.dto.message.CreateMessageDTO;
 import co.edu.uco.application.primaryports.facade.message.CreateMessageUseCaseFacade;
-import co.edu.uco.application.secondaryports.event.MessageEvent;
-import co.edu.uco.application.secondaryports.event.Publisher;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.secondaryports.presenter.RenderedResponse;
 import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
@@ -44,14 +42,12 @@ class CreateMessageControllerImplTest {
     private CreateMessageUseCaseFacade facade;
     @Mock
     private PresenterPort<String> presenter;
-    @Mock
-    private Publisher<MessageEvent> publisher;
 
     private CreateMessageControllerImpl controller;
 
     @BeforeEach
     void setUp() {
-        controller = new CreateMessageControllerImpl(facade, presenter, publisher);
+        controller = new CreateMessageControllerImpl(facade, presenter);
     }
 
     private MockServerWebExchange exchange() {
@@ -71,25 +67,18 @@ class CreateMessageControllerImplTest {
     class CreateMessage {
 
         @Test
-        @DisplayName("Ejecuta el caso de uso, publica el evento y presenta el éxito")
-        void executesPublishesAndPresents() {
+        @DisplayName("Ejecuta el caso de uso y presenta el éxito")
+        void executesAndPresents() {
             stubRender();
             CreateMessageDTO dto = CreateMessageDTO.builder().code("MSG-001").build();
 
             StepVerifier.create(controller.createMessage(dto, exchange())).verifyComplete();
 
             ArgumentCaptor<MessageAccessContext> contextCaptor = ArgumentCaptor.forClass(MessageAccessContext.class);
-            ArgumentCaptor<MessageEvent> eventCaptor = ArgumentCaptor.forClass(MessageEvent.class);
             verify(facade).execute(eq(dto), contextCaptor.capture());
-            verify(publisher).publish(eventCaptor.capture());
-            MessageEvent event = eventCaptor.getValue();
             assertAll(
                     () -> assertThat(contextCaptor.getValue().legacyEnvironmentId()).isEqualTo("env-token"),
-                    () -> assertThat(contextCaptor.getValue().externalIdentity()).isNull(),
-                    () -> assertThat(event.type()).isEqualTo("MessageCreated"),
-                    () -> assertThat(event.environmentId()).isEqualTo("env-token"),
-                    () -> assertThat(event.messageCode()).isEqualTo("MSG-001"),
-                    () -> assertThat(event.id()).isNotBlank());
+                    () -> assertThat(contextCaptor.getValue().externalIdentity()).isNull());
             verify(presenter).presentRestSuccess(List.of("Mensaje creado exitosamente"), null);
         }
 
@@ -110,8 +99,8 @@ class CreateMessageControllerImplTest {
         }
 
         @Test
-        @DisplayName("Propaga el error del caso de uso sin publicar ni presentar")
-        void propagatesFacadeFailureWithoutPublishing() {
+        @DisplayName("Propaga el error del caso de uso sin presentar")
+        void propagatesFacadeFailureWithoutPresenting() {
             CreateMessageDTO dto = CreateMessageDTO.builder().code("MSG-001").build();
             ForbiddenException failure = ForbiddenException.buildUserException("sin permisos");
             doThrow(failure).when(facade).execute(eq(dto), any(MessageAccessContext.class));
@@ -120,7 +109,6 @@ class CreateMessageControllerImplTest {
                     .expectErrorSatisfies(error -> assertThat(error).isSameAs(failure))
                     .verify();
 
-            verify(publisher, never()).publish(any(MessageEvent.class));
             verify(presenter, never()).presentRestSuccess(anyList(), any());
         }
     }

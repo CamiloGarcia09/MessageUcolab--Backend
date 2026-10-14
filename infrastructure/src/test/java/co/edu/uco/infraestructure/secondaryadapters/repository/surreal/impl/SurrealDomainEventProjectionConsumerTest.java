@@ -2,6 +2,8 @@ package co.edu.uco.infraestructure.secondaryadapters.repository.surreal.impl;
 
 import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
+import co.edu.uco.application.secondaryports.event.MessageEvent;
+import co.edu.uco.application.secondaryports.event.Publisher;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import com.surrealdb.Array;
@@ -27,12 +29,14 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
@@ -51,6 +55,8 @@ class SurrealDomainEventProjectionConsumerTest {
     private LoggingPort log;
     @Mock
     private CatalogPort catalogPort;
+    @Mock
+    private Publisher<MessageEvent> publisher;
 
     private SurrealDomainEventProjectionConsumer consumer;
 
@@ -59,7 +65,7 @@ class SurrealDomainEventProjectionConsumerTest {
         lenient().when(loggerFactory.getLogger(SurrealDomainEventProjectionConsumer.class)).thenReturn(log);
         lenient().when(catalogPort.getMessage(org.mockito.ArgumentMatchers.anyString())).thenReturn("msg");
         CatalogPortStaticRef.set(catalogPort);
-        consumer = new SurrealDomainEventProjectionConsumer(surreal, 2, loggerFactory);
+        consumer = new SurrealDomainEventProjectionConsumer(surreal, 2, loggerFactory, publisher);
         lenient().doReturn(mock(Response.class)).when(surreal).query(anyString());
     }
 
@@ -317,6 +323,75 @@ class SurrealDomainEventProjectionConsumerTest {
         assertThat(documentQuery("UPSERT message_environment_readmodel:`me-1`"))
                 .contains("environment: { id: 'environment:e-1', name: 'PRODUCTION' }")
                 .doesNotContain(", version: ");
+    }
+
+    @Test
+    void consumePendingDomainEvents_publishesMessageEventForProjectedReadModel() {
+        Object message = mock(Object.class);
+        doReturn(stringValue("type:t-1")).when(message).get("type_id");
+        doReturn(stringValue("category:c-1")).when(message).get("category_id");
+        doReturn(stringValue("status:s-1")).when(message).get("status_id");
+        doReturn(stringValue("application:a-1")).when(message).get("application_id");
+        doReturn(stringValue("functionality:f-1")).when(message).get("functionality_id");
+        doReturn(stringValue("CODE")).when(message).get("code");
+        doReturn(stringValue("Title")).when(message).get("title");
+        doReturn(stringValue("Content")).when(message).get("content");
+
+        Object readModel = mock(Object.class);
+        doReturn(stringValue("message:msg-1")).when(readModel).get("message_id");
+        doReturn(stringValue("environment:e-1")).when(readModel).get("environment_id");
+        doReturn(stringValue("state:st-1")).when(readModel).get("state_data_id");
+        when(readModel.get("created_at")).thenReturn(null);
+        when(readModel.get("updated_at")).thenReturn(null);
+
+        stubEvents(eventObject("event-1", "MESSAGE_ENVIRONMENT_CREATED",
+                "message_environment:me-1", "message_environment", 1));
+        stubRecord("message_environment:me-1", readModel);
+        stubRecord("message:msg-1", message);
+        stubRecord("environment:e-1", environmentRecord());
+        stubRecord("environment_type:et-1", catalogRecord("PRODUCTION"));
+        stubRecord("state:st-1", catalogRecord("ACTIVE"));
+        stubRecord("type:t-1", catalogRecord("MESSAGE_TYPE"));
+        stubRecord("category:c-1", catalogRecord("CATEGORY"));
+        stubRecord("status:s-1", catalogRecord("ACTIVE"));
+        stubRecord("application:a-1", applicationRecord());
+        stubRecord("functionality:f-1", catalogRecord("FUNC"));
+
+        consumer.consumePendingDomainEvents();
+
+        ArgumentCaptor<MessageEvent> eventCaptor = ArgumentCaptor.forClass(MessageEvent.class);
+        verify(publisher).publish(eventCaptor.capture());
+        MessageEvent event = eventCaptor.getValue();
+        assertAll(
+                () -> assertThat(event.type()).isEqualTo("MessageCreated"),
+                () -> assertThat(event.environmentId()).isEqualTo("e-1"),
+                () -> assertThat(event.messageCode()).isEqualTo("CODE"),
+                () -> assertThat(event.id()).isNotBlank());
+    }
+
+    @Test
+    void consumePendingDomainEvents_doesNotPublishForNonMessageAggregates() {
+        Object app = mock(Object.class);
+        doReturn(stringValue("organization:org-1")).when(app).get("organization_id");
+        doReturn(stringValue("language:lang-1")).when(app).get("language_id");
+        doReturn(stringValue("state:st-1")).when(app).get("state_id");
+        doReturn(stringValue("MiApp")).when(app).get("name");
+        when(app.get("created_at")).thenReturn(null);
+        when(app.get("updated_at")).thenReturn(null);
+
+        Object language = mock(Object.class);
+        doReturn(stringValue("ES")).when(language).get("language");
+        doReturn(stringValue("ES")).when(language).get("code");
+
+        stubEvents(eventObject("event-1", "APPLICATION_CREATED", "application:app-1", "application", 1));
+        stubRecord("application:app-1", app);
+        stubRecord("organization:org-1", catalogRecord("UCO"));
+        stubRecord("language:lang-1", language);
+        stubRecord("state:st-1", catalogRecord("ACTIVE"));
+
+        consumer.consumePendingDomainEvents();
+
+        verify(publisher, never()).publish(any(MessageEvent.class));
     }
 
     @Test
@@ -696,8 +771,36 @@ class SurrealDomainEventProjectionConsumerTest {
     }
 
     @Test
+    void toMessageEventType_mapsKnownSuffixesAndDefaults() throws Exception {
+        assertThat(invokeStatic("toMessageEventType", new Class[]{String.class}, new java.lang.Object[]{null}))
+                .isEqualTo("MessageChanged");
+        assertThat(invokeStatic("toMessageEventType", new Class[]{String.class}, new java.lang.Object[]{"  "}))
+                .isEqualTo("MessageChanged");
+        assertThat(invokeStatic("toMessageEventType", new Class[]{String.class}, new java.lang.Object[]{"MESSAGE_CREATED"}))
+                .isEqualTo("MessageCreated");
+        assertThat(invokeStatic("toMessageEventType", new Class[]{String.class}, new java.lang.Object[]{"message_updated"}))
+                .isEqualTo("MessageUpdated");
+        assertThat(invokeStatic("toMessageEventType", new Class[]{String.class}, new java.lang.Object[]{"MESSAGE_DELETED"}))
+                .isEqualTo("MessageDeleted");
+        assertThat(invokeStatic("toMessageEventType", new Class[]{String.class}, new java.lang.Object[]{"CUSTOM_EVENT"}))
+                .isEqualTo("MessageChanged");
+    }
+
+    @Test
+    void cleanRecordId_cleansSurrealRecordIdsAndKeepsPlainValues() throws Exception {
+        assertThat(invokeStatic("cleanRecordId", new Class[]{String.class}, new java.lang.Object[]{"environment:e-1"}))
+                .isEqualTo("e-1");
+        assertThat(invokeStatic("cleanRecordId", new Class[]{String.class}, new java.lang.Object[]{" message : `id-2` "}))
+                .isEqualTo("id-2");
+        assertThat(invokeStatic("cleanRecordId", new Class[]{String.class}, new java.lang.Object[]{"plain-id"}))
+                .isEqualTo("plain-id");
+        assertThat(invokeStatic("cleanRecordId", new Class[]{String.class}, new java.lang.Object[]{null}))
+                .isNull();
+    }
+
+    @Test
     void constructor_clampsBatchSizeToAtLeastOne() {
-        SurrealDomainEventProjectionConsumer clamped = new SurrealDomainEventProjectionConsumer(surreal, 0, loggerFactory);
+        SurrealDomainEventProjectionConsumer clamped = new SurrealDomainEventProjectionConsumer(surreal, 0, loggerFactory, publisher);
         assertThat(clamped).isNotNull();
     }
 }

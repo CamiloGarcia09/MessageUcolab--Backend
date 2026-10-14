@@ -1,6 +1,8 @@
 package co.edu.uco.infraestructure.secondaryadapters.repository.surreal.impl;
 
 import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
+import co.edu.uco.application.secondaryports.event.MessageEvent;
+import co.edu.uco.application.secondaryports.event.Publisher;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
@@ -21,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 
 import static co.edu.uco.crosscutting.helpers.UtilObject.isNullObject;
 import static co.edu.uco.infraestructure.secondaryadapters.repository.surreal.impl.SurrealQLUtil.quote;
@@ -43,14 +46,17 @@ public final class SurrealDomainEventProjectionConsumer {
     private final LoggingPort log;
     private final Surreal surreal;
     private final int batchSize;
+    private final Publisher<MessageEvent> publisher;
 
     public SurrealDomainEventProjectionConsumer(
             final Surreal surreal,
             @org.springframework.beans.factory.annotation.Value("${surreal.projection.batch-size:100}") final int batchSize,
-            final LoggingPortFactory loggerFactory) {
+            final LoggingPortFactory loggerFactory,
+            final Publisher<MessageEvent> publisher) {
         this.log = loggerFactory.getLogger(SurrealDomainEventProjectionConsumer.class);
         this.surreal = surreal;
         this.batchSize = Math.max(1, batchSize);
+        this.publisher = publisher;
     }
 
     @Scheduled(
@@ -249,6 +255,38 @@ public final class SurrealDomainEventProjectionConsumer {
                 + " }";
 
         upsertDocument(COLLECTION_MESSAGE_ENVIRONMENT_READMODEL, aggregate.id(), content);
+        publishProjectedMessageEvent(event, environmentId, message.map(value -> stringOf(value.get("code"))).orElse(""));
+    }
+
+    private void publishProjectedMessageEvent(final DomainEvent event, final String environmentId,
+                                              final String messageCode) {
+        publisher.publish(new MessageEvent(
+                UUID.randomUUID().toString(),
+                toMessageEventType(event.eventType()),
+                cleanRecordId(environmentId),
+                messageCode
+        ));
+    }
+
+    private static String toMessageEventType(final String eventType) {
+        if (eventType == null || eventType.isBlank()) {
+            return "MessageChanged";
+        }
+        final String normalized = eventType.toUpperCase(Locale.ROOT);
+        if (normalized.endsWith("_CREATED")) {
+            return "MessageCreated";
+        }
+        if (normalized.endsWith("_UPDATED")) {
+            return "MessageUpdated";
+        }
+        if (normalized.endsWith("_DELETED")) {
+            return "MessageDeleted";
+        }
+        return "MessageChanged";
+    }
+
+    private static String cleanRecordId(final String recordId) {
+        return RecordRef.from(recordId).map(RecordRef::id).orElse(recordId);
     }
 
     private String messageEmbeddedLiteral(final String messageId, final com.surrealdb.Object message) {

@@ -21,7 +21,7 @@ public final class InMemoryMessageEventAdapter implements Publisher<MessageEvent
                 public void cancel() { bridge.cancel(); }
             });
             sink.asFlux()
-                    .filter(event -> environmentId == null || environmentId.equals(event.environmentId()))
+                    .filter(event -> environmentId != null && environmentId.equals(event.environmentId()))
                     .subscribe(bridge);
         };
     }

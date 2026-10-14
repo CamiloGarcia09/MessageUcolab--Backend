@@ -3,6 +3,7 @@ package co.edu.uco.infraestructure.primaryadapters.controller;
 import co.edu.uco.application.primaryports.dto.message.*;
 import co.edu.uco.application.primaryports.dto.page.PageRequestDTO;
 import co.edu.uco.application.primaryports.facade.message.*;
+import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.secondaryports.event.MessageEvent;
 import co.edu.uco.application.secondaryports.event.MessageEventStreamPort;
@@ -15,6 +16,9 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.http.MediaType;
+import co.edu.uco.crosscutting.exceptions.UnauthorizedException;
+import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import java.util.List;
 import java.time.Duration;
 import java.util.UUID;
@@ -29,6 +33,7 @@ final class MessagesControllerImpl implements MessagesController {
     private final PresenterPort<TranslatedMessageDTO> translationPresenter;
     private final PresenterPort<SimplePage<MessageDTO>> pagePresenter;
     private final MessageEventStreamPort eventStream;
+    private final CatalogPort catalog;
 
     MessagesControllerImpl(FindMessagesByEnvironmentUsecaseFacade findPage,
                             FindMessageByCodeAndEnvironmentUseCaseFacade findOne,
@@ -36,13 +41,22 @@ final class MessagesControllerImpl implements MessagesController {
                             PresenterPort<MessageDTO> presenter,
                             PresenterPort<TranslatedMessageDTO> translationPresenter,
                             PresenterPort<SimplePage<MessageDTO>> pagePresenter,
-                            MessageEventStreamPort eventStream) {
+                            MessageEventStreamPort eventStream,
+                            CatalogPort catalog) {
         this.findPage = findPage; this.findOne = findOne; this.translate = translate;
         this.presenter = presenter; this.translationPresenter = translationPresenter; this.pagePresenter = pagePresenter;
-        this.eventStream = eventStream;
+        this.eventStream = eventStream; this.catalog = catalog;
     }
     public Flux<ServerSentEvent<MessageEvent>> events(ServerWebExchange exchange) {
         String environment = (String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE);
+        if (environment == null || environment.isBlank()) {
+            return Flux.error(UnauthorizedException.buildUserException(
+                    catalog.getMessage(MessageCatalogCodeEnum.FUN_152.getCode())));
+        }
+        exchange.getResponse().getHeaders().setContentType(MediaType.TEXT_EVENT_STREAM);
+        exchange.getResponse().getHeaders().setCacheControl("no-cache");
+        exchange.getResponse().getHeaders().set("Connection", "keep-alive");
+        exchange.getResponse().getHeaders().set("X-Accel-Buffering", "no");
         Flux<ServerSentEvent<MessageEvent>> events = Flux.<ServerSentEvent<MessageEvent>>create(emitter -> eventStream.subscribe(environment).subscribe(new java.util.concurrent.Flow.Subscriber<>() {
             public void onSubscribe(java.util.concurrent.Flow.Subscription subscription) {
                 emitter.onDispose(subscription::cancel);
@@ -54,7 +68,7 @@ final class MessagesControllerImpl implements MessagesController {
             public void onError(Throwable throwable) { emitter.error(throwable); }
             public void onComplete() { emitter.complete(); }
         }));
-        Flux<ServerSentEvent<MessageEvent>> heartbeat = Flux.interval(Duration.ofSeconds(30))
+        Flux<ServerSentEvent<MessageEvent>> heartbeat = Flux.interval(Duration.ofSeconds(15))
                 .map(value -> {
                     MessageEvent event = new MessageEvent(UUID.randomUUID().toString(), "heartbeat",
                             environment, "");
