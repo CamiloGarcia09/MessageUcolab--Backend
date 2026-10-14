@@ -1,142 +1,183 @@
 package co.edu.uco.infraestructure.primaryadapters.interceptors;
 
 import co.edu.uco.application.primaryports.facade.token.FindEnvironmentIdTokenUseCaseFacade;
+import co.edu.uco.application.primaryports.dto.context.ActiveContextDTO;
+import co.edu.uco.application.primaryports.facade.context.ActiveContextUseCaseFacade;
 import co.edu.uco.application.primaryports.facade.token.VerifyAccessUseCaseFacade;
-import co.edu.uco.application.secondaryports.ErrorResponse;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
+import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
+import co.edu.uco.crosscutting.exceptions.ForbiddenException;
 import co.edu.uco.crosscutting.exceptions.NotFoundException;
 import co.edu.uco.crosscutting.exceptions.UnauthorizedException;
-import co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.SerializerRegistry;
-import co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.SerializerType;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
+import org.springframework.web.server.WebFilterChain;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
-import java.io.PrintWriter;
-import java.io.StringWriter;
-
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.REQUEST_GET_HEADER_TOKEN;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@DisplayName("TokenHeaderInterceptor")
 class TokenHeaderInterceptorTest {
 
     @Mock
-    private SerializerRegistry serializerRegistry;
+    private VerifyAccessUseCaseFacade verifyAccess;
     @Mock
-    private VerifyAccessUseCaseFacade verifyAccessUseCaseFacade;
+    private FindEnvironmentIdTokenUseCaseFacade findEnvironment;
     @Mock
-    private FindEnvironmentIdTokenUseCaseFacade findEnvironmentIdTokenUseCaseFacade;
+    private ActiveContextUseCaseFacade activeContext;
     @Mock
-    private CatalogPort catalogPort;
+    private CatalogPort catalog;
     @Mock
-    private SerializerType serializer;
-    @Mock
-    private HttpServletRequest request;
-    @Mock
-    private HttpServletResponse response;
+    private WebFilterChain chain;
 
     private TokenHeaderInterceptor interceptor;
 
     @BeforeEach
     void setUp() {
-        interceptor = new TokenHeaderInterceptor(
-                serializerRegistry, verifyAccessUseCaseFacade, findEnvironmentIdTokenUseCaseFacade, catalogPort);
+        interceptor = new TokenHeaderInterceptor(verifyAccess, findEnvironment, activeContext, catalog);
     }
 
-    private void stubErrorResponse(String acceptHeader) throws Exception {
-        when(serializerRegistry.getSerializerForMediaType(acceptHeader)).thenReturn(serializer);
-        when(serializer.serialize(any(ErrorResponse.class)))
-                .thenReturn("{\"errors\":[{\"code\":\"UNAUTHORIZED\",\"message\":\"unauthorized\"}]}");
-        when(serializer.getSupportedContentType()).thenReturn("application/json");
-        when(request.getRequestURI()).thenReturn("/api/v1/message");
-        when(response.getWriter()).thenReturn(new PrintWriter(new StringWriter()));
+    private MockServerWebExchange exchangeWithToken(String token) {
+        return MockServerWebExchange.from(
+                MockServerHttpRequest.get("/messageucolab/v1/messages").header(REQUEST_GET_HEADER_TOKEN, token).build());
     }
 
-    @Test
-    void preHandle_setsEnvironmentIdAndReturnsTrue_whenTokenIsValid() throws Exception {
-        when(request.getHeader("Token")).thenReturn("valid-token");
-        when(verifyAccessUseCaseFacade.execute("valid-token")).thenReturn(true);
-        when(findEnvironmentIdTokenUseCaseFacade.execute("valid-token")).thenReturn("env-1");
+    @Nested
+    @DisplayName("filter")
+    class Filter {
 
-        boolean result = interceptor.preHandle(request, response, new Object());
+        @Test
+        @DisplayName("Valida el token, publica el ambiente y continúa la cadena")
+        void validToken_setsEnvironmentAndContinues() {
+            MockServerWebExchange exchange = exchangeWithToken("token-abc");
+            when(verifyAccess.execute("token-abc")).thenReturn(true);
+            when(findEnvironment.execute("token-abc")).thenReturn("env-123");
+            when(chain.filter(exchange)).thenReturn(Mono.empty());
 
-        assertThat(result).isTrue();
-        verify(request).setAttribute("environmentId", "env-1");
-    }
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
 
-    @Test
-    void preHandle_returnsFalse_with401_whenTokenIsMissing() throws Exception {
-        when(request.getHeader("Token")).thenReturn(" ");
-        when(request.getHeader("Accept")).thenReturn("application/json");
-        when(catalogPort.getMessage("TCH_032")).thenReturn("Token is required");
-        stubErrorResponse("application/json");
+            assertThat((String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE)).isEqualTo("env-123");
+            verify(chain).filter(exchange);
+        }
 
-        boolean result = interceptor.preHandle(request, response, new Object());
+        @Test
+        @DisplayName("Responde 401 cuando el token no es válido")
+        void invalidToken_returns401() {
+            MockServerWebExchange exchange = exchangeWithToken("token-abc");
+            when(verifyAccess.execute("token-abc")).thenReturn(false);
+            when(catalog.getMessage("TCH_031")).thenReturn("token no autorizado");
 
-        assertThat(result).isFalse();
-        verify(response).setStatus(401);
-    }
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
 
-    @Test
-    void preHandle_returnsFalse_with401_whenAccessDenied() throws Exception {
-        when(request.getHeader("Token")).thenReturn("invalid-token");
-        when(request.getHeader("Accept")).thenReturn("application/json");
-        when(verifyAccessUseCaseFacade.execute("invalid-token")).thenReturn(false);
-        when(catalogPort.getMessage("TCH_031")).thenReturn("Access denied");
-        stubErrorResponse("application/json");
+            assertAll(
+                    () -> assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED),
+                    () -> assertThat((String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE)).isNull());
+            verify(chain, never()).filter(exchange);
+        }
 
-        boolean result = interceptor.preHandle(request, response, new Object());
+        @Test
+        @DisplayName("Responde 401 cuando no llega cabecera Token")
+        void missingToken_returns401() {
+            MockServerWebExchange exchange = MockServerWebExchange.from(
+                    MockServerHttpRequest.get("/messageucolab/v1/messages").build());
 
-        assertThat(result).isFalse();
-        verify(response).setStatus(401);
-    }
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
 
-    @Test
-    void preHandle_returnsFalse_with401_whenTokenVerificationThrows() throws Exception {
-        when(request.getHeader("Token")).thenReturn("expired-token");
-        when(request.getHeader("Accept")).thenReturn("application/json");
-        when(verifyAccessUseCaseFacade.execute("expired-token"))
-                .thenThrow(UnauthorizedException.buildUserException("Token is not active"));
-        stubErrorResponse("application/json");
+            assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+            verify(chain, never()).filter(exchange);
+        }
 
-        boolean result = interceptor.preHandle(request, response, new Object());
+        @Test
+        @DisplayName("Resuelve el ambiente activo y continúa cuando ya hay identidad externa")
+        void existingExternalIdentity_resolvesActiveEnvironment() {
+            MockServerWebExchange exchange = MockServerWebExchange.from(
+                    MockServerHttpRequest.get("/messageucolab/v1/messages").build());
+            ExternalIdentity identity = new ExternalIdentity("issuer", "subject", "user@uco.edu.co",
+                    java.time.Instant.MAX);
+            exchange.getAttributes().put(EXTERNAL_IDENTITY_ATTRIBUTE, identity);
+            when(activeContext.findActiveContext(identity))
+                    .thenReturn(ActiveContextDTO.builder().environmentId("env-external").build());
+            when(chain.filter(exchange)).thenReturn(Mono.empty());
 
-        assertThat(result).isFalse();
-        verify(response).setStatus(401);
-    }
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
 
-    @Test
-    void preHandle_skipsLegacyTokenWhenExternalIdentityWasResolved() throws Exception {
-        when(request.getAttribute("externalIdentity")).thenReturn(new Object());
+            verify(chain).filter(exchange);
+            assertThat((String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE)).isEqualTo("env-external");
+            verifyNoInteractions(verifyAccess, findEnvironment);
+            verify(activeContext).findActiveContext(identity);
+        }
 
-        boolean result = interceptor.preHandle(request, response, new Object());
+        @Test
+        @DisplayName("Responde 401 cuando la identidad externa no tiene ambiente activo")
+        void externalIdentityWithoutActiveEnvironment_returns401() {
+            MockServerWebExchange exchange = MockServerWebExchange.from(
+                    MockServerHttpRequest.get("/messageucolab/v1/messages").build());
+            ExternalIdentity identity = new ExternalIdentity("issuer", "subject", "user@uco.edu.co",
+                    java.time.Instant.MAX);
+            exchange.getAttributes().put(EXTERNAL_IDENTITY_ATTRIBUTE, identity);
+            when(activeContext.findActiveContext(identity)).thenReturn(null);
+            when(catalog.getMessage("FUN_152")).thenReturn("ambiente no resuelto");
 
-        assertThat(result).isTrue();
-        verifyNoInteractions(verifyAccessUseCaseFacade, findEnvironmentIdTokenUseCaseFacade,
-                serializerRegistry, catalogPort);
-    }
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
 
-    @Test
-    void preHandle_returnsFalse_with401_whenTokenDisappearsBeforeResolvingEnvironment() throws Exception {
-        when(request.getHeader("Token")).thenReturn("revoked-token");
-        when(request.getHeader("Accept")).thenReturn("application/json");
-        when(verifyAccessUseCaseFacade.execute("revoked-token")).thenReturn(true);
-        when(findEnvironmentIdTokenUseCaseFacade.execute("revoked-token"))
-                .thenThrow(NotFoundException.buildUserException("Token not found"));
-        when(catalogPort.getMessage("TCH_031")).thenReturn("Invalid token");
-        stubErrorResponse("application/json");
+            assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+            verify(chain, never()).filter(exchange);
+        }
 
-        boolean result = interceptor.preHandle(request, response, new Object());
+        @Test
+        @DisplayName("Responde 401 cuando el ambiente del token no existe")
+        void environmentNotFound_returns401() {
+            MockServerWebExchange exchange = exchangeWithToken("token-abc");
+            when(verifyAccess.execute("token-abc")).thenReturn(true);
+            when(findEnvironment.execute("token-abc")).thenThrow(NotFoundException.buildUserException("ambiente inexistente"));
 
-        assertThat(result).isFalse();
-        verify(response).setStatus(401);
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
+
+            assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+            verify(chain, never()).filter(exchange);
+        }
+
+        @Test
+        @DisplayName("Responde 401 cuando la validación lanza UnauthorizedException")
+        void unauthorizedFromValidation_returns401() {
+            MockServerWebExchange exchange = exchangeWithToken("token-abc");
+            when(verifyAccess.execute("token-abc")).thenThrow(UnauthorizedException.buildUserException("no autorizado"));
+
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
+
+            assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+            verify(chain, never()).filter(exchange);
+        }
+
+        @Test
+        @DisplayName("Responde 403 cuando la resolución de ambiente lanza ForbiddenException")
+        void forbiddenFromResolution_returns403() {
+            MockServerWebExchange exchange = exchangeWithToken("token-abc");
+            when(verifyAccess.execute("token-abc")).thenReturn(true);
+            when(findEnvironment.execute("token-abc")).thenThrow(ForbiddenException.buildUserException("prohibido"));
+
+            StepVerifier.create(interceptor.filter(exchange, chain)).verifyComplete();
+
+            assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+            verify(chain, never()).filter(exchange);
+        }
     }
 }

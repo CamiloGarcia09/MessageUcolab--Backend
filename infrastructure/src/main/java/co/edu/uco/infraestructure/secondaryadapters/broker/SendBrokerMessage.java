@@ -10,7 +10,6 @@ import co.edu.uco.infraestructure.config.PulsarProperties;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
 import co.edu.uco.crosscutting.exceptions.enumeration.ExceptionType;
 import co.edu.uco.crosscutting.helpers.json.UtilMapperJson;
-import jakarta.servlet.http.HttpServletResponse;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.PulsarClient;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -44,7 +43,7 @@ public final class SendBrokerMessage implements SendMessage {
     }
 
     @Override
-    public void execute(MessageCodeDomain messageDomain, HttpServletResponse response) {
+    public void execute(MessageCodeDomain messageDomain, Void ignored) {
         if (isNullObject(messageDomain)) {
             var message = catalogPort.getMessage(MessageCatalogCodeEnum.TCH_038.getCode());
             log.error(message);

@@ -1,45 +1,7 @@
 package co.edu.uco.infraestructure.config;
 
-import co.edu.uco.infraestructure.primaryadapters.interceptors.AcceptHeaderInterceptor;
-import co.edu.uco.infraestructure.primaryadapters.interceptors.TokenHeaderInterceptor;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-import static co.edu.uco.infraestructure.config.InfrastructureConstant.*;
 
 @Configuration
-public class WebConfig implements WebMvcConfigurer {
-
-    private final LoggingConfig loggingConfig;
-    private final AcceptHeaderInterceptor acceptHeaderInterceptor;
-    private final TokenHeaderInterceptor tokenHeaderInterceptor;
-
-    public WebConfig(LoggingConfig loggingConfig, AcceptHeaderInterceptor acceptHeaderInterceptor,
-                     TokenHeaderInterceptor tokenHeaderInterceptor){
-        this.loggingConfig=loggingConfig;
-        this.acceptHeaderInterceptor = acceptHeaderInterceptor;
-        this.tokenHeaderInterceptor = tokenHeaderInterceptor;
-    }
-
-    @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(loggingConfig);
-        registry.addInterceptor(acceptHeaderInterceptor)
-                .addPathPatterns("/messageucolab/v1/**")
-                .excludePathPatterns(
-                        SWAGGER_UI_HTML,
-                        SWAGGER_UI,
-                        SWAGGER_RESOURCES,
-                        SWAGGER_API_DOCS,
-                        SWAGGER_WEBJARS,
-                        SWAGGER_OPENAPI_SPEC
-                );
-        registry.addInterceptor(tokenHeaderInterceptor)
-                .addPathPatterns(
-                        WEB_CONFIG_API_APPLICATION,
-                        WEB_CONFIG_API_MESSAGES
-                )
-                .order(0);
-    }
+public class WebConfig {
 }

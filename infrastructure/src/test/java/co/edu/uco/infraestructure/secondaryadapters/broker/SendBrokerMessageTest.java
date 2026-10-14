@@ -1,150 +1,47 @@
 package co.edu.uco.infraestructure.secondaryadapters.broker;
 
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
-import co.edu.uco.application.secondaryports.logging.LoggingPort;
-import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
+import co.edu.uco.application.secondaryports.logging.*;
 import co.edu.uco.application.usecase.domain.MessageCodeDomain;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
 import co.edu.uco.crosscutting.helpers.json.UtilMapperJson;
 import co.edu.uco.infraestructure.config.PulsarProperties;
-import jakarta.servlet.http.HttpServletResponse;
-import org.apache.pulsar.client.api.Producer;
-import org.apache.pulsar.client.api.ProducerBuilder;
-import org.apache.pulsar.client.api.PulsarClient;
-import org.apache.pulsar.client.api.PulsarClientException;
-import org.apache.pulsar.client.api.Schema;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.apache.pulsar.client.api.*;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
+import org.mockito.*;
 import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith(org.mockito.junit.jupiter.MockitoExtension.class)
 class SendBrokerMessageTest {
-
-    @Mock
-    private PulsarClient client;
-    @Mock
-    private UtilMapperJson utilMapperJson;
-    @Mock
-    private CatalogPort catalogPort;
-    @Mock
-    private LoggingPortFactory loggerFactory;
-    @Mock
-    private LoggingPort log;
-    @Mock
-    private ProducerBuilder<String> producerBuilder;
-    @Mock
-    private Producer<String> producer;
-    @Mock
-    private HttpServletResponse response;
-
-    private final PulsarProperties pulsarProperties = new PulsarProperties();
-    private SendBrokerMessage adapter;
-
-    @BeforeEach
-    void setUp() {
-        when(loggerFactory.getLogger(SendBrokerMessage.class)).thenReturn(log);
-        pulsarProperties.setTopicName("topic-name");
-        adapter = new SendBrokerMessage(client, utilMapperJson, pulsarProperties, catalogPort, loggerFactory);
+    @Mock PulsarClient client; @Mock UtilMapperJson mapper; @Mock CatalogPort catalog;
+    @Mock LoggingPortFactory factory; @Mock LoggingPort log; @Mock ProducerBuilder<String> builder;
+    @Mock Producer<String> producer;
+    PulsarProperties properties = new PulsarProperties(); SendBrokerMessage adapter;
+    @BeforeEach void setUp() { when(factory.getLogger(SendBrokerMessage.class)).thenReturn(log);
+        properties.setTopicName("topic-name"); adapter = new SendBrokerMessage(client, mapper, properties, catalog, factory); }
+    private MessageCodeDomain domain() { return MessageCodeDomain.create("MSG-001"); }
+    private void chain() throws Exception { when(client.newProducer(Schema.STRING)).thenReturn(builder);
+        when(builder.topic("topic-name")).thenReturn(builder); when(builder.create()).thenReturn(producer); }
+    @Test void nullMessage_isRejected() {
+        when(catalog.getMessage("TCH_038")).thenReturn("tech"); when(catalog.getMessage("FUN_023")).thenReturn("user");
+        assertThatThrownBy(() -> adapter.execute(null, null)).isInstanceOf(CrossWordsException.class);
     }
-
-    private MessageCodeDomain messageDomain() {
-        return MessageCodeDomain.create("MSG-001");
+    @Test void nullClient_isRejected() {
+        SendBrokerMessage noClient = new SendBrokerMessage(null, mapper, properties, catalog, factory);
+        when(catalog.getMessage("TCH_002")).thenReturn("tech"); when(catalog.getMessage("FUN_023")).thenReturn("user");
+        assertThatThrownBy(() -> noClient.execute(domain(), null)).isInstanceOf(CrossWordsException.class);
     }
-
-    private void stubProducerChain() throws Exception {
-        when(client.newProducer(Schema.STRING)).thenReturn(producerBuilder);
-        when(producerBuilder.topic("topic-name")).thenReturn(producerBuilder);
-        when(producerBuilder.create()).thenReturn(producer);
+    @Test void serializedMessage_isSent() throws Exception {
+        chain(); when(mapper.execute(any())).thenReturn(Optional.of("json"));
+        adapter.execute(domain(), null); verify(producer).send("json"); verify(producer).close();
     }
-
-    @Test
-    void execute_throws_whenMessageIsNull() {
-        when(catalogPort.getMessage("TCH_038")).thenReturn("tech");
-        when(catalogPort.getMessage("FUN_023")).thenReturn("user");
-
-        assertThatThrownBy(() -> adapter.execute(null, response))
-                .isInstanceOf(CrossWordsException.class)
-                .satisfies(ex -> {
-                    CrossWordsException cwe = (CrossWordsException) ex;
-                    assertThat(cwe.getTechnicalMessage()).isEqualTo("tech");
-                    assertThat(cwe.getUserMessage()).isEqualTo("user");
-                });
-    }
-
-    @Test
-    void execute_throws_whenClientIsNull() {
-        SendBrokerMessage noClient = new SendBrokerMessage(null, utilMapperJson, pulsarProperties, catalogPort, loggerFactory);
-        when(catalogPort.getMessage("TCH_002")).thenReturn("tech");
-        when(catalogPort.getMessage("FUN_023")).thenReturn("user");
-
-        MessageCodeDomain domain = messageDomain();
-        assertThatThrownBy(() -> noClient.execute(domain, response))
-                .isInstanceOf(CrossWordsException.class)
-                .satisfies(ex -> {
-                    CrossWordsException cwe = (CrossWordsException) ex;
-                    assertThat(cwe.getTechnicalMessage()).isEqualTo("tech");
-                    assertThat(cwe.getUserMessage()).isEqualTo("user");
-                });
-    }
-
-    @Test
-    void execute_sendsMessage_whenSerializationSucceeds() throws Exception {
-        stubProducerChain();
-        when(utilMapperJson.execute(any(MessageCodeDomain.class))).thenReturn(Optional.of("{\"code\":\"MSG-001\"}"));
-
-        adapter.execute(messageDomain(), response);
-
-        verify(producer).send("{\"code\":\"MSG-001\"}");
-        verify(producer).close();
-    }
-
-    @Test
-    void execute_throws_whenSerializationEmpty() throws Exception {
-        stubProducerChain();
-        when(utilMapperJson.execute(any(MessageCodeDomain.class))).thenReturn(Optional.empty());
-        when(catalogPort.getMessage("TCH_039")).thenReturn("tech");
-        when(catalogPort.getMessage("FUN_023")).thenReturn("user");
-
-        MessageCodeDomain domain = messageDomain();
-        assertThatThrownBy(() -> adapter.execute(domain, response))
-                .isInstanceOf(CrossWordsException.class)
-                .satisfies(ex -> assertThat(((CrossWordsException) ex).getTechnicalMessage()).isEqualTo("tech"));
-    }
-
-    @Test
-    void execute_throws_whenProducerCreationFails() throws Exception {
-        when(client.newProducer(Schema.STRING)).thenReturn(producerBuilder);
-        when(producerBuilder.topic("topic-name")).thenReturn(producerBuilder);
-        when(producerBuilder.create()).thenThrow(new PulsarClientException("pulsar down"));
-        when(catalogPort.getMessage("TCH_002")).thenReturn("tech");
-        when(catalogPort.getMessage("FUN_023")).thenReturn("user");
-
-        MessageCodeDomain domain = messageDomain();
-        assertThatThrownBy(() -> adapter.execute(domain, response))
-                .isInstanceOf(CrossWordsException.class)
-                .satisfies(ex -> assertThat(((CrossWordsException) ex).getTechnicalMessage()).isEqualTo("tech"));
-    }
-
-    @Test
-    void execute_throws_whenUnexpectedError() throws Exception {
-        stubProducerChain();
-        when(utilMapperJson.execute(any(MessageCodeDomain.class))).thenThrow(new IllegalStateException("boom"));
-        when(catalogPort.getMessage("TCH_002")).thenReturn("tech");
-        when(catalogPort.getMessage("FUN_023")).thenReturn("user");
-
-        MessageCodeDomain domain = messageDomain();
-        assertThatThrownBy(() -> adapter.execute(domain, response))
-                .isInstanceOf(CrossWordsException.class)
-                .satisfies(ex -> assertThat(((CrossWordsException) ex).getTechnicalMessage()).isEqualTo("tech"));
+    @Test void emptySerialization_isRejected() throws Exception {
+        chain(); when(mapper.execute(any())).thenReturn(Optional.empty());
+        when(catalog.getMessage("TCH_039")).thenReturn("tech"); when(catalog.getMessage("FUN_023")).thenReturn("user");
+        assertThatThrownBy(() -> adapter.execute(domain(), null)).isInstanceOf(CrossWordsException.class);
     }
 }

@@ -1,75 +1,35 @@
 package co.edu.uco.infraestructure.config;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
-import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
-import org.springframework.web.servlet.HandlerInterceptor;
-
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
+import org.springframework.core.annotation.Order;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
+import reactor.core.publisher.Mono;
 import java.util.UUID;
 
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.*;
-import static co.edu.uco.crosscutting.helpers.UtilObject.isNullObject;
-import static co.edu.uco.crosscutting.helpers.UtilText.isEmpty;
-import static co.edu.uco.crosscutting.helpers.UtilText.isEmptyOrNull;
 
 @Component
-public final class LoggingConfig implements HandlerInterceptor {
-    private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter
-            .ofPattern(PATTERN_TIMESTAMP_FORMAT)
-            .withZone(ZoneOffset.UTC);
-    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(LoggingConfig.class);
-
-    @Override
-    public boolean preHandle(HttpServletRequest request, @NotNull HttpServletResponse response, @NotNull Object handler) {
-        request.setAttribute(LOGGING_START_TIME, System.currentTimeMillis());
-        var correlationId = request.getHeader(CORRELATION_ID);
-        if (isEmptyOrNull(correlationId)) {
-            correlationId = UUID.randomUUID().toString();
-        }
-        MDC.put(CORRELATION_ID, correlationId);
-        MDC.put(LOGGING_REQUEST_URI, request.getRequestURI());
-        MDC.put(LOGGING_HTTP_METHOD, request.getMethod());
-
-        HttpSession session = request.getSession(true);
-        MDC.put(LOGGING_SESSION_ID, session.getId());
-
-        putMDCIfNotNull(LOGGING_QUERY_STRING, request.getQueryString());
-        putMDCIfNotNull(LOGGING_PARAMETER_CODE_MESSAGE, request.getParameter(LOGGING_PARAMETER_CODE_MESSAGE));
-        putMDCIfNotNull(LOGGING_PARAMETER_APPLICATION, request.getParameter(LOGGING_PARAMETER_APPLICATION));
-
-        response.setHeader(CORRELATION_ID, correlationId);
-        response.setHeader(LOGGING_TIMESTAMP, TIMESTAMP_FORMAT.format(Instant.now()));
-        response.setHeader(LOGGING_THREAD, Thread.currentThread().getName());
-        response.setHeader(LOGGING_APP_NAME, LOGGING_PARAMETER_APPLICATION_NAME);
-        return true;
-    }
-    private void putMDCIfNotNull(String key, String value) {
-        if (!isNullObject(value) && !isEmpty(value)) {
-            MDC.put(key, value);
-        }
-    }
-    @Override
-    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
-        var status = String.valueOf(response.getStatus());
-        MDC.put(LOGGING_HTTP_STATUS, status);
-
-        Object start = request.getAttribute(LOGGING_START_TIME);
-        if (start instanceof Long startTime) {
-            MDC.put(LOGGING_DURATION_MS, String.valueOf(System.currentTimeMillis() - startTime));
-        }
-
-        if (ex != null) {
-            LOG.error("Request completed with status {} and exception", status, ex);
-        } else {
-            LOG.info("Request completed with status {}", status);
-        }
-        MDC.clear();
+@Order(-300)
+public final class LoggingConfig implements WebFilter {
+    private static final Logger LOG = LoggerFactory.getLogger(LoggingConfig.class);
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        String correlation = exchange.getRequest().getHeaders().getFirst(CORRELATION_ID);
+        if (correlation == null || correlation.isBlank()) correlation = UUID.randomUUID().toString();
+        exchange.getResponse().getHeaders().set(CORRELATION_ID, correlation);
+        exchange.getResponse().getHeaders().set(LOGGING_APP_NAME, LOGGING_PARAMETER_APPLICATION_NAME);
+        final String id = correlation;
+        return chain.filter(exchange)
+                .doOnEach(signal -> {
+                    if (signal.isOnComplete() || signal.isOnError()) {
+                        try (MDC.MDCCloseable ignored = MDC.putCloseable(CORRELATION_ID, id)) {
+                            LOG.info("Request completed with status {}", exchange.getResponse().getStatusCode());
+                        }
+                    }
+                });
     }
 }

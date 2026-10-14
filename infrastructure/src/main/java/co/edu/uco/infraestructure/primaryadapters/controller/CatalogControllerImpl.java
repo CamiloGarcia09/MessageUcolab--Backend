@@ -5,71 +5,54 @@ import co.edu.uco.application.primaryports.facade.catalog.FindCatalogUseCaseFaca
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.infraestructure.primaryadapters.CatalogController;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import co.edu.uco.infraestructure.primaryadapters.ReactiveHttpResponse;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
 
 @RestController
 final class CatalogControllerImpl implements CatalogController {
+    private final FindCatalogUseCaseFacade facade;
+    private final PresenterPort<CatalogItemDTO> presenter;
 
-    private final FindCatalogUseCaseFacade findCatalogUseCaseFacade;
-    private final PresenterPort<CatalogItemDTO> restPresenter;
-
-    public CatalogControllerImpl(FindCatalogUseCaseFacade findCatalogUseCaseFacade,
-                                 PresenterPort<CatalogItemDTO> restPresenter) {
-        this.findCatalogUseCaseFacade = findCatalogUseCaseFacade;
-        this.restPresenter = restPresenter;
+    CatalogControllerImpl(FindCatalogUseCaseFacade facade, PresenterPort<CatalogItemDTO> presenter) {
+        this.facade = facade;
+        this.presenter = presenter;
     }
 
-    @Override
-    public void getApplications(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
-        var list = findCatalogUseCaseFacade.findApplications(identity(httpServletRequest));
-        restPresenter.presentRestSuccess(list, httpServletRequest, httpServletResponse);
+    public Mono<Void> getApplications(ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(() -> facade.findApplications(identity(exchange)))
+                .flatMap(value -> ReactiveHttpResponse.present(presenter, value, exchange));
     }
-
-    @Override
-    public void getEnvironmentsByApplication(String applicationId, HttpServletRequest httpServletRequest,
-                                            HttpServletResponse httpServletResponse) {
-        var list = findCatalogUseCaseFacade.findEnvironmentsByApplication(
-                applicationId, identity(httpServletRequest));
-        restPresenter.presentRestSuccess(list, httpServletRequest, httpServletResponse);
+    public Mono<Void> getEnvironmentsByApplication(String id, ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(() -> facade.findEnvironmentsByApplication(id, identity(exchange)))
+                .flatMap(value -> ReactiveHttpResponse.present(presenter, value, exchange));
     }
-
-    @Override
-    public void getFunctionalitiesByApplication(String applicationId, HttpServletRequest httpServletRequest,
-                                               HttpServletResponse httpServletResponse) {
-        var list = findCatalogUseCaseFacade.findFunctionalitiesByApplication(
-                applicationId, identity(httpServletRequest));
-        restPresenter.presentRestSuccess(list, httpServletRequest, httpServletResponse);
+    public Mono<Void> getFunctionalitiesByApplication(String id, ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(() -> facade.findFunctionalitiesByApplication(id, identity(exchange)))
+                .flatMap(value -> ReactiveHttpResponse.present(presenter, value, exchange));
     }
-
-    @Override
-    public void getMessageTypes(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
-        var list = findCatalogUseCaseFacade.findMessageTypes();
-        restPresenter.presentRestSuccess(list, httpServletRequest, httpServletResponse);
+    public Mono<Void> getMessageTypes(ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(facade::findMessageTypes)
+                .flatMap(value -> ReactiveHttpResponse.present(presenter, value, exchange));
     }
-
-    @Override
-    public void getMessageCategories(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
-        var list = findCatalogUseCaseFacade.findMessageCategories();
-        restPresenter.presentRestSuccess(list, httpServletRequest, httpServletResponse);
+    public Mono<Void> getMessageCategories(ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(facade::findMessageCategories)
+                .flatMap(value -> ReactiveHttpResponse.present(presenter, value, exchange));
     }
-
-    @Override
-    public void getMessageStates(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
-        var list = findCatalogUseCaseFacade.findMessageStates();
-        restPresenter.presentRestSuccess(list, httpServletRequest, httpServletResponse);
+    public Mono<Void> getMessageStates(ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(facade::findMessageStates)
+                .flatMap(value -> ReactiveHttpResponse.present(presenter, value, exchange));
     }
-
-    @Override
-    public void getMessageEnvironmentStates(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
-        var list = findCatalogUseCaseFacade.findMessageEnvironmentStates();
-        restPresenter.presentRestSuccess(list, httpServletRequest, httpServletResponse);
+    public Mono<Void> getMessageEnvironmentStates(ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(facade::findMessageEnvironmentStates)
+                .flatMap(value -> ReactiveHttpResponse.present(presenter, value, exchange));
     }
-
-    private ExternalIdentity identity(final HttpServletRequest request) {
-        return (ExternalIdentity) request.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE);
+    private ExternalIdentity identity(ServerWebExchange exchange) {
+        return (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE);
     }
 }

@@ -3,8 +3,8 @@ package co.edu.uco.infraestructure.primaryadapters;
 import co.edu.uco.application.primaryports.dto.message.CreateMessageDTO;
 import co.edu.uco.application.primaryports.dto.message.TranslateMessageDTO;
 import co.edu.uco.application.primaryports.dto.token.CreateTokenDTO;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,7 +37,7 @@ class MessageEndpointsRequestMappingTest {
         void listEndpoint_isGetWithoutCodeParameter() throws NoSuchMethodException {
             Method method = MessagesController.class.getMethod("findByEnvironmentAndMessage",
                     String.class, String.class, String.class, String.class,
-                    HttpServletRequest.class, HttpServletResponse.class);
+                    ServerWebExchange.class);
             GetMapping mapping = method.getAnnotation(GetMapping.class);
 
             assertThat(mapping).isNotNull();
@@ -49,7 +49,7 @@ class MessageEndpointsRequestMappingTest {
         @Test
         void findByCodeEndpoint_isGetBoundToTheCodeQueryParameter() throws NoSuchMethodException {
             Method method = MessagesController.class.getMethod("findByCodeMessageAndEnvironment",
-                    String.class, HttpServletRequest.class, HttpServletResponse.class);
+                    String.class, ServerWebExchange.class);
             GetMapping mapping = method.getAnnotation(GetMapping.class);
             RequestParam codeParameter = parameterAnnotation(method, 0, RequestParam.class);
 
@@ -64,7 +64,7 @@ class MessageEndpointsRequestMappingTest {
         @Test
         void translateEndpoint_isPostWithTranslateMessageBody() throws NoSuchMethodException {
             Method method = MessagesController.class.getMethod("translateByCodeMessageAndEnvironment",
-                    String.class, TranslateMessageDTO.class, HttpServletRequest.class, HttpServletResponse.class);
+                    String.class, TranslateMessageDTO.class, ServerWebExchange.class);
             PostMapping mapping = method.getAnnotation(PostMapping.class);
             RequestBody bodyParameter = parameterAnnotation(method, 1, RequestBody.class);
 
@@ -91,7 +91,7 @@ class MessageEndpointsRequestMappingTest {
         @Test
         void createEndpoint_isPostOnTheCollectionWithCreateMessageBody() throws NoSuchMethodException {
             Method method = CreateMessageController.class.getMethod("createMessage",
-                    CreateMessageDTO.class, HttpServletRequest.class, HttpServletResponse.class);
+                    CreateMessageDTO.class, ServerWebExchange.class);
             PostMapping mapping = method.getAnnotation(PostMapping.class);
             RequestBody bodyParameter = parameterAnnotation(method, 0, RequestBody.class);
 
@@ -118,7 +118,7 @@ class MessageEndpointsRequestMappingTest {
         @Test
         void createTokenEndpoint_keepsApplicationIdPathVariableAndBody() throws NoSuchMethodException {
             Method method = TokenController.class.getMethod("createToken",
-                    CreateTokenDTO.class, String.class, HttpServletRequest.class, HttpServletResponse.class);
+                    CreateTokenDTO.class, String.class, ServerWebExchange.class);
             PostMapping mapping = method.getAnnotation(PostMapping.class);
             RequestBody bodyParameter = parameterAnnotation(method, 0, RequestBody.class);
             PathVariable applicationIdParameter = parameterAnnotation(method, 1, PathVariable.class);

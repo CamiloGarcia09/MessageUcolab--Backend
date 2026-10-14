@@ -2,7 +2,7 @@ package co.edu.uco.infraestructure.secondaryadapters.presenter.rest;
 
 import co.edu.uco.application.secondaryports.ErrorDetail;
 import co.edu.uco.application.secondaryports.ErrorResponse;
-import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -19,8 +19,8 @@ public final class ErrorResponseFactory {
 
     private ErrorResponseFactory() {}
 
-    public static ErrorResponse build(String code, String message, HttpServletRequest request) {
-        var path = request != null ? request.getRequestURI() : "";
+    public static ErrorResponse build(String code, String message, ServerHttpRequest request) {
+        var path = request != null && request.getPath() != null ? request.getPath().value() : "";
         return ErrorResponse.of(List.of(new ErrorDetail(code, message)), TIMESTAMP_FORMAT.format(Instant.now()), path);
     }
 

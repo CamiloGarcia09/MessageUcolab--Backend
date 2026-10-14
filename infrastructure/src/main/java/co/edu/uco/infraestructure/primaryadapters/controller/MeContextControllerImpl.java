@@ -1,55 +1,38 @@
 package co.edu.uco.infraestructure.primaryadapters.controller;
 
-import co.edu.uco.application.primaryports.dto.context.ActiveContextDTO;
-import co.edu.uco.application.primaryports.dto.context.AvailableContextDTO;
-import co.edu.uco.application.primaryports.dto.context.SelectActiveContextDTO;
+import co.edu.uco.application.primaryports.dto.context.*;
 import co.edu.uco.application.primaryports.facade.context.ActiveContextUseCaseFacade;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
-import co.edu.uco.infraestructure.primaryadapters.MeContextController;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import co.edu.uco.infraestructure.primaryadapters.*;
 import org.springframework.web.bind.annotation.RestController;
-
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 import java.util.List;
-
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
 
 @RestController
 final class MeContextControllerImpl implements MeContextController {
-
-    private final ActiveContextUseCaseFacade activeContextUseCaseFacade;
-    private final PresenterPort<AvailableContextDTO> availableContextPresenter;
-    private final PresenterPort<ActiveContextDTO> activeContextPresenter;
-
-    public MeContextControllerImpl(final ActiveContextUseCaseFacade activeContextUseCaseFacade,
-                                   final PresenterPort<AvailableContextDTO> availableContextPresenter,
-                                   final PresenterPort<ActiveContextDTO> activeContextPresenter) {
-        this.activeContextUseCaseFacade = activeContextUseCaseFacade;
-        this.availableContextPresenter = availableContextPresenter;
-        this.activeContextPresenter = activeContextPresenter;
+    private final ActiveContextUseCaseFacade facade;
+    private final PresenterPort<AvailableContextDTO> available;
+    private final PresenterPort<ActiveContextDTO> active;
+    MeContextControllerImpl(ActiveContextUseCaseFacade facade, PresenterPort<AvailableContextDTO> available,
+                            PresenterPort<ActiveContextDTO> active) {
+        this.facade = facade; this.available = available; this.active = active;
     }
-
-    @Override
-    public void getAvailableContexts(final HttpServletRequest request, final HttpServletResponse response) {
-        List<AvailableContextDTO> contexts = activeContextUseCaseFacade.findAvailableContexts(identity(request));
-        availableContextPresenter.presentRestSuccess(contexts, request, response);
+    public Mono<Void> getAvailableContexts(ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(() -> facade.findAvailableContexts(identity(exchange)))
+                .flatMap(value -> ReactiveHttpResponse.present(available, value, exchange));
     }
-
-    @Override
-    public void getActiveContext(final HttpServletRequest request, final HttpServletResponse response) {
-        ActiveContextDTO context = activeContextUseCaseFacade.findActiveContext(identity(request));
-        activeContextPresenter.presentRestSuccess(List.of(context), request, response);
+    public Mono<Void> getActiveContext(ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(() -> facade.findActiveContext(identity(exchange)))
+                .flatMap(value -> ReactiveHttpResponse.present(active, List.of(value), exchange));
     }
-
-    @Override
-    public void selectActiveContext(final SelectActiveContextDTO context, final HttpServletRequest request,
-                                    final HttpServletResponse response) {
-        ActiveContextDTO selected = activeContextUseCaseFacade.selectActiveContext(context, identity(request));
-        activeContextPresenter.presentRestSuccess(List.of(selected), request, response);
+    public Mono<Void> selectActiveContext(SelectActiveContextDTO dto, ServerWebExchange exchange) {
+        return ReactiveHttpResponse.blocking(() -> facade.selectActiveContext(dto, identity(exchange)))
+                .flatMap(value -> ReactiveHttpResponse.present(active, List.of(value), exchange));
     }
-
-    private ExternalIdentity identity(final HttpServletRequest request) {
-        return (ExternalIdentity) request.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE);
+    private ExternalIdentity identity(ServerWebExchange exchange) {
+        return (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE);
     }
 }
