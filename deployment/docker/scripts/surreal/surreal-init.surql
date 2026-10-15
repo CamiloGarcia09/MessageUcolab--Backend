@@ -383,12 +383,16 @@ DELETE permission:context_select;
 DELETE permission:message_read;
 DELETE permission:message_create;
 DELETE permission:message_translate;
+DELETE permission:message_update;
+DELETE permission:message_delete;
 DELETE permission:application_create;
 DELETE permission:functionality_create;
 DELETE permission:`93faca26-c091-4bf6-bfd3-30e71201d34a`;
 DELETE permission:`3856a6e2-10c6-4b9c-94b0-6898ece6a136`;
 DELETE permission:`b778e79b-044a-4bf7-8423-b49c9bc5c3d9`;
 DELETE permission:`50fc21d2-0b1e-4a9e-a1da-fde253de49eb`;
+DELETE permission:`f4a82b31-5c9e-4d7a-b0e3-8a1f6c2d9e45`;
+DELETE permission:`2d7c5e84-1a3f-4b8c-9f0d-6e2a4b7c1d93`;
 DELETE permission:`5db84b21-a06b-4e23-bce2-ca8f99b3c9e2`;
 DELETE permission:`0dc67f6b-104f-41f0-b757-e1b32429bd8e`;
 
@@ -396,6 +400,8 @@ UPSERT permission:`93faca26-c091-4bf6-bfd3-30e71201d34a` CONTENT { code: "CONTEX
 UPSERT permission:`3856a6e2-10c6-4b9c-94b0-6898ece6a136` CONTENT { code: "MESSAGE_READ" };
 UPSERT permission:`b778e79b-044a-4bf7-8423-b49c9bc5c3d9` CONTENT { code: "MESSAGE_CREATE" };
 UPSERT permission:`50fc21d2-0b1e-4a9e-a1da-fde253de49eb` CONTENT { code: "MESSAGE_TRANSLATE" };
+UPSERT permission:`f4a82b31-5c9e-4d7a-b0e3-8a1f6c2d9e45` CONTENT { code: "MESSAGE_UPDATE" };
+UPSERT permission:`2d7c5e84-1a3f-4b8c-9f0d-6e2a4b7c1d93` CONTENT { code: "MESSAGE_DELETE" };
 UPSERT permission:`5db84b21-a06b-4e23-bce2-ca8f99b3c9e2` CONTENT { code: "APPLICATION_CREATE" };
 UPSERT permission:`0dc67f6b-104f-41f0-b757-e1b32429bd8e` CONTENT { code: "FUNCTIONALITY_CREATE" };
 
@@ -1254,6 +1260,8 @@ DELETE role_permission:`8b5e802c-60cb-438e-8dd6-a62a6d57fd47`;
 DELETE role_permission:`7ed9d909-7178-413a-a9d0-7e1960006061`;
 DELETE role_permission:`a2646025-bc41-42f9-970c-1a10567f603f`;
 DELETE role_permission:`a923c070-243f-4f5c-b35b-bdff8076b6b4`;
+DELETE role_permission:`c3b91f72-8e4a-4d6b-a1c5-9f0e7d3b8426`;
+DELETE role_permission:`5e8a2c14-3b7f-4a9d-b6e1-0c4d8f2e7a53`;
 DELETE role_permission:simulated_context_select;
 DELETE role_permission:simulated_message_read;
 DELETE role_permission:simulated_message_create;
@@ -1331,7 +1339,7 @@ UPSERT functionality:`5a8e2c74-1d39-4f6b-b7c2-0e9a3d5f8164` CONTENT {
 UPSERT external_identity:`1d6c8f43-9a25-4b7e-b031-8f2d5c7a964e` CONTENT {
     issuer: "https://issuer.example",
     subject: "subject-1",
-    email: "user@example.com",
+    email: "cirojeronimo17@gmail.com",
     created_at: $init_now,
     updated_at: $init_now
 };
@@ -1370,6 +1378,14 @@ UPSERT role_permission:`a2646025-bc41-42f9-970c-1a10567f603f` CONTENT {
 UPSERT role_permission:`a923c070-243f-4f5c-b35b-bdff8076b6b4` CONTENT {
     role_id: role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`,
     permission_id: permission:`0dc67f6b-104f-41f0-b757-e1b32429bd8e`
+};
+UPSERT role_permission:`c3b91f72-8e4a-4d6b-a1c5-9f0e7d3b8426` CONTENT {
+    role_id: role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`,
+    permission_id: permission:`f4a82b31-5c9e-4d7a-b0e3-8a1f6c2d9e45`
+};
+UPSERT role_permission:`5e8a2c14-3b7f-4a9d-b6e1-0c4d8f2e7a53` CONTENT {
+    role_id: role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`,
+    permission_id: permission:`2d7c5e84-1a3f-4b8c-9f0d-6e2a4b7c1d93`
 };
 
 UPSERT role_assignment:`3c7f1a82-5e94-4b6d-8a23-9d0e7f4c1b65` CONTENT {

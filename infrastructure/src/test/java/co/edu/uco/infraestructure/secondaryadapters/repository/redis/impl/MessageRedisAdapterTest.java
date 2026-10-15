@@ -155,6 +155,7 @@ class MessageRedisAdapterTest {
     @Test
     void findMessagesByEnvironment_returnsMappedPage_whenFound() {
         MessageData data = sampleData();
+        when(repository.countByEnvironmentId("env-1")).thenReturn(1L);
         when(repository.findByEnvironmentId("env-1", PageRequest.of(0, 10)))
                 .thenReturn(new PageImpl<>(List.of(messageRedis)));
         when(mapper.mapperData(messageRedis)).thenReturn(data);

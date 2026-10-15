@@ -2,6 +2,7 @@ package co.edu.uco.application.common.catalog.strategy.database;
 
 import co.edu.uco.application.secondaryports.entity.MessageData;
 import co.edu.uco.application.secondaryports.repository.DataBaseMessageRepository;
+import co.edu.uco.application.secondaryports.repository.MessageFilter;
 import co.edu.uco.application.secondaryports.repository.SimplePage;
 import co.edu.uco.application.secondaryports.repository.SimplePageRequest;
 import org.junit.jupiter.api.Test;
@@ -73,7 +74,7 @@ class DatabaseMessageCatalogTest {
         request.setSize(30);
         MessageData m = new MessageData();
         SimplePage<MessageData> page = SimplePage.of(List.of(m), 3, 30, 1, 1);
-        when(repository.findMessagesByEnvironment(eq("env"), any(org.springframework.data.domain.Pageable.class)))
+        when(repository.findMessagesByEnvironment(eq("env"), any(org.springframework.data.domain.Pageable.class), any(MessageFilter.class)))
                 .thenReturn(page);
 
         SimplePage<MessageData> result = catalog.getMessageWithEnvironment("env", request);
@@ -81,7 +82,7 @@ class DatabaseMessageCatalogTest {
         assertThat(result).isSameAs(page);
         org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> captor =
                 org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
-        verify(repository).findMessagesByEnvironment(eq("env"), captor.capture());
+        verify(repository).findMessagesByEnvironment(eq("env"), captor.capture(), any(MessageFilter.class));
         assertThat(captor.getValue().getPageNumber()).isEqualTo(2);
         assertThat(captor.getValue().getPageSize()).isEqualTo(30);
     }

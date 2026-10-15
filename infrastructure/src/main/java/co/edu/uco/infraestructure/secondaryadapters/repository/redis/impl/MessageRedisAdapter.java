@@ -15,6 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -92,8 +93,13 @@ public final class MessageRedisAdapter implements CacheMessageRepository {
             return SimplePage.of(Collections.emptyList(), 1, 10, 0L, 0);
         }
         try {
-            return SimplePage.of(repository.findByEnvironmentId(environment, pageable)
-                    .map(mapper::mapperData));
+            long total = repository.countByEnvironmentId(environment);
+            int size = pageable.getPageSize();
+            int totalPages = size > 0 ? Math.max(1, (int) Math.ceil((double) total / size)) : 1;
+            List<MessageData> content = repository.findByEnvironmentId(environment, pageable)
+                    .map(mapper::mapperData)
+                    .getContent();
+            return SimplePage.of(content, pageable.getPageNumber() + 1, size, total, totalPages);
         } catch (DataAccessException ex) {
             log.error(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_014.getCode()), ex);
             return SimplePage.of(Collections.emptyList(), pageable.getPageNumber() + 1, pageable.getPageSize(), 0L, 0);
@@ -117,6 +123,20 @@ public final class MessageRedisAdapter implements CacheMessageRepository {
         } catch (Exception ex) {
             log.error(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_015.getCode()), ex);
             return Optional.empty();
+        }
+    }
+
+    @Override
+    public void evictByCode(String code) {
+        if (isNullObject(code)) {
+            return;
+        }
+        try {
+            repository.deleteAll(repository.findAllByCode(code));
+        } catch (DataAccessException ex) {
+            log.error(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_014.getCode()), ex);
+        } catch (Exception ex) {
+            log.error(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_015.getCode()), ex);
         }
     }
 }

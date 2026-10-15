@@ -32,6 +32,15 @@ public final class MessageCatalogStrategy {
     }
 
     public SimplePage<MessageData> getMessagesWithEnvironment(String environment, SimplePageRequest request) {
+        if (request.getFilter() != null && request.getFilter().hasFilters()) {
+            log.info(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_006.getCode()));
+            var dbMessages = databaseCatalog.getMessageWithEnvironment(environment, request);
+            if (dbMessages.getData().isEmpty()) {
+                return SimplePage.of(List.of(), request.getPage(), request.getSize(), 0, 1);
+            }
+            return dbMessages;
+        }
+
         var cachedMessages = getCachedMessagesWithEnvironment(environment, request);
         if (cachedMessages.getData().isEmpty()) {
             log.info(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_006.getCode()));
@@ -46,13 +55,14 @@ public final class MessageCatalogStrategy {
 
         var dbMessages = databaseCatalog.getMessageWithEnvironment(environment, request);
         if (!dbMessages.getData().isEmpty()) {
-            if (cachedMessages.getData().size() != dbMessages.getData().size()) {
+            if (cachedMessages.getTotalItems() != dbMessages.getTotalItems()) {
                 log.info(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_008.getCode()));
                 fillCacheWithEnvironmentMessages(dbMessages, environment);
                 return dbMessages;
             }
             log.info(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_009.getCode()));
-            return cachedMessages;
+            return SimplePage.of(cachedMessages.getData(), cachedMessages.getPage(), cachedMessages.getSize(),
+                    dbMessages.getTotalItems(), dbMessages.getTotalPages());
         }
         throw NotFoundException.buildUserException(catalogPort.getMessage(MessageCatalogCodeEnum.TCH_009.getCode()).formatted(environment));
     }
@@ -65,7 +75,6 @@ public final class MessageCatalogStrategy {
         if (response.isEmpty()) {
             log.info(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_006.getCode()));
             response = databaseCatalog.getMessageByCodeAndEnvironment(code, environmentId);
-            response.ifPresent(message -> cacheCatalog.addMessageWithEnvironment(message, environmentId));
         }
         return response;
     }
@@ -81,6 +90,10 @@ public final class MessageCatalogStrategy {
 
     private void fillCacheWithEnvironmentMessages(SimplePage<MessageData> dbMessages, String environment) {
         dbMessages.getData().forEach(message -> cacheCatalog.addMessageWithEnvironment(message, environment));
+    }
+
+    public void evictMessage(String code) {
+        cacheCatalog.evictMessage(code);
     }
 
     public String getSystemMessageContent(String code) {

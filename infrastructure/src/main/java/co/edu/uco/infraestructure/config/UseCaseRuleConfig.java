@@ -42,6 +42,7 @@ import co.edu.uco.application.usecase.validator.authorization.rule.ExternalIdent
 import co.edu.uco.application.usecase.validator.application.CreateApplicationCompositeValidator;
 import co.edu.uco.application.usecase.validator.context.SelectActiveContextCompositeValidator;
 import co.edu.uco.application.usecase.validator.message.CreateMessageCompositeValidator;
+import co.edu.uco.application.usecase.validator.message.UpdateMessageCompositeValidator;
 import co.edu.uco.application.usecase.validator.organization.CreateOrganizationCompositeValidator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -153,6 +154,15 @@ public class UseCaseRuleConfig {
             MessageCodeQueryPort messageCodeQueryPort) {
         return new CreateMessageCompositeValidator(
                 catalogPort, recordExistsCatalogPort, functionalityCatalogRepository, messageCodeQueryPort);
+    }
+
+    @Bean
+    UpdateMessageCompositeValidator updateMessageCompositeValidator(
+            CatalogPort catalogPort,
+            RecordExistsCatalogPort recordExistsCatalogPort,
+            FunctionalityCatalogRepository functionalityCatalogRepository) {
+        return new UpdateMessageCompositeValidator(
+                catalogPort, recordExistsCatalogPort, functionalityCatalogRepository);
     }
 
     @Bean

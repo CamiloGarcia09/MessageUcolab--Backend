@@ -18,6 +18,8 @@ class PermissionCodeTest {
                 PermissionCode.CONTEXT_SELECT,
                 PermissionCode.MESSAGE_READ,
                 PermissionCode.MESSAGE_CREATE,
+                PermissionCode.MESSAGE_UPDATE,
+                PermissionCode.MESSAGE_DELETE,
                 PermissionCode.MESSAGE_TRANSLATE,
                 PermissionCode.APPLICATION_CREATE,
                 PermissionCode.FUNCTIONALITY_CREATE
