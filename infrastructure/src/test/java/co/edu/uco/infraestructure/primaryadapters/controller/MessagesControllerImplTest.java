@@ -108,7 +108,10 @@ class MessagesControllerImplTest {
             SimplePage<MessageDTO> page = SimplePage.of(List.of(), 1, 10, 0, 0);
             when(findPage.execute(any(MessageAccessContext.class), any(PageRequestDTO.class))).thenReturn(page);
 
-            StepVerifier.create(controller.findByEnvironmentAndMessage("1", "10", "asc", "code", exchange()))
+            StepVerifier.create(controller.findByEnvironmentAndMessage(
+                            "1", "10", "asc", "code",
+                            null, null, null, null, null, null,
+                            exchange()))
                     .verifyComplete();
 
             ArgumentCaptor<PageRequestDTO> requestCaptor = ArgumentCaptor.forClass(PageRequestDTO.class);

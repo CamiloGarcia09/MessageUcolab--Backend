@@ -838,7 +838,34 @@ public enum MessageCatalogCodeEnum {
     FUN_204("FUN_204"),
 
     /** Campo de funcionalidad traducida. */
-    FUN_205("FUN_205");
+    FUN_205("FUN_205"),
+
+    /** El id del mensaje es requerido. */
+    FUN_206("FUN_206"),
+
+    /** El id del mensaje no tiene un formato UUID válido. */
+    FUN_207("FUN_207"),
+
+    /** El mensaje con el id proporcionado no fue encontrado. */
+    FUN_208("FUN_208"),
+
+    /** El mensaje fue actualizado exitosamente. */
+    FUN_209("FUN_209"),
+
+    /** El mensaje fue eliminado exitosamente. */
+    FUN_210("FUN_210"),
+
+    /** Error al actualizar el mensaje en SurrealDB (log técnico). */
+    TCH_072("TCH_072"),
+
+    /** Error técnico al actualizar el mensaje en la base de datos SurrealDB. */
+    TCH_073("TCH_073"),
+
+    /** Error al eliminar el mensaje en SurrealDB (log técnico). */
+    TCH_074("TCH_074"),
+
+    /** Error técnico al eliminar el mensaje en la base de datos SurrealDB. */
+    TCH_075("TCH_075");
 
     // =========================================================================
 

@@ -221,13 +221,13 @@ class SurrealInitScriptContractTest {
         }
 
         @Test
-        @DisplayName("La semilla recrea los veintiún registros deterministas sin repetir ninguno")
+        @DisplayName("La semilla recrea los veintitrés registros deterministas sin repetir ninguno")
         void seedRecords_keepTwentyOneDeterministicTargets() {
             List<String> targets = seedUpsertTargets(script);
 
             assertAll(
                     () -> assertThat(targets).doesNotHaveDuplicates(),
-                    () -> assertThat(targets).hasSize(21),
+                    () -> assertThat(targets).hasSize(23),
                     () -> assertThat(targets).contains("organization:`8f2d3a10-6b47-4c91-a5e8-2d7f9b3c1a40`",
                             "environment:`7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82`",
                             "environment:`ebe114e4-01d4-427b-9773-b63325ddd55c`",

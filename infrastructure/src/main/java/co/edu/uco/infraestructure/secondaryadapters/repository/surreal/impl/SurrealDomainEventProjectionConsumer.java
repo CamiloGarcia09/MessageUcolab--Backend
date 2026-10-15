@@ -1,6 +1,7 @@
 package co.edu.uco.infraestructure.secondaryadapters.repository.surreal.impl;
 
 import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
+import co.edu.uco.application.common.catalog.strategy.MessageCatalogStrategy;
 import co.edu.uco.application.secondaryports.event.MessageEvent;
 import co.edu.uco.application.secondaryports.event.Publisher;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
@@ -47,16 +48,19 @@ public final class SurrealDomainEventProjectionConsumer {
     private final Surreal surreal;
     private final int batchSize;
     private final Publisher<MessageEvent> publisher;
+    private final MessageCatalogStrategy messageCatalogStrategy;
 
     public SurrealDomainEventProjectionConsumer(
             final Surreal surreal,
             @org.springframework.beans.factory.annotation.Value("${surreal.projection.batch-size:100}") final int batchSize,
             final LoggingPortFactory loggerFactory,
-            final Publisher<MessageEvent> publisher) {
+            final Publisher<MessageEvent> publisher,
+            final MessageCatalogStrategy messageCatalogStrategy) {
         this.log = loggerFactory.getLogger(SurrealDomainEventProjectionConsumer.class);
         this.surreal = surreal;
         this.batchSize = Math.max(1, batchSize);
         this.publisher = publisher;
+        this.messageCatalogStrategy = messageCatalogStrategy;
     }
 
     @Scheduled(
@@ -216,12 +220,70 @@ public final class SurrealDomainEventProjectionConsumer {
                 + " }";
 
         upsertDocument(COLLECTION_MESSAGE_DOCUMENT, aggregate.id(), content);
+        propagateMessageUpdateToEnvironmentReadmodel(event.aggregateId(), record);
+    }
+
+    private void propagateMessageUpdateToEnvironmentReadmodel(final String messageRecordId,
+                                                              final com.surrealdb.Object record) {
+        final String typeId = recordString(record.get("type_id"));
+        final String categoryId = recordString(record.get("category_id"));
+        final String statusId = recordString(record.get("status_id"));
+        final String functionalityId = recordString(record.get("functionality_id"));
+
+        final String sql = "UPDATE " + COLLECTION_MESSAGE_ENVIRONMENT_READMODEL
+                + " SET message.title = " + literal(record.get("title"))
+                + ", message.content = " + literal(record.get("content"))
+                + ", message.type = " + catalogLiteral(typeId, findByRecordId(typeId), "name")
+                + ", message.category = " + catalogLiteral(categoryId, findByRecordId(categoryId), "name")
+                + ", message.status = " + catalogLiteral(statusId, findByRecordId(statusId), "name")
+                + ", message.functionality = " + catalogLiteral(functionalityId, findByRecordId(functionalityId), "name")
+                + " WHERE message_id = " + quote(messageRecordId) + ";";
+        execute(sql);
+        final String messageCode = stringOf(record.get("code"));
+        messageCatalogStrategy.evictMessage(messageCode);
+        publishMessageUpdatedEventsForEnvironments(messageRecordId, messageCode);
+    }
+
+    private void publishMessageUpdatedEventsForEnvironments(final String messageRecordId, final String messageCode) {
+        final String querySql = "SELECT environment_id FROM " + COLLECTION_MESSAGE_ENVIRONMENT_READMODEL
+                + " WHERE message_id = " + quote(messageRecordId) + ";";
+        queryObjects(querySql).forEach(row -> {
+            final String environmentId = recordString(row.get("environment_id"));
+            if (!environmentId.isBlank()) {
+                publisher.publish(new MessageEvent(
+                        UUID.randomUUID().toString(),
+                        "MessageUpdated",
+                        cleanRecordId(environmentId),
+                        messageCode
+                ));
+            }
+        });
     }
 
     private void projectMessageEnvironment(final DomainEvent event) {
         final RecordRef aggregate = RecordRef.from(event.aggregateId()).orElseThrow();
         if (event.isDelete()) {
+            final Optional<com.surrealdb.Object> existing = findOne(
+                    "SELECT * FROM " + recordIdLiteral(COLLECTION_MESSAGE_ENVIRONMENT_READMODEL, aggregate.id()) + ";");
             deleteDocument(COLLECTION_MESSAGE_ENVIRONMENT_READMODEL, aggregate.id());
+            existing.ifPresent(doc -> {
+                final String environmentId = recordString(doc.get("environment_id"));
+                final Value messageValue = doc.get("message");
+                final String messageCode = (!isNullObject(messageValue) && messageValue.isObject())
+                        ? stringOf(messageValue.getObject().get("code"))
+                        : "";
+                if (!messageCode.isBlank()) {
+                    messageCatalogStrategy.evictMessage(messageCode);
+                }
+                if (!environmentId.isBlank()) {
+                    publisher.publish(new MessageEvent(
+                            UUID.randomUUID().toString(),
+                            "MessageDeleted",
+                            cleanRecordId(environmentId),
+                            messageCode
+                    ));
+                }
+            });
             return;
         }
 

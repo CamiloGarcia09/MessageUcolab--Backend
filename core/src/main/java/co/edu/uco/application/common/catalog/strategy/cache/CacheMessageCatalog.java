@@ -47,4 +47,9 @@ public final class CacheMessageCatalog extends CacheCatalog {
     public Optional<MessageData> getMessageByCodeAndEnvironment(String code, String environmentId) {
         return repository.findMessageByCodeAndEnvironment(code, environmentId);
     }
+
+    @Override
+    public void evictMessage(String code) {
+        repository.evictByCode(code);
+    }
 }

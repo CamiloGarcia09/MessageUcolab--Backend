@@ -1,0 +1,337 @@
+package co.edu.uco.application.usecase;
+
+import co.edu.uco.application.common.catalog.strategy.MessageCatalogStrategy;
+import co.edu.uco.application.primaryports.dto.message.UpdateMessageDTO;
+import co.edu.uco.application.secondaryports.catalog.CatalogPort;
+import co.edu.uco.application.secondaryports.entity.ApplicationData;
+import co.edu.uco.application.secondaryports.entity.EnvironmentData;
+import co.edu.uco.application.secondaryports.entity.EnvironmentTypeData;
+import co.edu.uco.application.secondaryports.entity.MessageData;
+import co.edu.uco.application.secondaryports.logging.LoggingPort;
+import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
+import co.edu.uco.application.secondaryports.repository.DataBaseMessageRepository;
+import co.edu.uco.application.secondaryports.repository.EnvironmentRepository;
+import co.edu.uco.application.secondaryports.repository.UpdateMessageRepository;
+import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
+import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
+import co.edu.uco.application.usecase.domain.security.PermissionCode;
+import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
+import co.edu.uco.application.usecase.validator.message.UpdateMessageCompositeValidator;
+import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
+import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
+import co.edu.uco.crosscutting.exceptions.CrossWordsException;
+import co.edu.uco.crosscutting.exceptions.ForbiddenException;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.SoftAssertions.assertSoftly;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class UpdateMessageUseCaseTest {
+
+    private static final String ENVIRONMENT_UUID = "123e4567-e89b-12d3-a456-426614175000";
+    private static final String APP_UUID = "123e4567-e89b-12d3-a456-426614175020";
+    private static final String FUNC_UUID = "123e4567-e89b-12d3-a456-426614175001";
+    private static final String TYPE_UUID = "123e4567-e89b-12d3-a456-426614175010";
+    private static final String CATEGORY_UUID = "123e4567-e89b-12d3-a456-426614175011";
+    private static final String STATUS_UUID = "123e4567-e89b-12d3-a456-426614175012";
+    private static final String MESSAGE_UUID = "123e4567-e89b-12d3-a456-426614175030";
+    private static final String MESSAGE_CODE = "MSG_WELCOME";
+    private static final ExternalIdentity IDENTITY = new ExternalIdentity(
+            "issuer", "subject", "user@example.com", Instant.MAX);
+
+    @Mock
+    private UpdateMessageRepository updateMessageRepository;
+    @Mock
+    private DataBaseMessageRepository messageRepository;
+    @Mock
+    private UpdateMessageCompositeValidator validator;
+    @Mock
+    private MessageEnvironmentResolver environmentResolver;
+    @Mock
+    private EnvironmentRepository environmentRepository;
+    @Mock
+    private MessageCatalogStrategy messageCatalogStrategy;
+    @Mock
+    private CatalogPort catalogPort;
+    @Mock
+    private LoggingPortFactory loggerFactory;
+    @Mock
+    private LoggingPort log;
+
+    private UpdateMessageUseCase useCase;
+
+    @BeforeEach
+    void setUp() {
+        when(loggerFactory.getLogger(UpdateMessageUseCase.class)).thenReturn(log);
+        useCase = new UpdateMessageUseCase(
+                updateMessageRepository,
+                messageRepository,
+                validator,
+                environmentResolver,
+                environmentRepository,
+                messageCatalogStrategy,
+                catalogPort,
+                loggerFactory);
+    }
+
+    private UpdateMessageDTO validDto() {
+        return UpdateMessageDTO.builder()
+                .title("Updated title")
+                .content("Updated content for the message")
+                .typeId(TYPE_UUID)
+                .categoryId(CATEGORY_UUID)
+                .statusId(STATUS_UUID)
+                .functionalityId(FUNC_UUID)
+                .build();
+    }
+
+    private MessageAccessContext legacyContext() {
+        return new MessageAccessContext("env-1", null);
+    }
+
+    private MessageAccessContext authenticatedContext() {
+        return new MessageAccessContext(null, IDENTITY);
+    }
+
+    private MessageData existingMessage() {
+        MessageData data = new MessageData(
+                UUID.fromString(MESSAGE_UUID),
+                MESSAGE_CODE,
+                "Original title",
+                "Original content",
+                null,
+                null,
+                "",
+                null
+        );
+        return data;
+    }
+
+    private void stubEnvironmentResolvingTo(String environmentId, String applicationId) {
+        when(environmentResolver.resolve(any(), eq(PermissionCode.MESSAGE_UPDATE)))
+                .thenReturn(environmentId);
+        when(environmentRepository.findById(environmentId))
+                .thenReturn(Optional.of(environment(applicationId)));
+    }
+
+    private void stubExistingMessage() {
+        when(messageRepository.findByCode(MESSAGE_CODE)).thenReturn(Optional.of(existingMessage()));
+    }
+
+    private static EnvironmentData environment(String applicationId) {
+        return new EnvironmentData(
+                UUID.fromString(ENVIRONMENT_UUID),
+                ApplicationData.build(UUID.fromString(applicationId), "Application"),
+                new EnvironmentTypeData(UUID.randomUUID(), "Environment"));
+    }
+
+    @Test
+    void updateMessage_executesFullFlowInOrder() {
+        UpdateMessageDTO dto = validDto();
+        MessageAccessContext context = legacyContext();
+        stubEnvironmentResolvingTo("env-1", APP_UUID);
+        stubExistingMessage();
+
+        useCase.updateMessage(MESSAGE_CODE, dto, context);
+
+        InOrder order = inOrder(environmentResolver, environmentRepository, messageRepository,
+                validator, updateMessageRepository);
+        order.verify(environmentResolver).resolve(context, PermissionCode.MESSAGE_UPDATE);
+        order.verify(environmentRepository).findById("env-1");
+        order.verify(messageRepository).findByCode(MESSAGE_CODE);
+        order.verify(validator).validate(dto, APP_UUID);
+        order.verify(updateMessageRepository).updateMessage(any(MessageData.class));
+        verify(log).info("Message updated successfully with id: {}", MESSAGE_CODE);
+    }
+
+    @Test
+    void updateMessage_usesExistingIdAndCodeInBuiltData() {
+        UpdateMessageDTO dto = validDto();
+        MessageAccessContext context = legacyContext();
+        stubEnvironmentResolvingTo("env-1", APP_UUID);
+        stubExistingMessage();
+        ArgumentCaptor<MessageData> captor = ArgumentCaptor.forClass(MessageData.class);
+
+        useCase.updateMessage(MESSAGE_CODE, dto, context);
+
+        verify(updateMessageRepository).updateMessage(captor.capture());
+        MessageData saved = captor.getValue();
+        assertSoftly(softly -> {
+            softly.assertThat(saved.getId()).isEqualTo(UUID.fromString(MESSAGE_UUID));
+            softly.assertThat(saved.getCode()).isEqualTo(MESSAGE_CODE);
+            softly.assertThat(saved.getTitle()).isEqualTo("Updated title");
+            softly.assertThat(saved.getContent()).isEqualTo("Updated content for the message");
+            softly.assertThat(saved.getType().getId()).isEqualTo(UUID.fromString(TYPE_UUID));
+            softly.assertThat(saved.getCategory().getId()).isEqualTo(UUID.fromString(CATEGORY_UUID));
+            softly.assertThat(saved.getStatus().getId()).isEqualTo(UUID.fromString(STATUS_UUID));
+            softly.assertThat(saved.getFunctionality().getId()).isEqualTo(UUID.fromString(FUNC_UUID));
+            softly.assertThat(saved.getFunctionality().getApplication().getId())
+                    .isEqualTo(UUID.fromString(APP_UUID));
+        });
+    }
+
+    @Test
+    void updateMessage_worksWithAuthenticatedContext() {
+        UpdateMessageDTO dto = validDto();
+        MessageAccessContext context = authenticatedContext();
+        stubEnvironmentResolvingTo("env-auth", APP_UUID);
+        when(messageRepository.findByCode(MESSAGE_CODE)).thenReturn(Optional.of(existingMessage()));
+
+        useCase.updateMessage(MESSAGE_CODE, dto, context);
+
+        verify(environmentRepository).findById("env-auth");
+        verify(validator).validate(dto, APP_UUID);
+        verify(updateMessageRepository).updateMessage(any(MessageData.class));
+    }
+
+    @Test
+    void updateMessage_trimsMessageIdBeforeProcessing() {
+        UpdateMessageDTO dto = validDto();
+        MessageAccessContext context = legacyContext();
+        stubEnvironmentResolvingTo("env-1", APP_UUID);
+        when(messageRepository.findByCode(MESSAGE_CODE)).thenReturn(Optional.of(existingMessage()));
+
+        useCase.updateMessage("  " + MESSAGE_CODE + "  ", dto, context);
+
+        verify(messageRepository).findByCode(MESSAGE_CODE);
+        verify(log).info("Message updated successfully with id: {}", MESSAGE_CODE);
+    }
+
+    @ParameterizedTest(name = "messageId blank: \"{0}\"")
+    @ValueSource(strings = {"", " ", "  "})
+    void updateMessage_throwsBusinessRule_whenMessageIdIsBlank(String blankId) {
+        UpdateMessageDTO dto = validDto();
+        MessageAccessContext context = legacyContext();
+        when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_206.getCode()))
+                .thenReturn("Id de mensaje requerido");
+
+        assertThatThrownBy(() -> useCase.updateMessage(blankId, dto, context))
+                .isInstanceOf(BusinessRuleException.class)
+                .satisfies(ex -> assertThat(((BusinessRuleException) ex).getUserMessage())
+                        .isEqualTo("Id de mensaje requerido"));
+
+        verifyNoInteractions(environmentResolver, environmentRepository, messageRepository,
+                validator, updateMessageRepository);
+    }
+
+    @Test
+    void updateMessage_throwsForbidden_whenResolvedEnvironmentNotFound() {
+        UpdateMessageDTO dto = validDto();
+        MessageAccessContext context = legacyContext();
+        when(environmentResolver.resolve(context, PermissionCode.MESSAGE_UPDATE)).thenReturn("env-missing");
+        when(environmentRepository.findById("env-missing")).thenReturn(Optional.empty());
+        when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_035.getCode()))
+                .thenReturn("Ambiente no encontrado");
+
+        assertThatThrownBy(() -> useCase.updateMessage(MESSAGE_CODE, dto, context))
+                .isInstanceOf(ForbiddenException.class)
+                .satisfies(ex -> assertThat(((ForbiddenException) ex).getUserMessage())
+                        .isEqualTo("Ambiente no encontrado"));
+
+        verifyNoInteractions(messageRepository, validator, updateMessageRepository);
+    }
+
+    @Test
+    void updateMessage_throwsBusinessRule_whenMessageNotFound() {
+        UpdateMessageDTO dto = validDto();
+        MessageAccessContext context = legacyContext();
+        stubEnvironmentResolvingTo("env-1", APP_UUID);
+        when(messageRepository.findByCode(MESSAGE_CODE)).thenReturn(Optional.empty());
+        when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_208.getCode()))
+                .thenReturn("Mensaje no encontrado");
+
+        assertThatThrownBy(() -> useCase.updateMessage(MESSAGE_CODE, dto, context))
+                .isInstanceOf(BusinessRuleException.class)
+                .satisfies(ex -> assertThat(((BusinessRuleException) ex).getUserMessage())
+                        .isEqualTo("Mensaje no encontrado"));
+
+        verifyNoInteractions(validator, updateMessageRepository);
+    }
+
+    @Test
+    void updateMessage_propagatesValidationException() {
+        UpdateMessageDTO dto = validDto();
+        MessageAccessContext context = legacyContext();
+        stubEnvironmentResolvingTo("env-1", APP_UUID);
+        stubExistingMessage();
+        doThrow(BusinessRuleException.buildUserException("Validación fallida"))
+                .when(validator).validate(dto, APP_UUID);
+
+        assertThatThrownBy(() -> useCase.updateMessage(MESSAGE_CODE, dto, context))
+                .isInstanceOf(BusinessRuleException.class)
+                .satisfies(ex -> assertThat(((BusinessRuleException) ex).getUserMessage())
+                        .isEqualTo("Validación fallida"));
+
+        verifyNoInteractions(updateMessageRepository);
+    }
+
+    @Test
+    void updateMessage_propagatesForbiddenFromEnvironmentResolver() {
+        UpdateMessageDTO dto = validDto();
+        MessageAccessContext context = authenticatedContext();
+        ForbiddenException failure = ForbiddenException.buildUserException("Permission denied");
+        doThrow(failure).when(environmentResolver).resolve(context, PermissionCode.MESSAGE_UPDATE);
+
+        assertThatThrownBy(() -> useCase.updateMessage(MESSAGE_CODE, dto, context)).isSameAs(failure);
+
+        verifyNoInteractions(environmentRepository, messageRepository, validator, updateMessageRepository);
+    }
+
+    @Test
+    void updateMessage_throwsCrossWordsExceptionWithFun207_whenRepositoryFails() {
+        UpdateMessageDTO dto = validDto();
+        MessageAccessContext context = legacyContext();
+        stubEnvironmentResolvingTo("env-1", APP_UUID);
+        stubExistingMessage();
+        when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_207.getCode()))
+                .thenReturn("Error al actualizar el mensaje");
+        doThrow(new RuntimeException("db error")).when(updateMessageRepository)
+                .updateMessage(any(MessageData.class));
+
+        assertThatThrownBy(() -> useCase.updateMessage(MESSAGE_CODE, dto, context))
+                .isInstanceOf(CrossWordsException.class)
+                .satisfies(ex -> assertThat(((CrossWordsException) ex).getTechnicalMessage())
+                        .isEqualTo("Error al actualizar el mensaje"));
+
+        assertAll(
+                () -> verify(log).error(eq("Error updating message in repository"),
+                        any(RuntimeException.class)),
+                () -> verify(catalogPort).getMessage(MessageCatalogCodeEnum.FUN_207.getCode())
+        );
+    }
+
+    @Test
+    void updateMessage_rethrowsDomainExceptionFromRepository() {
+        UpdateMessageDTO dto = validDto();
+        MessageAccessContext context = legacyContext();
+        stubEnvironmentResolvingTo("env-1", APP_UUID);
+        stubExistingMessage();
+        BusinessRuleException domain = BusinessRuleException.buildUserException("conflict");
+        doThrow(domain).when(updateMessageRepository).updateMessage(any(MessageData.class));
+
+        assertThatThrownBy(() -> useCase.updateMessage(MESSAGE_CODE, dto, context)).isSameAs(domain);
+    }
+}

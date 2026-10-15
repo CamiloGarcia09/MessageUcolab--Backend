@@ -5,6 +5,7 @@ import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.entity.MessageData;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
+import co.edu.uco.application.secondaryports.repository.MessageFilter;
 import co.edu.uco.application.secondaryports.repository.SimplePage;
 import com.surrealdb.Array;
 import com.surrealdb.Id;
@@ -272,7 +273,7 @@ class MessageSurrealRepositoryAdapterImplTest {
         when(surreal.query(contains("COUNT()"))).thenReturn(countResponse);
         doReturn(responseWithOne(messageDocument(uuid, "CODE-4"))).when(surreal).query(contains("ORDER BY message.code ASC"));
 
-        SimplePage<MessageData> page = adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 2));
+        SimplePage<MessageData> page = adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 2), new MessageFilter());
 
         assertThat(page.getTotalItems()).isEqualTo(3);
         assertThat(page.getTotalPages()).isEqualTo(2);
@@ -310,7 +311,7 @@ class MessageSurrealRepositoryAdapterImplTest {
     void findMessagesByEnvironment_doesNotUseGlobalFilter_whenEnvironmentIsMissing() {
         doReturn(emptyResponse()).when(surreal).query(anyString());
 
-        adapter.findMessagesByEnvironment(null, PageRequest.of(0, 2));
+        adapter.findMessagesByEnvironment(null, PageRequest.of(0, 2), new MessageFilter());
 
         ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
         verify(surreal, times(2)).query(queryCaptor.capture());
@@ -347,7 +348,7 @@ class MessageSurrealRepositoryAdapterImplTest {
         when(surreal.query(contains("COUNT()"))).thenReturn(countResponse);
         doReturn(mock(Response.class)).when(surreal).query(contains("ORDER BY message.code ASC"));
 
-        SimplePage<MessageData> page = adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 2));
+        SimplePage<MessageData> page = adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 2), new MessageFilter());
 
         assertThat(page.getTotalItems()).isEqualTo(5);
         assertThat(page.getData()).isEmpty();
@@ -377,7 +378,7 @@ class MessageSurrealRepositoryAdapterImplTest {
         when(surreal.query(contains("COUNT()"))).thenReturn(countResponse);
         doReturn(mock(Response.class)).when(surreal).query(contains("ORDER BY message.code ASC"));
 
-        SimplePage<MessageData> page = adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 2));
+        SimplePage<MessageData> page = adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 2), new MessageFilter());
 
         assertThat(page.getTotalItems()).isZero();
         assertThat(page.getData()).isEmpty();
@@ -390,7 +391,7 @@ class MessageSurrealRepositoryAdapterImplTest {
         when(surreal.query(contains("COUNT()"))).thenReturn(empty);
         doReturn(mock(Response.class)).when(surreal).query(contains("ORDER BY message.code ASC"));
 
-        SimplePage<MessageData> page = adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 2));
+        SimplePage<MessageData> page = adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 2), new MessageFilter());
 
         assertThat(page.getTotalItems()).isZero();
         assertThat(page.getData()).isEmpty();
@@ -402,7 +403,7 @@ class MessageSurrealRepositoryAdapterImplTest {
         doThrow(new RuntimeException("db down")).when(surreal).query(contains("ORDER BY message.code ASC"));
 
         PageRequest request = PageRequest.of(0, 2);
-        assertThatThrownBy(() -> adapter.findMessagesByEnvironment("env-1", request))
+        assertThatThrownBy(() -> adapter.findMessagesByEnvironment("env-1", request, new MessageFilter()))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("db down");
         verify(log, times(2)).error(anyString(), any(RuntimeException.class));
@@ -413,10 +414,39 @@ class MessageSurrealRepositoryAdapterImplTest {
         doReturn(emptyResponse()).when(surreal).query(contains("COUNT()"));
         doReturn(emptyResponse()).when(surreal).query(contains("ORDER BY message.code ASC"));
 
-        SimplePage<MessageData> page = adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 2));
+        SimplePage<MessageData> page = adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 2), new MessageFilter());
 
         assertThat(page.getData()).isEmpty();
         assertThat(page.getTotalItems()).isZero();
+    }
+
+    @Test
+    void findMessagesByEnvironment_includesCodeFilter_inGeneratedQuery() {
+        MessageFilter filter = MessageFilter.builder().code("hello").build();
+        doReturn(emptyResponse()).when(surreal).query(anyString());
+
+        adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 10), filter);
+
+        ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
+        verify(surreal, times(2)).query(queryCaptor.capture());
+        List<String> queries = queryCaptor.getAllValues();
+        assertThat(queries).allSatisfy(q ->
+                assertThat(q).contains("string::contains(string::lowercase(message.code)")
+        );
+    }
+
+    @Test
+    void findMessagesByEnvironment_noFilterConditions_whenFilterEmpty() {
+        doReturn(emptyResponse()).when(surreal).query(anyString());
+
+        adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 10), new MessageFilter());
+
+        ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
+        verify(surreal, times(2)).query(queryCaptor.capture());
+        List<String> queries = queryCaptor.getAllValues();
+        assertThat(queries).allSatisfy(q ->
+                assertThat(q).doesNotContain("string::contains")
+        );
     }
 
     private Response emptyResponse() {

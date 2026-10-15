@@ -12,4 +12,5 @@ public abstract class CacheCatalog extends MessageCatalog<String, Optional<Messa
     public abstract void addMessageWithEnvironment(MessageData messageModel, String environmentId);
     public abstract SimplePage<MessageData> getMessageWithEnvironment(String environment, SimplePageRequest request);
     public abstract Optional<MessageData> getMessageByCodeAndEnvironment(String code, String environmentId);
+    public abstract void evictMessage(String code);
 }

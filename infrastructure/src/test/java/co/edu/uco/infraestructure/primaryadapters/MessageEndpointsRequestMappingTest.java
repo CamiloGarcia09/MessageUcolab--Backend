@@ -37,6 +37,7 @@ class MessageEndpointsRequestMappingTest {
         void listEndpoint_isGetWithoutCodeParameter() throws NoSuchMethodException {
             Method method = MessagesController.class.getMethod("findByEnvironmentAndMessage",
                     String.class, String.class, String.class, String.class,
+                    String.class, String.class, String.class, String.class, String.class, String.class,
                     ServerWebExchange.class);
             GetMapping mapping = method.getAnnotation(GetMapping.class);
 

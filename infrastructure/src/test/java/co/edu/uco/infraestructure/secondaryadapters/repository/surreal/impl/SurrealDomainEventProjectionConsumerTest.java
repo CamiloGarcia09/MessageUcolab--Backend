@@ -1,6 +1,7 @@
 package co.edu.uco.infraestructure.secondaryadapters.repository.surreal.impl;
 
 import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
+import co.edu.uco.application.common.catalog.strategy.MessageCatalogStrategy;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.event.MessageEvent;
 import co.edu.uco.application.secondaryports.event.Publisher;
@@ -57,6 +58,8 @@ class SurrealDomainEventProjectionConsumerTest {
     private CatalogPort catalogPort;
     @Mock
     private Publisher<MessageEvent> publisher;
+    @Mock
+    private MessageCatalogStrategy messageCatalogStrategy;
 
     private SurrealDomainEventProjectionConsumer consumer;
 
@@ -65,7 +68,7 @@ class SurrealDomainEventProjectionConsumerTest {
         lenient().when(loggerFactory.getLogger(SurrealDomainEventProjectionConsumer.class)).thenReturn(log);
         lenient().when(catalogPort.getMessage(org.mockito.ArgumentMatchers.anyString())).thenReturn("msg");
         CatalogPortStaticRef.set(catalogPort);
-        consumer = new SurrealDomainEventProjectionConsumer(surreal, 2, loggerFactory, publisher);
+        consumer = new SurrealDomainEventProjectionConsumer(surreal, 2, loggerFactory, publisher, messageCatalogStrategy);
         lenient().doReturn(mock(Response.class)).when(surreal).query(anyString());
     }
 
@@ -800,7 +803,7 @@ class SurrealDomainEventProjectionConsumerTest {
 
     @Test
     void constructor_clampsBatchSizeToAtLeastOne() {
-        SurrealDomainEventProjectionConsumer clamped = new SurrealDomainEventProjectionConsumer(surreal, 0, loggerFactory, publisher);
+        SurrealDomainEventProjectionConsumer clamped = new SurrealDomainEventProjectionConsumer(surreal, 0, loggerFactory, publisher, messageCatalogStrategy);
         assertThat(clamped).isNotNull();
     }
 }

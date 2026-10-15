@@ -3,6 +3,7 @@ package co.edu.uco.application.secondaryports.repository;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 class SimplePageRequestTest {
 
@@ -127,5 +128,42 @@ class SimplePageRequestTest {
         String value = new SimplePageRequest().toString();
 
         assertThat(value).contains("ASC", "id", "50");
+    }
+
+    @Test
+    void filter_defaultIsNotNull() {
+        SimplePageRequest request = new SimplePageRequest();
+
+        assertThat(request.getFilter()).isNotNull();
+        assertThat(request.getFilter().hasFilters()).isFalse();
+    }
+
+    @Test
+    void equals_returnsFalseWhenFilterDiffers() {
+        SimplePageRequest a = new SimplePageRequest();
+        SimplePageRequest b = new SimplePageRequest();
+        b.setFilter(MessageFilter.builder().code("X").build());
+
+        assertThat(a).isNotEqualTo(b);
+    }
+
+    @Test
+    void equals_returnsTrueWhenFilterMatches() {
+        SimplePageRequest a = new SimplePageRequest();
+        a.setFilter(MessageFilter.builder().code("X").build());
+        SimplePageRequest b = new SimplePageRequest();
+        b.setFilter(MessageFilter.builder().code("X").build());
+
+        assertThat(a).isEqualTo(b);
+        assertThat(a.hashCode()).isEqualTo(b.hashCode());
+    }
+
+    @Test
+    void equals_returnsFalseWhenFilterIsNullInOne() {
+        SimplePageRequest a = new SimplePageRequest();
+        a.setFilter(null);
+        SimplePageRequest b = new SimplePageRequest();
+
+        assertThat(a).isNotEqualTo(b);
     }
 }

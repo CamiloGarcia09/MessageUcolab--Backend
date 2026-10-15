@@ -16,7 +16,7 @@ import static co.edu.uco.crosscutting.helpers.UtilUUID.getDefaultUUID;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.REDIS_HASH;
 
 @Getter
-@RedisHash(REDIS_HASH)
+@RedisHash(value = REDIS_HASH, timeToLive = 120)
 public final class MessageRedis {
     @Id
     private UUID id;

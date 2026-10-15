@@ -116,4 +116,117 @@ class PageRequestDTOTest {
 
         assertThat(value).contains("1", "50", "id", "ASC");
     }
+
+    @Test
+    void builder_setsFilterFields() {
+        PageRequestDTO dto = PageRequestDTO.builder()
+                .filterCode("MSG-001")
+                .filterTitle("Welcome")
+                .filterCategory("INFO")
+                .filterFunctionality("LOGIN")
+                .filterType("ALERT")
+                .filterStatus("ACTIVE")
+                .build();
+
+        assertThat(dto.getFilterCode()).isEqualTo("MSG-001");
+        assertThat(dto.getFilterTitle()).isEqualTo("Welcome");
+        assertThat(dto.getFilterCategory()).isEqualTo("INFO");
+        assertThat(dto.getFilterFunctionality()).isEqualTo("LOGIN");
+        assertThat(dto.getFilterType()).isEqualTo("ALERT");
+        assertThat(dto.getFilterStatus()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    void setters_updateFilterFields() {
+        PageRequestDTO dto = new PageRequestDTO();
+        dto.setFilterCode("C");
+        dto.setFilterTitle("T");
+        dto.setFilterCategory("CAT");
+        dto.setFilterFunctionality("FUNC");
+        dto.setFilterType("TYPE");
+        dto.setFilterStatus("STATUS");
+
+        assertThat(dto.getFilterCode()).isEqualTo("C");
+        assertThat(dto.getFilterTitle()).isEqualTo("T");
+        assertThat(dto.getFilterCategory()).isEqualTo("CAT");
+        assertThat(dto.getFilterFunctionality()).isEqualTo("FUNC");
+        assertThat(dto.getFilterType()).isEqualTo("TYPE");
+        assertThat(dto.getFilterStatus()).isEqualTo("STATUS");
+    }
+
+    @Test
+    void equals_returnsTrueForSameFilterFields() {
+        PageRequestDTO a = PageRequestDTO.builder()
+                .filterCode("X").filterTitle("Y").filterCategory("C")
+                .filterFunctionality("F").filterType("T").filterStatus("S").build();
+        PageRequestDTO b = PageRequestDTO.builder()
+                .filterCode("X").filterTitle("Y").filterCategory("C")
+                .filterFunctionality("F").filterType("T").filterStatus("S").build();
+
+        assertThat(a).isEqualTo(b);
+        assertThat(a.hashCode()).isEqualTo(b.hashCode());
+    }
+
+    @Test
+    void equals_returnsFalseWhenFilterCodeDiffers() {
+        PageRequestDTO a = new PageRequestDTO();
+        a.setFilterCode("A");
+        PageRequestDTO b = new PageRequestDTO();
+        b.setFilterCode("B");
+
+        assertThat(a).isNotEqualTo(b);
+    }
+
+    @Test
+    void equals_returnsFalseWhenFilterTitleDiffers() {
+        PageRequestDTO a = new PageRequestDTO();
+        a.setFilterTitle("A");
+        PageRequestDTO b = new PageRequestDTO();
+
+        assertThat(a).isNotEqualTo(b);
+    }
+
+    @Test
+    void equals_returnsFalseWhenFilterCategoryDiffers() {
+        PageRequestDTO a = new PageRequestDTO();
+        a.setFilterCategory("CAT");
+        PageRequestDTO b = new PageRequestDTO();
+
+        assertThat(a).isNotEqualTo(b);
+    }
+
+    @Test
+    void equals_returnsFalseWhenFilterFunctionalityDiffers() {
+        PageRequestDTO a = new PageRequestDTO();
+        a.setFilterFunctionality("FUNC");
+        PageRequestDTO b = new PageRequestDTO();
+
+        assertThat(a).isNotEqualTo(b);
+    }
+
+    @Test
+    void equals_returnsFalseWhenFilterTypeDiffers() {
+        PageRequestDTO a = new PageRequestDTO();
+        a.setFilterType("TYPE");
+        PageRequestDTO b = new PageRequestDTO();
+
+        assertThat(a).isNotEqualTo(b);
+    }
+
+    @Test
+    void equals_returnsFalseWhenFilterStatusDiffers() {
+        PageRequestDTO a = new PageRequestDTO();
+        a.setFilterStatus("ACTIVE");
+        PageRequestDTO b = new PageRequestDTO();
+
+        assertThat(a).isNotEqualTo(b);
+    }
+
+    @Test
+    void toString_containsFilterFieldValues() {
+        PageRequestDTO dto = PageRequestDTO.builder()
+                .filterCode("CODE").filterTitle("TITLE").build();
+
+        assertThat(dto.toString()).contains("CODE", "TITLE");
+    }
 }
