@@ -32,7 +32,7 @@ public final class DatabaseMessageCatalog extends DatabaseCatalog {
     @Override
     public SimplePage<MessageData> getMessageWithEnvironment(String environment, SimplePageRequest request) {
         var result = PageBuilder.createPageRequest(request);
-        return repository.findMessagesByEnvironment(environment, result);
+        return repository.findMessagesByEnvironment(environment, result, request.getFilter());
     }
     @Override
     public Optional<MessageData> getMessageByCodeAndEnvironment(String code, String environmentId) {

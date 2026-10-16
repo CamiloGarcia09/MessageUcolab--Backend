@@ -9,6 +9,7 @@ import co.edu.uco.application.secondaryports.entity.MessageTypeData;
 import co.edu.uco.application.secondaryports.entity.StatusMessageData;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.DataBaseMessageRepository;
+import co.edu.uco.application.secondaryports.repository.MessageFilter;
 import co.edu.uco.application.secondaryports.repository.SimplePage;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import com.surrealdb.Array;
@@ -50,16 +51,16 @@ public class MessageSurrealRepositoryAdapterImpl extends SurrealCatalogSupport i
     }
 
     @Override
-    public SimplePage<MessageData> findMessagesByEnvironment(final String environmentId, final Pageable pageable) {
+    public SimplePage<MessageData> findMessagesByEnvironment(final String environmentId, final Pageable pageable, final MessageFilter filter) {
         long offset = pageable.getOffset();
         int pageSize = pageable.getPageSize();
-        final String environmentFilter = environmentFilter(environmentId);
+        final String whereClause = environmentFilter(environmentId) + buildFilterConditions(filter);
 
         final String countSql = "SELECT COUNT() as count FROM " + SURREAL_TABLE_MESSAGE_ENVIRONMENT_READMODEL
-                + " WHERE " + environmentFilter + ";";
+                + " WHERE " + whereClause + ";";
 
         final String dataSql = "SELECT * FROM " + SURREAL_TABLE_MESSAGE_ENVIRONMENT_READMODEL
-                + " WHERE " + environmentFilter
+                + " WHERE " + whereClause
                 + " ORDER BY message.code ASC"
                 + " LIMIT " + pageSize + " START " + offset + ";";
 
@@ -79,6 +80,28 @@ public class MessageSurrealRepositoryAdapterImpl extends SurrealCatalogSupport i
             log.error(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_057.getCode()).formatted(environmentId), ex);
             throw ex;
         }
+    }
+
+    private static String buildFilterConditions(final MessageFilter filter) {
+        if (filter == null || !filter.hasFilters()) {
+            return "";
+        }
+        final var sb = new StringBuilder();
+        appendContains(sb, "message.code", filter.getCode());
+        appendContains(sb, "message.title", filter.getTitle());
+        appendContains(sb, "message.category.name", filter.getCategory());
+        appendContains(sb, "message.functionality.name", filter.getFunctionality());
+        appendContains(sb, "message.type.name", filter.getType());
+        appendContains(sb, "message.status.name", filter.getStatus());
+        return sb.toString();
+    }
+
+    private static void appendContains(final StringBuilder sb, final String field, final String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        sb.append(" AND string::contains(string::lowercase(").append(field).append("), ")
+          .append(quote(value.toLowerCase())).append(")");
     }
 
     @Override

@@ -1,6 +1,7 @@
 package co.edu.uco.application.common.mapper;
 
 import co.edu.uco.application.primaryports.dto.page.PageRequestDTO;
+import co.edu.uco.application.secondaryports.repository.MessageFilter;
 import co.edu.uco.application.secondaryports.repository.SimplePageRequest;
 import org.springframework.stereotype.Component;
 
@@ -19,6 +20,14 @@ public final class SimplePageMapper {
         request.setSize(convertToInt(dto.getSize(), REQUEST_SIZE_DEFAULT));
         request.setSort(getDefault(dto.getSort(), REQUEST_PAGE_SORT_ASC));
         request.setColumnSort(getDefault(dto.getColumnSort(), REQUEST_COLUMN_SORT_DEFAULT));
+        request.setFilter(MessageFilter.builder()
+                .code(dto.getFilterCode())
+                .title(dto.getFilterTitle())
+                .category(dto.getFilterCategory())
+                .functionality(dto.getFilterFunctionality())
+                .type(dto.getFilterType())
+                .status(dto.getFilterStatus())
+                .build());
         return request;
     }
     public PageRequestDTO toPageRequestDTO(SimplePageRequest request) {
