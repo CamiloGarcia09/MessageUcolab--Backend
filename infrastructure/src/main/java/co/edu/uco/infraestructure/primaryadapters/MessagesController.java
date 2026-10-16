@@ -29,6 +29,12 @@ public interface MessagesController {
             @RequestParam(value = "size", required = false) String size,
             @RequestParam(value = "sort", required = false) String sort,
             @RequestParam(value = "columnSort", required = false) String columnSort,
+            @RequestParam(value = "filterCode", required = false) String filterCode,
+            @RequestParam(value = "filterTitle", required = false) String filterTitle,
+            @RequestParam(value = "filterCategory", required = false) String filterCategory,
+            @RequestParam(value = "filterFunctionality", required = false) String filterFunctionality,
+            @RequestParam(value = "filterType", required = false) String filterType,
+            @RequestParam(value = "filterStatus", required = false) String filterStatus,
             ServerWebExchange exchange
     );
 

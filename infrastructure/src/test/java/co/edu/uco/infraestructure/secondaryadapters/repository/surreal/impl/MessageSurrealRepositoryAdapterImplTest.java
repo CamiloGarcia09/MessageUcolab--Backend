@@ -22,11 +22,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import static co.edu.uco.crosscutting.helpers.UtilUUID.DEFAULT_UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -447,6 +450,219 @@ class MessageSurrealRepositoryAdapterImplTest {
         assertThat(queries).allSatisfy(q ->
                 assertThat(q).doesNotContain("string::contains")
         );
+    }
+
+    @Test
+    void findMessagesByEnvironment_omitsFilterConditions_whenFilterIsNull() {
+        doReturn(emptyResponse()).when(surreal).query(anyString());
+
+        adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 10), null);
+
+        ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
+        verify(surreal, times(2)).query(queryCaptor.capture());
+        assertThat(queryCaptor.getAllValues()).allSatisfy(q ->
+                assertThat(q).contains("environment_id").doesNotContain("string::contains"));
+    }
+
+    @Test
+    void findMessagesByEnvironment_appendsLowercasedConditionsOnlyForNonBlankFilterValues() {
+        MessageFilter filter = MessageFilter.builder()
+                .code("MSG")
+                .title("   ")
+                .category("General")
+                .functionality("Login")
+                .type("Text")
+                .status("Active")
+                .build();
+        doReturn(emptyResponse()).when(surreal).query(anyString());
+
+        adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 10), filter);
+
+        ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
+        verify(surreal, times(2)).query(queryCaptor.capture());
+        assertThat(queryCaptor.getAllValues()).allSatisfy(q -> assertThat(q)
+                .contains(" AND string::contains(string::lowercase(message.code), 'msg')")
+                .contains(" AND string::contains(string::lowercase(message.category.name), 'general')")
+                .contains(" AND string::contains(string::lowercase(message.functionality.name), 'login')")
+                .contains(" AND string::contains(string::lowercase(message.type.name), 'text')")
+                .contains(" AND string::contains(string::lowercase(message.status.name), 'active')")
+                .doesNotContain("message.title"));
+    }
+
+    @Test
+    void findMessagesByEnvironment_reportsZeroPages_whenPageSizeIsZero() {
+        Pageable pageable = mock(Pageable.class);
+        when(pageable.getOffset()).thenReturn(0L);
+        when(pageable.getPageSize()).thenReturn(0);
+        when(pageable.getPageNumber()).thenReturn(0);
+        Value countValue = mock(Value.class);
+        when(countValue.isString()).thenReturn(true);
+        when(countValue.getString()).thenReturn("3");
+        doReturn(countResponseWith(countValue)).when(surreal).query(contains("COUNT()"));
+        doReturn(emptyResponse()).when(surreal).query(contains("ORDER BY message.code ASC"));
+
+        SimplePage<MessageData> page = adapter.findMessagesByEnvironment("env-1", pageable, new MessageFilter());
+
+        assertThat(page.getTotalItems()).isEqualTo(3);
+        assertThat(page.getTotalPages()).isZero();
+    }
+
+    @Test
+    void findMessagesByEnvironment_returnsZeroCount_whenCountResponseIsNull() {
+        doReturn(null).when(surreal).query(contains("COUNT()"));
+
+        assertThat(findPageWithEmptyData().getTotalItems()).isZero();
+    }
+
+    @Test
+    void findMessagesByEnvironment_returnsZeroCount_whenCountStatementIsNull() {
+        doReturn(countResponseWithStatement(null)).when(surreal).query(contains("COUNT()"));
+
+        assertThat(findPageWithEmptyData().getTotalItems()).isZero();
+    }
+
+    @Test
+    void findMessagesByEnvironment_returnsZeroCount_whenCountStatementIsNotArray() {
+        doReturn(countResponseWithStatement(mock(Value.class))).when(surreal).query(contains("COUNT()"));
+
+        assertThat(findPageWithEmptyData().getTotalItems()).isZero();
+    }
+
+    @Test
+    void findMessagesByEnvironment_returnsZeroCount_whenCountArrayIsEmpty() {
+        Array array = mock(Array.class);
+        when(array.len()).thenReturn(0);
+        Value statement = mock(Value.class);
+        when(statement.isArray()).thenReturn(true);
+        when(statement.getArray()).thenReturn(array);
+        doReturn(countResponseWithStatement(statement)).when(surreal).query(contains("COUNT()"));
+
+        assertThat(findPageWithEmptyData().getTotalItems()).isZero();
+    }
+
+    @Test
+    void findMessagesByEnvironment_returnsZeroCount_whenFirstCountRowIsNull() {
+        doReturn(countResponseWithFirstRow(null)).when(surreal).query(contains("COUNT()"));
+
+        assertThat(findPageWithEmptyData().getTotalItems()).isZero();
+    }
+
+    @Test
+    void findMessagesByEnvironment_returnsZeroCount_whenFirstCountRowIsNotObject() {
+        doReturn(countResponseWithFirstRow(mock(Value.class))).when(surreal).query(contains("COUNT()"));
+
+        assertThat(findPageWithEmptyData().getTotalItems()).isZero();
+    }
+
+    @Test
+    void findMessagesByEnvironment_returnsZeroCount_whenCountFieldIsMissing() {
+        doReturn(countResponseWith(null)).when(surreal).query(contains("COUNT()"));
+
+        assertThat(findPageWithEmptyData().getTotalItems()).isZero();
+    }
+
+    @Test
+    void findMessagesByEnvironment_returnsZeroCount_whenCountFieldIsNullValue() {
+        Value countValue = mock(Value.class);
+        when(countValue.isNull()).thenReturn(true);
+        doReturn(countResponseWith(countValue)).when(surreal).query(contains("COUNT()"));
+
+        assertThat(findPageWithEmptyData().getTotalItems()).isZero();
+    }
+
+    @Test
+    void findMessagesByEnvironment_logsAndReturnsZeroCount_whenCountQueryFails() {
+        RuntimeException countError = new RuntimeException("count down");
+        doThrow(countError).when(surreal).query(contains("COUNT()"));
+
+        SimplePage<MessageData> page = findPageWithEmptyData();
+
+        assertThat(page.getTotalItems()).isZero();
+        assertThat(page.getData()).isEmpty();
+        verify(log).error("msg", countError);
+    }
+
+    @Test
+    void findById_fallsBackToDefaults_whenCatalogValuesAreMissingNullNoneOrScalar() {
+        String uuid = UUID.randomUUID().toString();
+        Value nullValue = mock(Value.class);
+        when(nullValue.isNull()).thenReturn(true);
+        Value noneValue = mock(Value.class);
+        when(noneValue.isNone()).thenReturn(true);
+        Value noneCreatedAt = mock(Value.class);
+        when(noneCreatedAt.isNone()).thenReturn(true);
+
+        Object doc = mock(Object.class);
+        doReturn(mock(Value.class)).when(doc).get("message");
+        doReturn(recordIdValue("message", uuid)).when(doc).get("id");
+        doReturn(stringValue("CODE-9")).when(doc).get("code");
+        doReturn(stringValue("Title")).when(doc).get("title");
+        doReturn(stringValue("Content")).when(doc).get("content");
+        doReturn(stringValue("App")).when(doc).get("application");
+        doReturn(noneCreatedAt).when(doc).get("created_at");
+        doReturn(null).when(doc).get("type");
+        doReturn(nullValue).when(doc).get("category");
+        doReturn(noneValue).when(doc).get("status");
+        doReturn(stringValue("Login")).when(doc).get("functionality");
+        doReturn(responseWithOne(doc)).when(surreal).query(anyString());
+
+        MessageData message = adapter.findById(uuid).orElseThrow();
+
+        assertThat(message.getCode()).isEqualTo("CODE-9");
+        assertThat(message.getCreatedAt()).isNull();
+        assertThat(message.getType().getId()).isEqualTo(DEFAULT_UUID);
+        assertThat(message.getType().getName()).isEmpty();
+        assertThat(message.getCategory().getId()).isEqualTo(DEFAULT_UUID);
+        assertThat(message.getCategory().getName()).isEmpty();
+        assertThat(message.getStatus().getId()).isEqualTo(DEFAULT_UUID);
+        assertThat(message.getStatus().getName()).isEmpty();
+        assertThat(message.getFunctionality().getId()).isEqualTo(DEFAULT_UUID);
+        assertThat(message.getFunctionality().getName()).isEqualTo("Login");
+    }
+
+    @Test
+    void findById_convertsSurrealDateTimeCreatedAt_toInstant() {
+        String uuid = UUID.randomUUID().toString();
+        Value timestamp = mock(Value.class);
+        when(timestamp.isDateTime()).thenReturn(true);
+        when(timestamp.getDateTime()).thenReturn(ZonedDateTime.parse("2025-01-02T03:04:05Z"));
+        doReturn(responseWithOne(messageDocument(uuid, "CODE-1", timestamp)))
+                .when(surreal).query(anyString());
+
+        MessageData message = adapter.findById(uuid).orElseThrow();
+
+        assertThat(message.getCreatedAt()).isEqualTo(java.time.Instant.parse("2025-01-02T03:04:05Z"));
+    }
+
+    private SimplePage<MessageData> findPageWithEmptyData() {
+        doReturn(emptyResponse()).when(surreal).query(contains("ORDER BY message.code ASC"));
+        return adapter.findMessagesByEnvironment("env-1", PageRequest.of(0, 2), new MessageFilter());
+    }
+
+    private Response countResponseWithStatement(Value statement) {
+        Response response = mock(Response.class);
+        when(response.size()).thenReturn(1);
+        when(response.take(0)).thenReturn(statement);
+        return response;
+    }
+
+    private Response countResponseWithFirstRow(Value firstRow) {
+        Array array = mock(Array.class);
+        when(array.len()).thenReturn(1);
+        when(array.get(0)).thenReturn(firstRow);
+        Value statement = mock(Value.class);
+        when(statement.isArray()).thenReturn(true);
+        when(statement.getArray()).thenReturn(array);
+        return countResponseWithStatement(statement);
+    }
+
+    private Response countResponseWith(Value countValue) {
+        Object countObj = mock(Object.class);
+        when(countObj.get("count")).thenReturn(countValue);
+        Value firstRow = mock(Value.class);
+        when(firstRow.isObject()).thenReturn(true);
+        when(firstRow.getObject()).thenReturn(countObj);
+        return countResponseWithFirstRow(firstRow);
     }
 
     private Response emptyResponse() {

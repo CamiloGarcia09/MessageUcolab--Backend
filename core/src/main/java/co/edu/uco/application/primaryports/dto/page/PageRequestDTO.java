@@ -14,4 +14,10 @@ public final class PageRequestDTO {
     private String sort;
     private String columnSort;
     private String size;
-} 
+    private String filterCode;
+    private String filterTitle;
+    private String filterCategory;
+    private String filterFunctionality;
+    private String filterType;
+    private String filterStatus;
+}

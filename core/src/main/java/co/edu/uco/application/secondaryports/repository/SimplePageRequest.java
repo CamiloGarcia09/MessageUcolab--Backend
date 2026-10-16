@@ -10,4 +10,5 @@ public final class SimplePageRequest {
     private String sort = REQUEST_PAGE_SORT_ASC;
     private String columnSort = REQUEST_COLUMN_SORT_DEFAULT;
     private int size = REQUEST_SIZE_DEFAULT;
+    private MessageFilter filter = new MessageFilter();
 }

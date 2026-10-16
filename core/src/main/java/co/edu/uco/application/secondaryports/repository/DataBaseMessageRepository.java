@@ -8,6 +8,6 @@ import java.util.Optional;
 public interface DataBaseMessageRepository {
     Optional<MessageData> findById(String id);
     Optional<MessageData> findByCode(String code);
-    SimplePage<MessageData> findMessagesByEnvironment(String id, Pageable pageable);
+    SimplePage<MessageData> findMessagesByEnvironment(String id, Pageable pageable, MessageFilter filter);
     Optional<MessageData> findMessageByCodeAndEnvironment(String code, String environmentId);
 }
