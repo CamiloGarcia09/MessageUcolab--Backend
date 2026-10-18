@@ -5,6 +5,8 @@
 - Arquitectura hexagonal por feature. Dependencias solo hacia abajo: `infrastructure → core → utils`. Nunca al revés.
 - Usar `./mvnw`, no `mvn`, para garantizar Maven 3.9.9.
 - Antes de correr la app: levantar infraestructura con `docker compose up -d` en `deployment/docker`.
+- La configuración y los secretos del entorno local están en **Doppler**. Usar `doppler run -- ...` para inyectarlos en Docker Compose y la aplicación; no exigir un `.env` ni volver a preguntar dónde están por no encontrarlo. No imprimir, exportar a archivos ni copiar valores secretos al chat. Si falta la vinculación del CLI, verificar el proyecto/configuración de Doppler sin consultar los valores de los secretos.
+- Entorno local confirmado: proyecto Doppler `messageucolab`, configuración `dev`. Si el CLI no tiene un scope local, usar explícitamente `doppler run --project messageucolab --config dev -- ...`; no confundirlo con `dev_azure` del despliegue.
 - No hay linter/formatter configurado — no asumas reglas de estilo automáticas.
 - Todo cambio debe respetar Clean/Hexagonal Architecture y pasar el Quality Gate de SonarCloud (ver sección "Clean Architecture y SonarCloud").
 - Tests: no crear, modificar ni ejecutar pruebas automáticamente después de un cambio. Preguntar primero si el usuario autoriza invocar `unit-test-agent`; una petición explícita de crear, modificar o ejecutar pruebas ya cuenta como autorización.
@@ -30,10 +32,10 @@ API de mensajes multientorno con catálogo jerárquico (Organización → Aplica
 Flujo de una petición: `Controller → Interactor → UseCase → Repository port → Repository adapter → SurrealDB`.
 
 ## Stack y dependencias clave (infrastructure)
-Java 17, Spring Boot 3.2.5, SurrealDB 2.1.1 (BD principal, no SQL tradicional), Apache Pulsar 3.2.2, Spring Data Redis, Caffeine 3.1.8, LangChain4j 1.15.1 (Ollama local por defecto / OpenAI), loki-logback-appender 1.6.0, Micrometer Prometheus, SpringDoc OpenAPI, Azure Key Vault, Doppler client.
+Java 25, Spring Boot 3.5.16, SurrealDB 2.1.1 (BD principal, no SQL tradicional), Apache Pulsar 3.2.2, Spring Data Redis, Caffeine (versión gestionada por Spring Boot), LangChain4j 1.15.1 (Ollama local por defecto / OpenAI), loki-logback-appender 1.6.0, Micrometer Prometheus, SpringDoc OpenAPI 2.8.17, Spring Cloud Azure 6.5.0 (Key Vault), Doppler client.
 
 ## Setup y build
-Requiere JDK 17 y Maven 3.9.x. Usar el wrapper `./mvnw` en cada módulo en vez de `mvn` instalado globalmente.
+Requiere JDK 25 y Maven 3.9.9. Configurar `JAVA_HOME` y el SDK del IDE con JDK 25. Usar el wrapper `./mvnw` (o `.\mvnw.cmd` en Windows) en vez de `mvn` instalado globalmente. No activar características preview como parte de esta migración.
 
 ```bash
 git clone <repo>
@@ -44,11 +46,11 @@ cd MessageUcoLab
 
 # Infraestructura de soporte (SurrealDB, Redis, etc.)
 cd deployment/docker
-docker compose up -d
+doppler run --project messageucolab --config dev -- docker compose up -d
 cd ../..
 
 # Ejecutar la app (requiere infraestructura corriendo)
-./mvnw spring-boot:run -pl infrastructure
+doppler run --project messageucolab --config dev -- ./mvnw spring-boot:run -pl infrastructure
 ```
 
 - Puerto por defecto: `8085`
