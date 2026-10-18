@@ -41,7 +41,7 @@ veredicto ❌, corrígelo tú mismo antes de entregar el reporte final; no repor
 como completado un test con veredicto ❌ o sin haberlo validado.
 
 ## Contexto técnico fijo (no lo rediagnostiques cada vez)
-- Java 17 obligatorio. Usa siempre `./mvnw`, NUNCA `mvn` global.
+- Java 25 obligatorio. Usa siempre `./mvnw`, NUNCA `mvn` global.
 - Estructura de dependencias: `infrastructure → core → utils`. Nunca al revés.
 - `core` es Java plano: sin anotaciones de Spring, sin drivers de SurrealDB/Redis/
   Pulsar. Los tests de `core` NO deben requerir contexto de Spring

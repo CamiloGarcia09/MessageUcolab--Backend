@@ -13,7 +13,6 @@
     <name>Core</name>
     <description>Core</description>
     <properties>
-        <java.version>17</java.version>
         <spring-boot.repackage.skip>true</spring-boot.repackage.skip>
     </properties>
     <dependencies>

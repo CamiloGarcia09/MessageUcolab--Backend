@@ -13,8 +13,8 @@ Microsoft-hosted CI and protected Azure deployment run as separate Azure DevOps 
 
 ## Prerequisites
 
-- Java 17 or higher
-- Maven 3.6.x or higher
+- JDK 25 (configure `JAVA_HOME` and your IDE project SDK)
+- Maven 3.9.9 via the committed Maven Wrapper (`./mvnw`, or `.\mvnw.cmd` on Windows)
 - Required infrastructure:
   - MongoDB (version 4.4 or higher)
   - Redis (version 6.0 or higher)
@@ -30,6 +30,52 @@ Microsoft-hosted CI and protected Azure deployment run as separate Azure DevOps 
     - Loki (for log storage and querying)
     - OpenTelemetry Collector (for telemetry collection)
     - Prometheus (for metrics storage and querying)
+
+## Java 25 toolchain
+
+Local environment variables and secrets are managed in **Doppler**, not a required `.env`
+file. Use `doppler run --project messageucolab --config dev -- docker compose up -d`
+from `deployment/docker` and `doppler run --project messageucolab --config dev -- ./mvnw spring-boot:run -pl infrastructure`
+from the repository root. The local configuration is `dev`, not the deployment's `dev_azure`.
+Do not print secrets or export them into repository files. If the CLI has no local
+binding, verify the Doppler project/configuration rather than asking for secret values.
+
+All modules inherit Java 25 (`--release 25`) from the root `pom.xml`. Spring Boot 3.5.16
+manages the compiler, Lombok, Mockito/Byte Buddy and Jackson versions; JaCoCo 0.8.15
+supports the resulting bytecode. Preview features and Byte Buddy's experimental mode
+are not required.
+
+Before building, check `java -version` and `./mvnw -version` (Windows: `.\mvnw.cmd -version`).
+On Linux/macOS, run `chmod +x mvnw` once if the checkout did not preserve executable permissions.
+Both must use JDK 25. Then run `./mvnw clean verify` from the repository root.
+Docker and Azure CI use Temurin 25 and the same Maven Wrapper configuration.
+The Docker build runs `clean verify`, including coverage checks, and copies the SurrealDB
+seed into the build stage so its static contract tests are not skipped. The seed is not
+executed by the image build and is not included in the runtime image.
+
+### Windows and IntelliJ IDEA
+
+Install JDK 25 outside temporary directories and set the user `JAVA_HOME` to that installation.
+Restart terminals and the IDE after changing environment variables. If Java 17 is still first
+in the system PATH, changing only the user PATH does not override it; reordering the system
+PATH requires administrator permissions. For the current PowerShell session, use:
+
+```powershell
+$env:JAVA_HOME = [Environment]::GetEnvironmentVariable('JAVA_HOME', 'User')
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+.\mvnw.cmd -version
+```
+
+Use an IntelliJ IDEA version with Java 25 support (the 2024.1 release predates it).
+Register the installed JDK in **Project Structure > SDKs**, select it as the **Project SDK**,
+and set the Maven importer and runner JDK to the project JDK. Reload the Maven project;
+the language level and bytecode target must be 25, without preview features.
+
+Validate the container in a non-production environment with Redis, SurrealDB and Pulsar
+before promoting it: check health, message/token operations, translation, SSE, OpenAPI
+and metrics. A successful unit-test build does not replace these integration checks.
+Keep the previous image tag for rollback: Java 25 bytecode cannot run on Java 17, so
+rollback means restoring the previous complete image, not only switching the JVM.
 
 ## Project Structure
 
@@ -177,7 +223,7 @@ cd MessageUcoLab
 2. Build the project using Maven:
 
 ```bash
-mvn clean install
+./mvnw clean install
 ```
 
 ## Running the Application
@@ -185,7 +231,7 @@ mvn clean install
 To run the application, make sure all infrastructure dependencies are running (MongoDB, Redis, PostgreSQL, Kafka), then use Maven:
 
 ```bash
-mvn spring-boot:run -pl Infrastructure
+./mvnw spring-boot:run -pl infrastructure
 ```
 
 The application will start on port 8085 by default.
@@ -266,8 +312,8 @@ Common problems and solutions:
    - Verify network connectivity
 
 3. Compilation errors:
-   - Make sure you're using Java 17
-   - Clean and rebuild the project: `mvn clean install`
+   - Make sure `JAVA_HOME`, `java -version` and `./mvnw -version` use JDK 25
+   - Clean and rebuild the project: `./mvnw clean install`
 
 ## Using Docker for Infrastructure (Optional)
 

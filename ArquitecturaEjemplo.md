@@ -12,18 +12,18 @@ detalles externos como REST, SurrealDB, Redis, Pulsar, Docker, Azure Key Vault, 
 
 | Tecnología | Versión | Rol |
 |---|---|---|
-| Java | 17 | Lenguaje (release 17 en compilación) |
-| Spring Boot | 3.2.5 | Framework base |
+| Java | 25 | Lenguaje (release 25 en compilación, sin preview) |
+| Spring Boot | 3.5.16 | Framework base (Java 25) |
 | SurrealDB | 2.1.1 (driver) / v3.1.4 (imagen) | BD principal (única; cubre relacional y no relacional) |
-| Spring Data Redis | Boot 3.2.5 | Caché de lectura de mensajes y catálogo de mensajes |
-| Caffeine | 3.1.8 | Caché local de secretos Doppler |
+| Spring Data Redis | Boot 3.5.16 | Caché de lectura de mensajes y catálogo de mensajes |
+| Caffeine | Gestionada por Spring Boot | Caché local de secretos Doppler |
 | Apache Pulsar | 3.2.2 | Broker de mensajes (eventos de dominio) |
 | LangChain4j | 1.15.1 | Traducción asistida por IA (Ollama local por defecto / OpenAI) |
 | loki-logback-appender | 1.6.0 | Envío de logs a Loki |
-| Spring Boot Actuator + Micrometer | Boot 3.2.5 | Health + métricas Prometheus |
-| Azure Key Vault | spring-cloud-azure 5.20.0 | Secretos |
-| Doppler | okhttp 4.9.3 | Secretos en runtime + creación de tokens |
-| springdoc-openapi | 2.2.0 | Swagger UI / OpenAPI |
+| Spring Boot Actuator + Micrometer | Boot 3.5.16 | Health + métricas Prometheus |
+| Azure Key Vault | spring-cloud-azure 6.5.0 | Secretos |
+| Doppler | okhttp 4.12.0 | Secretos en runtime + creación de tokens |
+| springdoc-openapi | 2.8.17 | Swagger UI / OpenAPI |
 | Lombok / ModelMapper | — | Reducción de boilerplate / mapeo de objetos |
 
 ## Vista general
@@ -663,24 +663,32 @@ modelo), Grafana, Loki, OpenTelemetry Collector y Prometheus.
   `azure`, Kong 3.5 como entrada pública) sin observabilidad.
 - `deployment/azure/deploy.sh`: login con Managed Identity, pull de la imagen desde ACR, `doppler run`,
   healthcheck por Kong y rollback automático si la app no responde.
-- Pipelines Azure DevOps: CI (`azure-pipelines.yml`, trigger en `develop`, Maven 3.9.9 + Temurin 17,
-  `mvn clean verify`, publish de resultados de test, build de imagen) y CD manual
+- Pipelines Azure DevOps: CI (`azure-pipelines.yml`, trigger en `develop`, Maven Wrapper 3.9.9 + Temurin 25,
+  `./mvnw clean verify`, publish de resultados de test, build de imagen) y CD manual
   (`azure-deploy-pipeline.yml`, stages DEPLOY / STOP).
-- `Dockerfile` multi-etapa: build `maven:3.9.9-eclipse-temurin-17-noble`, runtime
-  `eclipse-temurin:17-jre-noble`, healthcheck `/actuator/health`, EXPOSE 8085.
+- `Dockerfile` multi-etapa: build `eclipse-temurin:25-jdk-noble` con Maven Wrapper, runtime
+  `eclipse-temurin:25-jre-noble`, healthcheck `/actuator/health`, EXPOSE 8085.
 
 ## Tests y cobertura
 
 - JUnit 5 + Mockito + AssertJ. Los tests de core son unitarios; los de infrastructure también
   cubren adaptadores, serializers, mappers, interceptors, controllers y el projection consumer.
-- Suite actual (estado verificado con JDK 17): **952 tests en verde** — core 428, infrastructure 340,
-  utils 184.
-- JaCoCo 0.8.12 configurado en el `pom.xml` raíz: agente en `prepare-agent` y reporte en `verify`
+- Migración verificada con Temurin 25.0.4.1: **2049 tests en verde**, sin fallos, errores ni omitidos
+  en el build Docker con `clean verify` — utils 214, core 1216, infrastructure 619.
+- El build Docker incluye el seed de SurrealDB solo en la etapa de compilación para ejecutar
+  también sus 15 pruebas de contrato estático; no importa el seed ni altera bases de datos.
+- Cobertura JaCoCo del build local Java 25 (líneas / ramas): utils 96.68% / 96.97%,
+  core 97.97% / 98.30%, infrastructure 89.50% / 81.83%. Todos cumplen el mínimo de 80% por módulo.
+- JaCoCo 0.8.15 configurado en el `pom.xml` raíz: agente en `prepare-agent` y reporte en `verify`
   (`infrastructure/target/site/jacoco/index.html`).
-- Comando: `./mvnw clean verify` (usa Maven 3.9.9 vía wrapper; el JDK de build debe ser **17**).
+- Comando: `./mvnw clean verify` (usa Maven 3.9.9 vía wrapper; el JDK de build debe ser **25**).
 
-> Importante: los tests fallan con JDK 23 por incompatibilidad de Mockito/Byte Buddy. Compilar y
-> probar siempre con Java 17 (`JAVA_HOME` apuntando a un JDK 17).
+> Compilar y probar con Java 25 (`JAVA_HOME` apuntando a un JDK 25). Mockito/Byte Buddy se
+> gestionan mediante Spring Boot; no utilizar el modo experimental de Byte Buddy.
+
+- Arranque local Java 25 verificado con Doppler (`messageucolab` / `dev`), conexión a SurrealDB
+  y respuestas HTTP 200 en health, OpenAPI, Swagger y Prometheus. Esto no sustituye la regresión
+  completa de flujos de negocio ni el Quality Gate remoto de SonarCloud.
 
 ## Reglas que deben respetarse
 
