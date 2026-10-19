@@ -47,7 +47,7 @@ stages:
               path: $(MAVEN_CACHE_FOLDER)
 
           - task: PowerShell@2
-            displayName: Compilar y probar con un contenedor de Java 17
+            displayName: Compilar y probar con un contenedor de Java 25
             inputs:
               targetType: inline
               script: |
@@ -57,8 +57,8 @@ stages:
                   --volume "$(Build.SourcesDirectory):/workspace" `
                   --volume "$(MAVEN_CACHE_FOLDER):/root/.m2/repository" `
                   --workdir /workspace `
-                  maven:3.9.9-eclipse-temurin-17-noble `
-                  mvn -B clean verify
+                  eclipse-temurin:25-jdk-noble `
+                  sh ./mvnw -B -ntp clean verify
                 if ($LASTEXITCODE -ne 0) { throw 'La compilación o las pruebas de Maven fallaron.' }
 
           - task: PublishTestResults@2

@@ -35,7 +35,7 @@ Estas decisiones deben documentarse en el proyecto antes de modificar clases. Ev
 
 | Decisión | Recomendación |
 |---|---|
-| Java | Mantener JDK 17 |
+| Java | JDK 25 (actualizado por la migración del monorepo) |
 | Framework HTTP | Spring WebFlux |
 | GET existentes | Exponerlos de forma reactiva |
 | POST, PUT y DELETE | Conservar el comportamiento actual en la primera fase |
@@ -408,7 +408,7 @@ La migración debe llegar al entorno Docker de MessageUcoLab sin cambiar de form
 
 ### Secuencia
 
-1. Ejecutar el build completo con Java 17 y las pruebas habilitadas.
+1. Ejecutar el build completo con Java 25 y las pruebas habilitadas.
 2. Construir la imagen Docker.
 3. Levantar la aplicación junto con las dependencias requeridas.
 4. Verificar el health check, las consultas a SurrealDB, el acceso a Redis y las rutas HTTP.

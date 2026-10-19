@@ -28,7 +28,7 @@ testeable (y en ese caso lo reportas antes de hacerlo).
   "pasar" el build.
 
 ## Contexto técnico fijo (no lo rediagnostiques cada vez)
-- Java 17 obligatorio. Usa siempre `./mvnw`, NUNCA `mvn` global.
+- Java 25 obligatorio. Usa siempre `./mvnw`, NUNCA `mvn` global.
 - Estructura de dependencias: `infrastructure → core → utils`. Nunca al revés.
 - `core` es Java plano: sin anotaciones de Spring, sin drivers de SurrealDB/Redis/
   Pulsar. Los tests de `core` NO deben requerir contexto de Spring

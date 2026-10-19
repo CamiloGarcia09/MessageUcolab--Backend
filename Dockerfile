@@ -1,21 +1,27 @@
-FROM maven:3.9.9-eclipse-temurin-17-noble AS build
+FROM eclipse-temurin:25-jdk-noble AS build
 
 WORKDIR /app
+
+COPY .mvn .mvn
+COPY mvnw .
+COPY core/mvnw core/mvnw
+RUN sed -i 's/\r$//' mvnw core/mvnw && chmod +x mvnw
 
 COPY pom.xml .
 COPY infrastructure/pom.xml infrastructure/
 COPY core/pom.xml core/
 COPY utils/pom.xml utils/
 
-RUN mvn dependency:go-offline -B
+RUN ./mvnw dependency:go-offline -B -ntp
 
 COPY infrastructure/src infrastructure/src
 COPY core/src core/src
 COPY utils/src utils/src
+COPY deployment/docker/scripts/surreal/surreal-init.surql deployment/docker/scripts/surreal/surreal-init.surql
 
-RUN mvn clean package -B
+RUN ./mvnw clean verify -B -ntp
 
-FROM eclipse-temurin:17-jre-noble
+FROM eclipse-temurin:25-jre-noble
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y curl \
