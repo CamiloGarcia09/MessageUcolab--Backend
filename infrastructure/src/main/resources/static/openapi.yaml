@@ -25,6 +25,51 @@ tags:
     description: Creacion de aplicaciones y funcionalidades.
 
 paths:
+  /messageucolab/v1/workspace/local:
+    get:
+      tags: [Contexto]
+      summary: Obtener el destino fijo del desarrollo local
+      description: |
+        Disponible únicamente con el perfil local-workspace. No requiere tokens
+        antiguos y no modifica contextos de usuario. El frontend conserva el login
+        nuevo; el enforcement externo del PEP es independiente de este contrato.
+        Los IDs proceden de la configuración del backend y deben corresponder al
+        mismo workspace persistido. Nunca activar este perfil en producción.
+      operationId: getLocalWorkspace
+      security: []
+      responses:
+        '200':
+          description: Configuración del workspace local fijo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    minItems: 1
+                    maxItems: 1
+                    items:
+                      type: object
+                      required: [organizationId, organizationName, applicationId, applicationName, environmentId, environmentName]
+                      properties:
+                        organizationId:
+                          type: string
+                          format: uuid
+                        organizationName:
+                          type: string
+                        applicationId:
+                          type: string
+                          format: uuid
+                        applicationName:
+                          type: string
+                        environmentId:
+                          type: string
+                          format: uuid
+                        environmentName:
+                          type: string
+
   /messageucolab/v1/application:
     post:
       tags: [Administracion]

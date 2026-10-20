@@ -15,6 +15,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -165,7 +166,7 @@ class MessageTranslationRedisAdapterTest {
 
         org.mockito.ArgumentCaptor<String> keyCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
         org.mockito.ArgumentCaptor<String> jsonCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(valueOperations).set(keyCaptor.capture(), jsonCaptor.capture(), any());
+        verify(valueOperations).set(keyCaptor.capture(), jsonCaptor.capture(), any(Duration.class));
         assertAll(
                 () -> assertThat(keyCaptor.getValue()).isEqualTo("translation-v3::MSG-001::env-1::en::es"),
                 () -> assertThat(jsonCaptor.getValue()).contains("\"translatedType\":\"tipo\"",
@@ -185,7 +186,7 @@ class MessageTranslationRedisAdapterTest {
 
         org.mockito.ArgumentCaptor<String> jsonCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(valueOperations).set(eq("translation-v3::MSG-001::env-1::es::en"),
-                jsonCaptor.capture(), any());
+                jsonCaptor.capture(), any(Duration.class));
         when(valueOperations.get("translation-v3::MSG-001::env-1::es::en"))
                 .thenReturn(jsonCaptor.getValue());
 
@@ -210,7 +211,7 @@ class MessageTranslationRedisAdapterTest {
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_014.getCode())).thenReturn("cache error");
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         doThrow(new DataAccessException("redis down") {
-        }).when(valueOperations).set(anyString(), anyString(), any());
+        }).when(valueOperations).set(anyString(), anyString(), any(Duration.class));
 
         adapter.saveTranslation("MSG-001", "env-1", "en", "es", MessageTranslationResponseData.create(
                 "Titulo", "Contenido", "tipo", "categoria", "funcionalidad", "ollama", "llama3", 10L));
@@ -222,7 +223,8 @@ class MessageTranslationRedisAdapterTest {
     void saveTranslation_logsError_whenUnexpectedException() {
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_015.getCode())).thenReturn("write error");
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        doThrow(new RuntimeException("boom")).when(valueOperations).set(anyString(), anyString(), any());
+        doThrow(new RuntimeException("boom")).when(valueOperations)
+                .set(anyString(), anyString(), any(Duration.class));
 
         adapter.saveTranslation("MSG-001", "env-1", "en", "es", MessageTranslationResponseData.create(
                 "Titulo", "Contenido", "tipo", "categoria", "funcionalidad", "ollama", "llama3", 10L));

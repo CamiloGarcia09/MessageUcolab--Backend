@@ -197,13 +197,22 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
+      args:
+        GITHUB_PACKAGES_USER: ${GITHUB_PACKAGES_USER:-}
+      secrets:
+        - maven_settings
+        - github_packages_token
     container_name: messageucolab-app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${MESSAGEUCOLAB_PORT}:${MESSAGEUCOLAB_PORT}"
     environment:
       - TZ=UTC
       - LOKI_URL=http://loki:${LOKIPORT}
       - DOPPLERTOKEN=${DOPPLERTOKEN}
+      - PEP_REGISTRATION_TOKEN=${PEP_REGISTRATION_TOKEN}
+      - SECURITY_PEP_ENFORCEMENT_PEP_URL=${SECURITY_PEP_ENFORCEMENT_PEP_URL}
       - SIMULATED_SECURITY_ENABLED=${SIMULATED_SECURITY_ENABLED}
       - SIMULATED_SECURITY_TOKEN=${SIMULATED_SECURITY_TOKEN}
       - SIMULATED_SECURITY_ISSUER=${SIMULATED_SECURITY_ISSUER}
@@ -283,6 +292,12 @@ services:
       - pulsar-network
       - app-network
 
+
+secrets:
+  maven_settings:
+    file: ${MAVEN_SETTINGS_FILE:-${HOME:-${USERPROFILE}}/.m2/settings.xml}
+  github_packages_token:
+    environment: GITHUB_PACKAGES_TOKEN
 
 volumes:
   grafana-data:

@@ -13,17 +13,18 @@ detalles externos como REST, SurrealDB, Redis, Pulsar, Docker, Azure Key Vault, 
 | Tecnología | Versión | Rol |
 |---|---|---|
 | Java | 25 | Lenguaje (release 25 en compilación, sin preview) |
-| Spring Boot | 3.5.16 | Framework base (Java 25) |
+| Spring Boot | 4.1.1 | Framework base (Java 25; Spring Framework 7.0.9) |
 | SurrealDB | 2.1.1 (driver) / v3.1.4 (imagen) | BD principal (única; cubre relacional y no relacional) |
-| Spring Data Redis | Boot 3.5.16 | Caché de lectura de mensajes y catálogo de mensajes |
+| Spring Data Redis | Boot 4.1.1 | Caché de lectura de mensajes y catálogo de mensajes |
 | Caffeine | Gestionada por Spring Boot | Caché local de secretos Doppler |
 | Apache Pulsar | 3.2.2 | Broker de mensajes (eventos de dominio) |
 | LangChain4j | 1.15.1 | Traducción asistida por IA (Ollama local por defecto / OpenAI) |
 | loki-logback-appender | 1.6.0 | Envío de logs a Loki |
-| Spring Boot Actuator + Micrometer | Boot 3.5.16 | Health + métricas Prometheus |
-| Azure Key Vault | spring-cloud-azure 6.5.0 | Secretos |
+| Spring Boot Actuator + Micrometer | Boot 4.1.1 | Health + métricas Prometheus |
+| Azure Key Vault | spring-cloud-azure 7.4.0 | Secretos |
 | Doppler | okhttp 4.12.0 | Secretos en runtime + creación de tokens |
-| springdoc-openapi | 2.8.17 | Swagger UI / OpenAPI |
+| springdoc-openapi | 3.1.1 | Swagger UI / OpenAPI |
+| Starter PEP | 0.1.3 | Enforcement de Security Baseline antes de los controladores |
 | Lombok / ModelMapper | — | Reducción de boilerplate / mapeo de objetos |
 
 ## Vista general
@@ -671,7 +672,7 @@ modelo), Grafana, Loki, OpenTelemetry Collector y Prometheus.
 
 ## Tests y cobertura
 
-- JUnit 5 + Mockito + AssertJ. Los tests de core son unitarios; los de infrastructure también
+- JUnit Jupiter 6 + Mockito + AssertJ, gestionados por Boot. Los tests de core son unitarios; los de infrastructure también
   cubren adaptadores, serializers, mappers, interceptors, controllers y el projection consumer.
 - Migración verificada con Temurin 25.0.4.1: **2049 tests en verde**, sin fallos, errores ni omitidos
   en el build Docker con `clean verify` — utils 214, core 1216, infrastructure 619.

@@ -9,17 +9,18 @@ import co.edu.uco.crosscutting.exceptions.ForbiddenException;
 import co.edu.uco.crosscutting.exceptions.NotFoundException;
 import co.edu.uco.crosscutting.exceptions.UnauthorizedException;
 import org.springframework.http.HttpStatus;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.server.*;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-import java.util.Optional;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.*;
 import static co.edu.uco.crosscutting.helpers.UtilText.isEmptyOrNull;
 
 @Component
 @Order(0)
+@Profile("!local-workspace")
 public final class TokenHeaderInterceptor implements WebFilter {
     private final VerifyAccessUseCaseFacade verify;
     private final EnvironmentContextResolver environment;

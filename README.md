@@ -40,10 +40,15 @@ from the repository root. The local configuration is `dev`, not the deployment's
 Do not print secrets or export them into repository files. If the CLI has no local
 binding, verify the Doppler project/configuration rather than asking for secret values.
 
-All modules inherit Java 25 (`--release 25`) from the root `pom.xml`. Spring Boot 3.5.16
+All modules inherit Java 25 (`--release 25`) from the root `pom.xml`. Spring Boot 4.1.1
 manages the compiler, Lombok, Mockito/Byte Buddy and Jackson versions; JaCoCo 0.8.15
 supports the resulting bytecode. Preview features and Byte Buddy's experimental mode
 are not required.
+
+The PEP starter requires Spring Framework 7; do not mix it with Boot 3 / Framework 6.
+Springdoc 3.1.1 and Spring Cloud Azure 7.4.0 are aligned with Boot 4. HTTP uses
+Jackson 3 while internal adapters preserve their existing Jackson 2 cache formats.
+See [Security Baseline integration](docs/security-integration.md) for scope and deployment details.
 
 Before building, check `java -version` and `./mvnw -version` (Windows: `.\mvnw.cmd -version`).
 On Linux/macOS, run `chmod +x mvnw` once if the checkout did not preserve executable permissions.
