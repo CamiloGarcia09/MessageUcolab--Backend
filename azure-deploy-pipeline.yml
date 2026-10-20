@@ -20,7 +20,6 @@ variables:
   IMAGE_TAG: $(Build.SourceVersion)
   DEPLOY_ROOT: /opt/messageucolab
   DOPPLER_DEPLOY_TOKEN_SECRET: doppler-deploy-token
-  DOPPLER_APP_TOKEN_SECRET: doppler-app-token
 
 stages:
   - stage: ValidateRequest
@@ -163,7 +162,7 @@ stages:
                     scriptLocation: inlineScript
                     inlineScript: |
                       $ErrorActionPreference = 'Stop'
-                      $deployCommand = "chmod +x '$(DEPLOY_ROOT)/deployment/azure/deploy.sh' && sudo -u azureuser -H '$(DEPLOY_ROOT)/deployment/azure/deploy.sh' '$(IMAGE_TAG)' '$(ACR_NAME)' '$(KEY_VAULT_NAME)' '$(DOPPLER_DEPLOY_TOKEN_SECRET)' '$(DOPPLER_APP_TOKEN_SECRET)'"
+                      $deployCommand = "chmod +x '$(DEPLOY_ROOT)/deployment/azure/deploy.sh' && sudo -u azureuser -H '$(DEPLOY_ROOT)/deployment/azure/deploy.sh' '$(IMAGE_TAG)' '$(ACR_NAME)' '$(KEY_VAULT_NAME)' '$(DOPPLER_DEPLOY_TOKEN_SECRET)'"
                       $result = az vm run-command invoke `
                         --resource-group "$(AZURE_RESOURCE_GROUP)" `
                         --name "$(AZURE_VM_NAME)" `

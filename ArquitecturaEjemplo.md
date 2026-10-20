@@ -1,7 +1,7 @@
 # Esquema de arquitectura
 
 Este proyecto (MessageUcoLab) es una API de mensajes multientorno con catálogo jerárquico
-(Organización → Aplicación → Módulo → Funcionalidad → Parámetro), soporte de tokens, traducción
+(Organización → Aplicación → Módulo → Funcionalidad → Parámetro), seguridad externa, traducción
 asistida por IA, caché Redis y eventos por broker. Está organizado como un **monorepo Maven
 multi-módulo** con **arquitectura hexagonal / clean architecture** orientada a features.
 
@@ -16,13 +16,12 @@ detalles externos como REST, SurrealDB, Redis, Pulsar, Docker, Azure Key Vault, 
 | Spring Boot | 4.1.1 | Framework base (Java 25; Spring Framework 7.0.9) |
 | SurrealDB | 2.1.1 (driver) / v3.1.4 (imagen) | BD principal (única; cubre relacional y no relacional) |
 | Spring Data Redis | Boot 4.1.1 | Caché de lectura de mensajes y catálogo de mensajes |
-| Caffeine | Gestionada por Spring Boot | Caché local de secretos Doppler |
 | Apache Pulsar | 3.2.2 | Broker de mensajes (eventos de dominio) |
 | LangChain4j | 1.15.1 | Traducción asistida por IA (Ollama local por defecto / OpenAI) |
 | loki-logback-appender | 1.6.0 | Envío de logs a Loki |
 | Spring Boot Actuator + Micrometer | Boot 4.1.1 | Health + métricas Prometheus |
 | Azure Key Vault | spring-cloud-azure 7.4.0 | Secretos |
-| Doppler | okhttp 4.12.0 | Secretos en runtime + creación de tokens |
+| Doppler CLI | Externo a la app | Inyección de configuración y secretos del entorno |
 | springdoc-openapi | 3.1.1 | Swagger UI / OpenAPI |
 | Starter PEP | 0.1.3 | Enforcement de Security Baseline antes de los controladores |
 | Lombok / ModelMapper | — | Reducción de boilerplate / mapeo de objetos |
@@ -86,19 +85,18 @@ utils/src/main/java/co/edu/uco/crosscutting/
 |-- exceptions/                                (CrossWordsException, BusinessException, BusinessRuleException)
 |   `-- enumeration/                           (ExceptionType, ExceptionLocation)
 `-- helpers/                                   (UtilUUID, UtilText, UtilNumeric, UtilDate, UtilObject,
-                                               UtilPagination, UtilPairKey, PropertiesHelper, EnumConstants)
+                                               UtilPagination, PropertiesHelper, EnumConstants)
     |-- json/                                  (MapperJsonObject, UtilMapperJson)
     `-- config/                                (LocalDateTimeDeserializer)
 
 core/src/main/java/co/edu/uco/application/
 |-- primaryports/                              (puertos de entrada)
-|   |-- dto/                                   (message, token, page, catalog, keypair)
-|   `-- facade/                                (UseCaseFacade + impl; message, token, page, catalog)
+|   |-- dto/                                   (message, page, catalog, context)
+|   `-- facade/                                (UseCaseFacade + impl; message, page, catalog, context)
 |-- secondaryports/                            (puertos de salida)
-|   |-- entity/                                (MessageData, TokenData, EnvironmentData, ... *Data)
-|   |-- repository/                            (MessageRepository, *CatalogRepository, token, cache...)
+|   |-- entity/                                (MessageData, EnvironmentData, ... *Data)
+|   |-- repository/                            (MessageRepository, *CatalogRepository, cache...)
 |   |-- catalog/                               (CatalogPort: catálogo de mensajes i18n)
-|   |-- secret/                                (SecretProviderPort, CreateTokenSecretPort, EncryptTokenPort)
 |   |-- vault/                                 (VaultPort)
 |   |-- translation/                           (MessageTranslationPort)
 |   |-- broker/                                (SendMessage)
@@ -108,7 +106,7 @@ core/src/main/java/co/edu/uco/application/
 |   `-- Response.java
 |-- usecase/                                   (casos de uso + implementation)
 |   |-- handling/                              (Handling*Port: contratos internos que implementan los use cases)
-|   |-- domain/                                (MessageDomain, TokenDomain, ... + aggregate/)
+|   |-- domain/                                (MessageDomain, security, ... + aggregate/)
 |   `-- validator/                             (CompositeValidator, reglas por feature)
 |-- common/
 |   |-- catalog/                               (MessageCatalog, CatalogPortStaticRef, strategy/)
@@ -120,17 +118,15 @@ infrastructure/src/main/java/co/edu/uco/
 |-- init/CrossWordApplication.java             (Spring Boot main)
 |-- infraestructure/
     |-- primaryadapters/                       (interfaces de controllers, interceptors, controllers)
-    |   |-- MessagesController.java / TokenController.java / CreateMessageController.java / CatalogController.java
+    |   |-- MessagesController.java / CreateMessageController.java / CatalogController.java
     |   |-- controller/                        (*Impl con @RestController)
-    |   `-- interceptors/                      (TokenHeaderInterceptor, AcceptHeaderInterceptor)
+    |   `-- interceptors/                      (ActiveContextInterceptor, LocalWorkspaceInterceptor, AcceptHeaderInterceptor)
     |-- secondaryadapters/
     |   |-- repository/
     |   |   |-- surreal/                       (model/, data/ mappers, impl/ adapters SurrealDB)
     |   |   `-- redis/                         (MessageRedis, RedisRepositoryAdapter, impl/MessageRedisAdapter)
     |   |-- catalog/RedisCatalogMessageAdapter.java
     |   |-- broker/SendBrokerMessage.java      (Pulsar)
-    |   |-- encryption/JavaSecurityEncryptTokenAdapter.java
-    |   |-- secrets/doppler/                   (DopplerProvider, DopplerSecretCacheService, DopplerCreateToken)
     |   |-- vault/azure/AzureKeyVaultAdapter.java
     |   |-- translation/LangChain4jMessageTranslationAdapter.java
     |   |-- presenter/
@@ -140,7 +136,7 @@ infrastructure/src/main/java/co/edu/uco/
     |   |-- parameter/dummy/CatalogParameterAdapter.java
     |   `-- ...
     `-- config/                                (SurrealDBConfig, RedisConfig, BrokerConfig, WebConfig,
-                                               SerializerConfig, LoggingConfig, DopplerProperties,
+                                               SerializerConfig, LoggingConfig,
                                                PulsarProperties, TranslationAiProperties, InfrastructureConstant)
 ```
 
@@ -168,9 +164,9 @@ Implementa los detalles técnicos. Sí depende de Spring Boot, SurrealDB, Redis,
 Azure Key Vault, Doppler, Loki, etc.:
 
 - Controllers REST (interfaz + `*Impl`), que solo delegan en facades y presentan la respuesta.
-- Interceptores de token y negociación de contenido.
+- Filtros de contexto autorizado y negociación de contenido, detrás del PEP externo.
 - Adaptadores de repositorio (SurrealDB), caché (Redis), catálogo (Redis), broker (Pulsar),
-  encriptación, secretos (Doppler), vault (Azure Key Vault), traducción (LangChain4j), logging
+  vault (Azure Key Vault), traducción (LangChain4j), logging
   (SLF4J/Loki), presentación (PresenterPort HTTP con serializadores).
 - Configuración de beans (`config/`).
 - Manejador global de errores HTTP integrado en `HttpPresenterAdapter` (`@RestControllerAdvice`).
@@ -187,7 +183,9 @@ de mensaje. Puede ser usado por core e infrastructure.
 2. Los interceptores se ejecutan según la ruta:
      - LoggingConfig           -> crea/usurpa X-Correlation-ID, MDC, headers de respuesta
      - AcceptHeaderInterceptor -> valida el header Accept contra SerializerRegistry (406 si no soporta)
-     - TokenHeaderInterceptor  -> valida el header Token (401 si falta o es invalido) y resuelve environmentId (atributo de request)
+     - PEP externo             -> autentica y autoriza sin credenciales emitidas por MessageUcoLab
+     - ActiveContextInterceptor -> exige identidad externa y resuelve environmentId fuera del perfil local
+     - LocalWorkspaceInterceptor -> fija el workspace local sin desactivar el PEP
 3. Controller(Impl) invoca la facade (puerto primario):  facade.execute(dto)
 4. FacadeImpl delega en el contrato Handling*Port
 5. UseCase (que implementa Handling*Port) ejecuta:
@@ -211,9 +209,6 @@ facade/message/  FindMessageByCodeAndEnvironmentUseCaseFacade
                  FindMessagesByEnvironmentUsecaseFacade
                  CreateMessageUseCaseFacade
                  TranslateMessageByCodeAndEnvironmentUseCaseFacade
-facade/token/    CreateTokenUseCaseFacade
-                 VerifyAccessUseCaseFacade
-                 FindEnvironmentIdTokenUseCaseFacade
 facade/page/     SimplePageFacade
 facade/catalog/  FindCatalogUseCaseFacade
 ```
@@ -225,10 +220,8 @@ El controller nunca conoce el use case directamente.
 
 ```text
 dto/message/   MessageDTO, MessageCodeDTO, CreateMessageDTO, MessageEnvironmentDTO, TranslatedMessageDTO
-dto/token/     TokenDTO, CreateTokenDTO
 dto/page/      PageRequestDTO
 dto/catalog/   CatalogItemDTO
-dto/keypair/   KeyPairDTO
 ```
 
 ## Puertos secundarios (`core/.../secondaryports`) y sus adaptadores
@@ -239,8 +232,6 @@ dto/keypair/   KeyPairDTO
 | `CacheMessageRepository` | `MessageRedisAdapter` (caché de lectura Redis, cache-aside) |
 | `DataBaseMessageRepository` | `MessageSurrealRepositoryAdapterImpl` (SurrealDB) |
 | `CreateMessageRepository` | `CreateMessageSurrealAdapter` (SurrealDB) |
-| `FindTokenRepository` + `TokenRepository` | `TokenSurrealAdapter` |
-| `TokenStateRepository` | `TokenStateSurrealAdapter` |
 | `EnvironmentRepository` | `EnvironmentSurrealRepositoryAdapterImpl` |
 | `ApplicationCatalogRepository` | `ApplicationCatalogSurrealAdapter` |
 | `EnvironmentCatalogRepository` | `EnvironmentCatalogSurrealAdapter` |
@@ -249,11 +240,7 @@ dto/keypair/   KeyPairDTO
 | `MessageCategoryCatalogRepository` | `MessageCategoryCatalogSurrealAdapter` |
 | `MessageStateCatalogRepository` | `MessageStateCatalogSurrealAdapter` |
 | `MessageEnvironmentStateCatalogRepository` | `MessageEnvironmentStateCatalogSurrealAdapter` |
-| `FindTokenCachePort` | `DopplerSecretCacheService` (Caffeine, TTL 15 min) |
-| `SecretProviderPort` | `DopplerProvider` (OkHttp GET Doppler API) |
-| `CreateTokenSecretPort` | `DopplerCreateToken` (OkHttp POST Doppler API) |
 | `VaultPort` | `AzureKeyVaultAdapter` (SecretClient + managed identity) |
-| `EncryptTokenPort` | `JavaSecurityEncryptTokenAdapter` (RSA 2048, OAEP SHA-256) |
 | `MessageTranslationPort` | `LangChain4jMessageTranslationAdapter` (Ollama / OpenAI) |
 | `SendMessage` (broker) | `SendBrokerMessage` (Pulsar producer) |
 | `PresenterPort<T>` | `HttpPresenterAdapter` (REST + `@RestControllerAdvice`) |
@@ -265,7 +252,7 @@ dto/keypair/   KeyPairDTO
 ```text
 MessageData, MessageEnvironmentData, MessageTranslationRequestData, MessageTranslationResponseData,
 MessageTypeData, MessageCategoryData, StatusMessageData, MessageEnvironmentStateData,
-EnvironmentData, EnvironmentType, ApplicationData, FunctionalityData, TokenData, StatusTokenData
+EnvironmentData, EnvironmentType, ApplicationData, FunctionalityData
 ```
 
 Son los modelos que viajan entre core y los adaptadores (no son entidades JPA ni Spring Data).
@@ -276,8 +263,7 @@ Son los modelos que viajan entre core y los adaptadores (no son entidades JPA ni
 secondaryports/Response.java                          (respuesta base: datos + mensajes)
 secondaryports/GenericPort.java
 secondaryports/repository/SimplePage, SimplePageRequest (paginación desacoplada de Spring Data)
-secondaryports/repository/token/PageBuilder            (construye SimplePage)
-secondaryports/repository/token/FindTokenCachePort
+secondaryports/repository/PageBuilder                  (adaptación de paginación existente)
 ```
 
 ## Casos de uso (`core/.../usecase`) y contratos Handling
@@ -291,10 +277,6 @@ usecase/
 |-- FindMessageByEnvironmentUseCase.java            implements HandlingFindMessageEnvironmentPort
 |-- FindMessageByCodeAndEnvironmentUseCase.java     implements HandlingFindMessageByCodeAndEnvironmentPort
 |-- TranslateMessageByCodeAndEnvironmentUseCase.java implements HandlingTranslateMessageByCodeAndEnvironmentPort
-|-- CreateTokenUseCase.java                         implements HandlingCreateTokenPort
-|-- VerifyAccessUseCase.java                        implements HandlingVerifyAccessPort
-|-- FindEnvironmentIdTokenUseCase.java              implements HandlingFindEnvironmentIdTokenPort
-|-- RevokeTokenUseCase.java                         implements HandlingRevokeTokenPort
 |-- FindCatalogUseCase.java                         implements HandlingFindCatalogPort
 ```
 
@@ -307,7 +289,7 @@ construye un `MessageData` con `UtilUUID.getNewUUID()`, persiste vía `CreateMes
 ```text
 usecase/domain/
 |-- MessageDomain, MessageCodeDomain, MessageTypeDomain, MessageCategoryDomain,
-|   MessageStatusDomain, FunctionalityDomain, TokenDomain
+|   MessageStatusDomain, FunctionalityDomain
 `-- aggregate/
     |-- AggregateRoot.java, Entity.java
     |-- entities/          MessageEntity, MessageTypeEntity, MessageCategoryEntity,
@@ -330,7 +312,6 @@ validator/page/                    PageRequestDTOValidator, PageRequestDTOCompos
                                    PageRequestTypeValidator, PageRequestRangeValidator
 validator/message/                 FindMessageCodeValidator, TargetLanguageValidator,
                                    ListMessageValidator, CreateMessageCompositeValidator
-validator/token/                   DateValidValidator, CreateTokenCompositeValidator
 validator/environment/             EnvironmentExistValidator, ApplicationBelongsEnvironmentValidator
 validator/impl/                    UUIDValidator, ExpirationDateValidator
 ```
@@ -386,11 +367,11 @@ y en SurrealDB (`surreal-init.surql`, `surreal-seed.dev.surql`).
       `extractIdAsUUID`, `cleanThingId`, `stringOf`.
     - `SurrealQLUtil`: `quote()`, `recordIdLiteral()`, `datetime()` (no se usa `queryBind` porque el
       binding nativo no está disponible en este SDK).
-- **Modelos** `model/`: `MessageSurrealModel`, `EnvironmentSurrealModel`, `TokenSurrealModel`,
-  `StatusTokenSurrealModel` (POJOs con normalization en setters).
+- **Modelos** `model/`: `MessageSurrealModel`, `EnvironmentSurrealModel`,
+  `ActiveContextSurrealModel` (POJOs con normalization en setters).
 - **Mappers** `data/`: interfaz `DataMapper<D,A>` (`mapperData`/`mapperModel`).
-  `MessageSurrealMapper`, `EnvironmentSurrealMapper` (vía ModelMapper); `TokenSurrealMapper`,
-  `TokenStateSurrealMapper` (manual); `MessageDataCacheMapper` (MessageData ↔ MessageRedis para caché).
+  `MessageSurrealMapper`, `EnvironmentSurrealMapper` (vía ModelMapper);
+  `MessageDataCacheMapper` (MessageData ↔ MessageRedis para caché).
 - **CQRS + Event Sourcing de proyecciones**: `SurrealDomainEventProjectionConsumer`
   (`@Scheduled`, cada ~2s, lote de 100) consume la tabla `domain_events` y **proyecta read models**
   denormalizados:
@@ -398,7 +379,7 @@ y en SurrealDB (`surreal-init.surql`, `surreal-seed.dev.surql`).
     - `message_data_collection` (mensaje denormalizado con catálogos),
     - `message_environment_readmodel` (mensaje + ambiente).
     - Deletes detectados por sufijo `_DELETED`; marca `projected`/`failed` + `projection_error`.
-- Tablas/colecciones (referencia en `InfrastructureConstant`): `token`, `token_state`,
+- Tablas/colecciones (referencia en `InfrastructureConstant`):
   `message_environment`, `environment`, `application`, `message`, `message_type`,
   `message_category`, `message_state`, `message_environment_state`, `functionality`,
   `environment_type`, `domain_events`, y los read models.
@@ -456,16 +437,14 @@ y en SurrealDB (`surreal-init.surql`, `surreal-seed.dev.surql`).
   `MessageCodeDomain` a JSON (`UtilMapperJson`) y publica en `pulsar.topic-name`.
 - Error → `CrossWordsException` técnica (TCH_038/TCH_002/TCH_039).
 
-## Tokens: encriptación, secretos y verificación
+## Seguridad externa y secretos
 
-- **Encriptación** (`JavaSecurityEncryptTokenAdapter`, puerto `EncryptTokenPort`):
-    - `generateKeys()` → RSA 2048 bits.
-    - `generateSignature(data, publicKey)` → cifra con `RSA/ECB/OAEPWithSHA-256AndMGF1Padding` (Base64).
-    - `access(privateKey, signature, secretName)` → descifra con la clave privada y compara con secretName.
-- **Secretos Doppler**:
-    - `DopplerProvider` (puerto `SecretProviderPort`): GET a la API de Doppler (`Authorization: Bearer`).
-    - `DopplerSecretCacheService` (puerto `FindTokenCachePort`): caché Caffeine 15 min / 500 entradas.
-    - `DopplerCreateToken` (puerto `CreateTokenSecretPort`): POST del change request a Doppler + invalida caché.
+- El starter PEP conserva autenticación y autorización externas. El frontend usa
+  sesión BFF con cookies. MessageUcoLab no emite credenciales ni interpreta el header propietario.
+- El modo local fija el ambiente mediante `LocalWorkspaceInterceptor`. Fuera de él,
+  `ActiveContextInterceptor` exige identidad resuelta; el puente del proveedor real
+  a `ExternalIdentity` sigue siendo necesario y no se sustituye por un bypass.
+- Doppler CLI inyecta configuración; no se escriben claves privadas desde la app.
 - **Azure Key Vault** (`AzureKeyVaultAdapter`, puerto `VaultPort`): `SecretClient` con
   `DefaultAzureCredentialBuilder`; rechaza secretos deshabilitados; errores mapeados a TCH_047..TCH_050.
 
@@ -503,11 +482,10 @@ Respuesta base `Response` (datos + lista de mensajes) serializada según el head
 - `LoggingConfig` (`HandlerInterceptor` global): X-Correlation-ID, MDC (URI, método, query, sesión),
   headers de respuesta `X-Correlation-ID`, `TS`, `THREAD`, `APP=MessageUcoLab`. Limpia el MDC al final.
 - `AcceptHeaderInterceptor` (`/messageucolab/v1/**`, sin swagger): valida el header Accept.
-- `TokenHeaderInterceptor` (rutas de mensajes/token): exige header `Token` (401 si falta/vacío o
-  token inválido), ejecuta `VerifyAccessUseCaseFacade` y `FindEnvironmentIdTokenUseCaseFacade` para
-  resolver el `environmentId` y dejarlo como atributo de request.
-
-Los controllers de catálogo están exentos del token (solo pasan por Accept y logging).
+- `ActiveContextInterceptor`: exige identidad externa fuera del perfil local y
+  resuelve el ambiente desde el contexto activo; no acepta credenciales propietarias.
+- `LocalWorkspaceInterceptor`: fija el destino exclusivamente en desarrollo.
+  Los catálogos y las operaciones de negocio conservan el enforcement del PEP.
 
 ## Manejo de errores
 
@@ -545,7 +523,7 @@ SizeTitleMoreThanFiftyException, SizeContentLessThanTenException, SizeContentMor
 - `@ExceptionHandler(Exception.class)` → mensaje genérico con **HTTP 500**.
 - Cuerpo ilegible → **HTTP 400**; media type no aceptable → **HTTP 406**.
 
-Además, los interceptores escriben sus propios errores (401 token, 406 Accept).
+Además, los filtros escriben sus propios errores (401 autenticación, 406 Accept).
 
 ## Configuración y arranque
 
@@ -556,14 +534,13 @@ Además, los interceptores escriben sus propios errores (401 token, 406 Accept).
 - Principales `@ConfigurationProperties`:
     - `surreal` (`SurrealDBProperties`): host, port, user, password, namespace, database, maxConnections.
     - `pulsar` (`PulsarProperties`): serviceUrl, topicName.
-    - `doppler` (`DopplerProperties`): token, request, urlConfigSecretsPost/Get.
     - `translation.ai` (`TranslationAiProperties`): enabled, provider, apiKey, baseUrl, modelName,
       temperature, maxRetries, timeoutSeconds.
 - Configuraciones: `SurrealDBConfig` (cliente `Surreal`), `RedisConfig` (`@EnableRedisRepositories` +
   `RedisTemplate`), `BrokerConfig` (PulsarClient), `SerializerConfig` (5 serializers),
   `WebConfig` (interceptores), `LoggingConfig` (correlación).
 - Recursos: `application.properties` (todo por variables de entorno: `SURREALDB*`, `REDIS*`,
-  `PULSARURL`, `DOPPLERTOKEN`, `AZURE_KEYVAULT_UCOLAB_ENDPOINT`, `TRANSLATION_AI_*`),
+  `PULSARURL`, `PEP_REGISTRATION_TOKEN`, `AZURE_KEYVAULT_UCOLAB_ENDPOINT`, `TRANSLATION_AI_*`),
   `application-azure.properties` (perfil `azure`: managed identity, logback azure),
   `logback-spring.xml` (appenders CONSOLE JSON / ROLLING / LOKI), `static/openapi.yaml` (Swagger).
 
@@ -572,21 +549,20 @@ Además, los interceptores escriben sus propios errores (401 token, 406 Accept).
 Base de mensajes: `crosswords.api.path.messages=/messageucolab/v1/messages`. Todas las rutas
 soportan respuesta en JSON, YAML, XML, text/plain y text/html según el header `Accept`.
 
-| Método | Ruta | Controlador | Token header |
+| Método | Ruta | Controlador | Seguridad externa |
 |---|---|---|---|
 | POST | `/messageucolab/v1/application` | CreateApplicationControllerImpl (crea aplicación y ambientes por defecto) | Sí |
-| POST | `/messageucolab/v1/application/{id}/token` | TokenControllerImpl (CrearToken) | No |
 | GET | `/messageucolab/v1/messages?page&size&sort&columnSort` | MessagesControllerImpl (listar por ambiente) | Sí |
 | GET | `/messageucolab/v1/messages?code={messageCode}` | MessagesControllerImpl (por código y ambiente) | Sí |
 | POST | `/messageucolab/v1/messages/{messageCode}/translations` | MessagesControllerImpl (traducir) | Sí |
 | POST | `/messageucolab/v1/messages` | CreateMessageControllerImpl | Sí |
-| GET | `/messageucolab/v1/catalog/applications` | CatalogControllerImpl | No |
-| GET | `/messageucolab/v1/catalog/applications/{applicationId}/environments` | CatalogControllerImpl | No |
-| GET | `/messageucolab/v1/catalog/applications/{applicationId}/functionalities` | CatalogControllerImpl | No |
-| GET | `/messageucolab/v1/catalog/message-types` | CatalogControllerImpl | No |
-| GET | `/messageucolab/v1/catalog/message-categories` | CatalogControllerImpl | No |
-| GET | `/messageucolab/v1/catalog/message-states` | CatalogControllerImpl | No |
-| GET | `/messageucolab/v1/catalog/message-environment-states` | CatalogControllerImpl | No |
+| GET | `/messageucolab/v1/catalog/applications` | CatalogControllerImpl | Sí |
+| GET | `/messageucolab/v1/catalog/applications/{applicationId}/environments` | CatalogControllerImpl | Sí |
+| GET | `/messageucolab/v1/catalog/applications/{applicationId}/functionalities` | CatalogControllerImpl | Sí |
+| GET | `/messageucolab/v1/catalog/message-types` | CatalogControllerImpl | Sí |
+| GET | `/messageucolab/v1/catalog/message-categories` | CatalogControllerImpl | Sí |
+| GET | `/messageucolab/v1/catalog/message-states` | CatalogControllerImpl | Sí |
+| GET | `/messageucolab/v1/catalog/message-environment-states` | CatalogControllerImpl | Sí |
 
 Swagger: `http://localhost:8085/swagger-ui.html` · Health: `http://localhost:8085/actuator/health` ·
 Métricas: `http://localhost:8085/actuator/prometheus`.
@@ -594,9 +570,9 @@ Métricas: `http://localhost:8085/actuator/prometheus`.
 ## Flujo real de una consulta (lectura con caché)
 
 ```text
-1. GET /messageucolab/v1/messages?code={messageCode} con header Token
-2. TokenHeaderInterceptor valida el token y resuelve environmentId (atributo de request)
-3. MessagesControllerImpl -> FindMessageByCodeAndEnvironmentUseCaseFacade.execute(code, environmentId)
+1. GET /messageucolab/v1/messages?code={messageCode} con autenticación externa
+2. PEP valida acceso; el backend resuelve el contexto autorizado
+3. MessagesControllerImpl -> FindMessageByCodeAndEnvironmentUseCaseFacade.execute(code, MessageAccessContext)
 4. Facade -> HandlingFindMessageByCodeAndEnvironmentPort -> FindMessageByCodeAndEnvironmentUseCase
 5. UseCase usa MessageCatalogStrategy.getMessageByCodeAndEnvironment:
      a. cacheCatalog.getMessageByCodeAndEnvironment  -> MessageRedisAdapter (Redis)  [HIT -> responde]
@@ -610,7 +586,7 @@ Métricas: `http://localhost:8085/actuator/prometheus`.
 ## Flujo real de una escritura (crear mensaje)
 
 ```text
-1. POST /messageucolab/v1/messages (body CreateMessageDTO, header Token o Authorization Bearer)
+1. POST /messageucolab/v1/messages (body CreateMessageDTO, autenticación externa)
 2. CreateMessageControllerImpl -> CreateMessageUseCaseFacade.execute(dto)
 3. Facade -> HandlingCreateMessagePort -> CreateMessageUseCase
 4. UseCase resuelve el ambiente autenticado y deriva de este el `applicationId`
@@ -623,22 +599,6 @@ Métricas: `http://localhost:8085/actuator/prometheus`.
    proyecta a los read models denormalizados de lectura
 9. CreateMessageControllerImpl presenta "Mensaje creado exitosamente"
 ```
-
-## Flujo real de tokens
-
-```text
-1. POST /messageucolab/v1/application/{id}/token -> TokenControllerImpl
-2. CreateTokenUseCaseFacade.execute(tokenDTO, id)
-3. CreateTokenUseCase:
-     - genera par de llaves RSA (JavaSecurityEncryptTokenAdapter.generateKeys)
-     - crea el secreto del token en Doppler (DopplerCreateToken)
-     - persiste el token en SurrealDB (TokenSurrealAdapter: tabla token + token_state)
-     - construye la firma/signature con la clave pública y la devuelve
-4. TokenControllerImpl presenta el token generado (String)
-```
-
-La verificación en cada request: `VerifyAccessUseCase` (estado y expiración) +
-`FindEnvironmentIdTokenUseCase` (resuelve el `environmentId`) desde el interceptor.
 
 ## Observabilidad y despliegue
 

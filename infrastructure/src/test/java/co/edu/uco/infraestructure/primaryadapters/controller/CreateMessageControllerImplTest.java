@@ -77,7 +77,7 @@ class CreateMessageControllerImplTest {
             ArgumentCaptor<MessageAccessContext> contextCaptor = ArgumentCaptor.forClass(MessageAccessContext.class);
             verify(facade).execute(eq(dto), contextCaptor.capture());
             assertAll(
-                    () -> assertThat(contextCaptor.getValue().legacyEnvironmentId()).isEqualTo("env-token"),
+                    () -> assertThat(contextCaptor.getValue().workspaceEnvironmentId()).isEqualTo("env-token"),
                     () -> assertThat(contextCaptor.getValue().externalIdentity()).isNull());
             verify(presenter).presentRestSuccess(List.of("Mensaje creado exitosamente"), null);
         }

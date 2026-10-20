@@ -1,11 +1,11 @@
-package co.edu.uco.application.secondaryports.repository.token;
+package co.edu.uco.application.secondaryports.repository;
 
-import co.edu.uco.application.secondaryports.repository.SimplePageRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 class PageBuilderTest {
 
@@ -19,9 +19,10 @@ class PageBuilderTest {
 
         PageRequest result = PageBuilder.createPageRequest(request);
 
-        assertThat(result.getPageNumber()).isZero();
-        assertThat(result.getPageSize()).isEqualTo(20);
-        assertThat(result.getSort()).isEqualTo(Sort.by(Sort.Direction.DESC, "code"));
+        assertAll(
+                () -> assertThat(result.getPageNumber()).isZero(),
+                () -> assertThat(result.getPageSize()).isEqualTo(20),
+                () -> assertThat(result.getSort()).isEqualTo(Sort.by(Sort.Direction.DESC, "code")));
     }
 
     @Test
@@ -34,9 +35,10 @@ class PageBuilderTest {
 
         PageRequest result = PageBuilder.createPageRequest(request);
 
-        assertThat(result.getPageNumber()).isEqualTo(2);
-        assertThat(result.getPageSize()).isEqualTo(10);
-        assertThat(result.getSort().getOrderFor("id").getDirection()).isEqualTo(Sort.Direction.ASC);
+        assertAll(
+                () -> assertThat(result.getPageNumber()).isEqualTo(2),
+                () -> assertThat(result.getPageSize()).isEqualTo(10),
+                () -> assertThat(result.getSort().getOrderFor("id").getDirection()).isEqualTo(Sort.Direction.ASC));
     }
 
     @Test

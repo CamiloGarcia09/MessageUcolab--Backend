@@ -90,7 +90,6 @@ stages:
               ACR_LOGIN_SERVER: example.azurecr.io
               IMAGE_TAG: validation
               AZURE_KEYVAULT_UCOLAB_ENDPOINT: https://example.vault.azure.net
-              DOPPLERTOKEN: validation
               REDISPASSWORD: validation
               PULSARTOPICNAME: persistent://public/default/validation
               SURREALDBUSER: root

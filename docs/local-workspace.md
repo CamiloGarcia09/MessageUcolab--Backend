@@ -1,12 +1,12 @@
 # Espacio de trabajo local temporal
 
-Este modo permite continuar el desarrollo mientras se retiran los contextos y los
-tokens antiguos. No sustituye la integración definitiva con `security-baseline`.
+Este modo fija el destino de desarrollo y conserva la autenticación y autorización
+del componente externo `security-baseline`. MessageUcoLab no emite tokens propios.
 
 ## Contrato
 
 - Se activa únicamente con el perfil Spring `local-workspace`.
-- No exige los encabezados antiguos `Token` ni `Authorization: Bearer` simulado.
+- Usa la sesión BFF y sus cookies; no requiere el simulador de identidad externa.
 - El login del frontend con el PDP y sus cookies se conserva. Este login, por sí
   solo, **no protege el backend**: la integración y el enforcement del PEP deben
   verificarse por separado. No se desactiva su configuración existente.
@@ -17,8 +17,9 @@ tokens antiguos. No sustituye la integración definitiva con `security-baseline`
 - El backend fija el ambiente para todas las operaciones de mensajes, incluido
   SSE. La aplicación se sigue obteniendo del ambiente persistido al crear un
   mensaje. El body de `POST /messageucolab/v1/messages` no cambia.
-- Los endpoints antiguos de contexto y emisión de tokens no se habilitan en este
-  modo. Fuera de este perfil, la autenticación antigua conserva su comportamiento.
+- Los endpoints por usuario de contexto no se habilitan en este modo. Fuera de
+  este perfil se exige identidad externa resuelta y contexto activo, sin fallback
+  a credenciales propietarias. El endpoint de emisión se retiró del proyecto.
 - El frontend no consulta ni guarda contextos antiguos en este modo, ni permite
   cambiar el destino fijo. Los IDs se obtienen del backend, no de localStorage.
 
@@ -65,5 +66,5 @@ existentes y relacionados en SurrealDB. No son credenciales.
 
 Con autorización, verificar ausencia de tokens antiguos, acceso directo al panel,
 creación/listado/traducción/SSE en el mismo ambiente, errores de la sesión nueva y
-que fuera del perfil se sigan rechazando solicitudes sin autenticación antigua.
+que fuera del perfil se sigan rechazando solicitudes sin identidad externa.
 Comprobar también el enforcement real del PEP antes de exponer el backend.

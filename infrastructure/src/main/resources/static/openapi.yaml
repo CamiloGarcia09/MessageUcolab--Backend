@@ -4,7 +4,9 @@ info:
   description: |
     Contrato de la API de MessageUcoLab bajo el enfoque Contract First.
     Define las operaciones, parametros, modelos de entrada y salida, respuestas
-    y autenticacion Bearer para la integracion del equipo.
+    y autenticacion mediante el componente externo de seguridad. El frontend usa
+    su sesion BFF; los clientes Bearer deben seguir el contrato del proveedor.
+    MessageUcoLab no emite tokens propios ni acepta el header Token.
   version: 1.0.0
 
 servers:
@@ -30,13 +32,11 @@ paths:
       tags: [Contexto]
       summary: Obtener el destino fijo del desarrollo local
       description: |
-        Disponible únicamente con el perfil local-workspace. No requiere tokens
-        antiguos y no modifica contextos de usuario. El frontend conserva el login
-        nuevo; el enforcement externo del PEP es independiente de este contrato.
+        Disponible únicamente con el perfil local-workspace. No modifica contextos
+        de usuario. Requiere sesion autenticada y permiso en el PEP externo.
         Los IDs proceden de la configuración del backend y deben corresponder al
         mismo workspace persistido. Nunca activar este perfil en producción.
       operationId: getLocalWorkspace
-      security: []
       responses:
         '200':
           description: Configuración del workspace local fijo.

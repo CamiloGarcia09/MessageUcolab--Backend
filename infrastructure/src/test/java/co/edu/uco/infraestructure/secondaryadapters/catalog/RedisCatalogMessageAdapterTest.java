@@ -220,7 +220,7 @@ class RedisCatalogMessageAdapterTest {
 
     @Test
     void getTitle_returnsBootstrapTitle_whenKeyIsBootstrapCode() {
-        assertThat(adapter.getTitle("TCH_027")).isEqualTo("Error generating signature");
+        assertThat(adapter.getTitle("TCH_021")).isEqualTo("Response success");
         verify(hashOperations, never()).get(anyString(), any());
     }
 

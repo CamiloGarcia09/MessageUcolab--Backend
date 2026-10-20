@@ -92,7 +92,7 @@ class ResolveMessageControllerImplTest {
             ArgumentCaptor<MessageAccessContext> contextCaptor = ArgumentCaptor.forClass(MessageAccessContext.class);
             verify(facade).execute(eq("CODE"), contextCaptor.capture());
             assertAll(
-                    () -> assertThat(contextCaptor.getValue().legacyEnvironmentId()).isEqualTo("env-1"),
+                    () -> assertThat(contextCaptor.getValue().workspaceEnvironmentId()).isEqualTo("env-1"),
                     () -> assertThat(contextCaptor.getValue().externalIdentity()).isSameAs(identity));
         }
 

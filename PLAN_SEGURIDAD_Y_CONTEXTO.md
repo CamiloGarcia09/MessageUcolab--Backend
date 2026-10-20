@@ -30,11 +30,35 @@ Aplicacion obligatoria de esta ley:
 
 | Campo | Valor |
 |---|---|
-| Ultima actualizacion | 2026-09-28 |
-| Estado global | Implementacion gradual en curso |
-| Fase actual | Fase 6 - Integrar el proveedor real |
-| Proxima implementacion | Implementar el adaptador del proveedor real de identidad |
-| Bloqueo actual | Ninguno; el esquema final requiere una instalacion nueva y no migra volumenes existentes |
+| Ultima actualizacion | 2026-10-20 |
+| Estado global | Retiro del token propietario y regresion automatizada completados; integracion con proveedor real pendiente |
+| Fase actual | Fase 7 - Codigo backend/frontend retirado y verificado; cierre operativo parcial |
+| Proxima implementacion | Completar el puente de identidad externa fuera de local-workspace |
+| Bloqueo actual | El modo por usuario requiere el adaptador real hacia ExternalIdentity; no se cambia seguridad para suplirlo |
+
+### Contrato vigente tras el retiro (2026-10-20)
+
+Esta seccion prevalece sobre las decisiones de convivencia y evidencias historicas
+que se conservan abajo para trazabilidad. El usuario confirma que el token legado
+ya no tiene consumidores y solicita su retiro del backend y frontend MessageUcoLab.
+
+- No se emiten ni validan tokens propietarios; no se interpreta el header `Token`.
+- El componente externo de seguridad y el PEP conservan autenticacion y permisos.
+  No se modifican sus repositorios, frontends, Docker, datos ni configuracion.
+- El frontend conserva la sesion BFF mediante cookies y `credentials: 'include'`.
+- `local-workspace` conserva su destino fijo y el enforcement del PEP. El campo
+  `MessageAccessContext.workspaceEnvironmentId` representa ese destino confiable,
+  no una credencial ni un ambiente enviado por el cliente.
+- Fuera de ese perfil se exige identidad externa resuelta y contexto activo. El
+  puente del proveedor real a `ExternalIdentity` sigue pendiente; retirar el token
+  no lo implementa ni habilita un fallback sin autenticacion.
+- Se retiran codigo, configuracion, dependencias y seeds exclusivos del mecanismo
+  propietario. Doppler CLI sigue inyectando secretos del entorno; la app no necesita
+  acceso de escritura a su API ni `DOPPLERTOKEN`.
+- No se borran tablas de volumenes existentes, datos de Redis ni secretos remotos.
+  El nuevo seed deja de crearlos; cualquier purga remota requiere alcance propio.
+- Las evidencias de pruebas de fases anteriores son historicas, no verifican este
+  retiro. El usuario autorizo `unit-test-agent` con GPT-6 Luna en primer plano.
 
 ### Convenciones de estado
 
@@ -169,8 +193,8 @@ Respuestas esperadas:
 | 3 | Modelar organizaciones y autorizacion | `COMPLETADA` | MessageUcoLab decide a que recursos accede cada identidad |
 | 4 | Implementar contexto activo | `COMPLETADA` | El backend recuerda y valida el contexto seleccionado |
 | 5 | Migrar operaciones al contexto | `COMPLETADA` | Creacion, catalogos y administracion resuelven alcance desde el contexto autorizado |
-| 6 | Integrar el proveedor real | `PENDIENTE` | El adaptador real reemplaza al simulador |
-| 7 | Retirar el mecanismo propietario | `PENDIENTE` | Se eliminan el token RSA y sus componentes exclusivos |
+| 6 | Integrar el proveedor real | `PARCIAL` | PEP real integrado; puente a ExternalIdentity pendiente fuera del perfil local |
+| 7 | Retirar el mecanismo propietario | `PARCIAL` | Codigo retirado y regresion verificada; limpieza remota y validacion runtime fuera de alcance |
 
 ## Fase 0 - Definir el contrato de seguridad
 
@@ -379,17 +403,19 @@ El proveedor real autentica las peticiones y MessageUcoLab conserva de forma ind
 
 ## Fase 7 - Retirar el mecanismo propietario
 
-**Estado:** `PENDIENTE`
+**Estado:** `PARCIAL` — retiro del codigo completado y verificado; limpieza de
+secretos remotos y validacion del proveedor en runtime fuera del alcance autorizado.
 
 ### Alcance
 
-- [ ] Confirmar que no quedan consumidores del header `Token`.
-- [ ] Retirar el endpoint de emision de tokens propietarios.
-- [ ] Retirar la generacion y validacion RSA exclusiva de esos tokens.
+- [x] Confirmar que no quedan consumidores del header `Token` (confirmacion del usuario).
+- [x] Retirar el endpoint de emision de tokens propietarios.
+- [x] Retirar la generacion y validacion RSA exclusiva de esos tokens.
 - [ ] Retirar secretos Doppler exclusivos del mecanismo anterior.
-- [ ] Retirar tabla, repositorios y casos de uso de tokens obsoletos.
-- [ ] Eliminar configuraciones y documentacion del mecanismo anterior.
-- [ ] Ejecutar pruebas de regresion y seguridad.
+- [x] Retirar tablas y eventos del nuevo seed, repositorios y casos de uso obsoletos (sin purgar datos existentes).
+- [x] Eliminar configuraciones y documentacion operativa del mecanismo anterior.
+- [x] Ejecutar regresion automatizada y comprobar rechazos de autenticacion y permisos.
+- [ ] Verificar el despliegue con el proveedor real (no se desplegaron cambios en esta tarea).
 
 ### Criterio de salida
 
@@ -700,12 +726,78 @@ Una fase solo puede marcarse `COMPLETADA` cuando cumple sus criterios de salida 
 
 ### Pendiente inmediato
 
-Continuar con la Fase 6: integrar el proveedor real de identidad reemplazando al simulador sin modificar los casos de uso, con secretos y endpoints en configuracion externa. El endpoint REST de registro de organizaciones permanece pendiente hasta definir su permiso o politica de aprovisionamiento. El esquema final se instala sobre un volumen nuevo; no se migran volumenes existentes.
+La verificacion de codigo de la Fase 7 termino mediante `unit-test-agent` autorizado.
+La limpieza de secretos remotos y datos preexistentes no se ejecuta automaticamente. Completar
+la integracion por usuario de la Fase 6 sin modificar el componente externo de
+seguridad. El endpoint de registro de organizaciones conserva su politica pendiente.
+
+### Archivos y verificacion del retiro de 2026-10-20
+
+- `core/src/main/java`: eliminacion de DTO, facades, casos de uso, reglas, modelos,
+  puertos de token/secretos y DTO de claves; `PageBuilder` sale del paquete `token`
+  sin cambiar su comportamiento. Contexto local renombrado a `workspaceEnvironmentId`.
+- `infrastructure/src/main/java`: retiro de emision, RSA, repositorios SurrealDB y
+  API Doppler; `ActiveContextInterceptor` sustituye al filtro de token sin fallback.
+- `utils/src/main/java`: retiro de `UtilPairKey` y codigos de catalogo exclusivos.
+- `infrastructure/pom.xml`, propiedades, catalogo Redis y seed SurrealDB: retirada
+  de dependencias y configuracion exclusivas, tablas y eventos de tokens.
+- Compose local/Azure, `deployment/azure/deploy.sh` y pipelines: retiro de la
+  credencial de escritura de la app, manteniendo el CLI y las credenciales del PEP.
+- OpenAPI, README, arquitectura, guias y este plan: contrato sin token propietario.
+- Frontend MessageUcoLab: `src/api.js` sin parametros de token obsoletos y retiro
+  de `src/api.js.bak2`, copia versionada sin cambios locales del cliente anterior.
+  Los cambios previos del usuario y la sesion BFF se conservan.
+- Se retiraron pruebas exclusivas de clases productivas eliminadas y se conservaron
+  las pruebas de catalogo, paginacion y comportamiento de negocio; `PageBuilderTest`
+  sigue cubriendo paginacion tras el cambio de paquete.
+- `ActiveContextInterceptorTest` (8 casos) cubre ruta externa, `Token` y
+  `Authorization` no resueltos sin identidad (`401`), `/me` con y sin identidad,
+  contexto presente, ausente y errores `401/403`; ningún rechazo continúa la cadena.
+  `EnvironmentContextResolverTest` conserva las verificaciones de contexto ausente
+  como `UnauthorizedException` y propagación de excepciones de dominio. Se conserva
+  `LocalWorkspaceProfileBindingTest` para el límite de perfil y el filtro local.
+- `EnumConstantsTest` conserva los asserts de constantes vigentes y elimina solo
+  el caso RSA retirado. Búsqueda focalizada de código activo (`core`, `infrastructure`,
+  `utils`, recursos/deployment Redis y frontend MessageUcoLab) no encontró referencias
+  de implementación RSA/token propietario; `openapi.yaml` mantiene la frase que
+  rechaza explícitamente el header legado como contrato, no como implementación.
+- Verificación final: el wrapper Maven (`mvnw.cmd clean verify`) con Java 25 terminó con
+  `BUILD SUCCESS`. Conteos del resumen Maven: `utils` 208, `core` 1134 e
+  `infrastructure` 574 tests; cero fallos, errores u omitidos.
+  JaCoCo: utils líneas 521/541 (96.30%), ramas 64/66 (96.97%); core líneas
+  1763/1804 (97.73%), ramas 336/342 (98.25%); infrastructure líneas 2133/2327
+  (91.66%), ramas 521/614 (84.85%). Los reportes por módulo están en
+  `target/site/jacoco/index.html` y `target/site/jacoco/jacoco.xml`.
+- JaCoCo de los objetivos nuevos: `ActiveContextInterceptor` líneas 21/21 y ramas
+  6/6; `EnvironmentContextResolver` líneas 9/9 y ramas 4/4. Los checks configurados
+  de cobertura pasan en `core` e `infrastructure`; `utils` queda según su reporte
+  individual sin ampliar alcance.
+- Auditoría focalizada `unit-test-validator` de las pruebas nuevas/modificadas en
+  esta intervención: ✅ `EnumConstantsTest`, ✅ `ActiveContextInterceptorTest`, ✅
+  `EnvironmentContextResolverTest` (revisión de cobertura/escenarios). No se
+  encontraron asserts triviales, excepciones genéricas en `assertThrows`,
+  `@Disabled` ni mocks de infraestructura real en estos tests. Este veredicto no
+  representa una auditoría completa de todas las pruebas del monorepo. Hallazgo
+  arquitectónico previo, no ampliado en esta tarea:
+  `PageBuilderTest` (igual que tests de paginación y estrategias de catálogo ya
+  existentes) utiliza tipos `org.springframework.data` porque `PageBuilder` y los
+  puertos actuales exponen `PageRequest`/`Pageable`. Se preservó el test solicitado
+  y no se alteró producción fuera de alcance; por la regla estática amplia de la
+  skill que prohíbe todo `org.springframework` en `core`, ese grupo conserva la
+  salvedad pese a que los tests son unitarios y no levantan contexto.
+- Frontend MessageUcoLab: `npm run build` completó con Vite 5.4.21; no hay framework
+  de pruebas configurado en `package.json`, por lo que esto verifica build y no
+  pruebas automatizadas frontend.
+- No se desplegaron servicios, no se ejecutaron pruebas runtime contra el proveedor
+  externo, no se purgaron datos/secrets remotos y no se modificó ningún componente,
+  despliegue, frontend o Docker de Security. El puente real a `ExternalIdentity`
+  fuera de `local-workspace` sigue pendiente y es una dependencia externa.
 
 ## Historial de cambios
 
 | Fecha | Fase | Cambio | Estado resultante |
 |---|---|---|---|
+| 2026-10-20 | Fase 7 | Retiro del mecanismo propietario y su cliente obsoleto; pruebas obsoletas retiradas/adaptadas, filtro de contexto externo cubierto, `clean verify` exitoso y cobertura/auditoría registradas; PEP, sesión BFF y componentes externos preservados | Codigo completado y verificado; fase operativa PARCIAL por limpieza remota y validacion runtime no ejecutadas |
 | 2026-09-21 | Planificacion | Creacion del documento; se registran decisiones, fases, riesgos y criterios de salida | Fase 0 `PARCIAL`; Fase 1 `PENDIENTE` |
 | 2026-09-21 | Fase 1 | Se valida la expiracion antes de acceder a secretos o criptografia y se agregan pruebas de vigencia y limite temporal | Fase 1 `EN CURSO`; incremento de expiracion completado |
 | 2026-09-21 | Fase 1 | Se protege el listado, se obtiene el ambiente desde el token y se elimina el fallback global de SurrealDB | Fase 1 `EN CURSO`; aislamiento de lectura completado |

@@ -77,7 +77,7 @@ and set the Maven importer and runner JDK to the project JDK. Reload the Maven p
 the language level and bytecode target must be 25, without preview features.
 
 Validate the container in a non-production environment with Redis, SurrealDB and Pulsar
-before promoting it: check health, message/token operations, translation, SSE, OpenAPI
+before promoting it: check health, external authentication, message operations, translation, SSE, OpenAPI
 and metrics. A successful unit-test build does not replace these integration checks.
 Keep the previous image tag for rollback: Java 25 bytecode cannot run on Java 17, so
 rollback means restoring the previous complete image, not only switching the JVM.
@@ -206,8 +206,6 @@ POSTGRESPASSWORD=your_postgres_password
 # Azure Key Vault
 AZURE_KEYVAULT_UCOLAB_ENDPOINT=your_azure_keyvault_endpoint
 
-# Doppler
-DOPPLERTOKEN=your_doppler_token
 
 # Pulsar
 PULSARURL=pulsar://pulsar-standalone:6650
@@ -286,12 +284,6 @@ curl -X POST "http://localhost:8085/messageucolab/v1/messages/{messageCode}/tran
 # Through API Gateway
 curl -X POST "http://localhost:8000/messageucolab/v1/messages/{messageCode}/translations" -H "Content-Type: application/json" -d '{"sourceLanguage":"auto","targetLanguage":"en"}'
 
-# Get token for an application
-# Direct access
-curl http://localhost:8085/messageucolab/v1/application/{id}/token
-
-# Through API Gateway
-curl http://localhost:8000/messageucolab/v1/application/{id}/token
 ```
 
 ## Monitoring and Logging
@@ -402,8 +394,6 @@ Before configuring Debezium and KSQLDB, you must create the necessary Kafka them
    kafka-topics --create --if-not-exists --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1 --topic postgres.public.message_environment_state_data
    kafka-topics --create --if-not-exists --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1 --topic postgres.public.message_state_data
    kafka-topics --create --if-not-exists --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1 --topic postgres.public.message_type_data
-   kafka-topics --create --if-not-exists --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1 --topic postgres.public.token_data
-   kafka-topics --create --if-not-exists --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1 --topic postgres.public.token_state_data
    ```
 
    c. Verify that all topics were created successfully:
@@ -455,7 +445,7 @@ To configure CDC with Debezium, follow these steps:
         "value.converter.schemas.enable": "false",
         "transforms.unwrap.add.fields": "op,source.ts_ms",
         "transforms.extractId.field": "id",
-        "table.include.list": "public.language_base_data,public.application_state_data,public.application_data,public.environment_type_data,public.environment_state_data,public.environment_data,public.functionality_state_data,public.functionality_data,public.message_category_data,public.message_type_data,public.message_state_data,public.message_data,public.message_environment_state_data,public.message_environment_data,public.token_state_data,public.token_data,public.message_data_table"
+         "table.include.list": "public.language_base_data,public.application_state_data,public.application_data,public.environment_type_data,public.environment_state_data,public.environment_data,public.functionality_state_data,public.functionality_data,public.message_category_data,public.message_type_data,public.message_state_data,public.message_data,public.message_environment_state_data,public.message_environment_data,public.message_data_table"
       }
    }'
    ```
@@ -476,58 +466,6 @@ To configure CDC with Debezium, follow these steps:
 
    Make POST requests for each MongoDB connector:
    ```bash
-   # Token State Connector
-   curl -X POST http://localhost:8083/connectors \
-   -H "Content-Type: application/json" \
-   -d '{
-     "name": "mongodb-token-state-sink",
-     "config": {
-       "connector.class": "com.mongodb.kafka.connect.MongoSinkConnector",
-       "topics": "postgres.public.token_state_data",
-       "collection": "token_state",
-       "database": "messageuco",
-       "document.id.strategy": "com.mongodb.kafka.connect.sink.processor.id.strategy.PartialValueStrategy",
-       "document.id.strategy.partial.value.projection.list": "id",
-       "connection.uri": "mongodb://your_mongodb_user:your_mongodb_password@localhost:27017/messageuco",
-       "value.converter.schemas.enable": "false",
-       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-       "document.id.strategy.partial.value.projection.type": "allowlist",
-       "key.converter": "org.apache.kafka.connect.storage.StringConverter",
-       "deletes.enabled": "true",
-       "transforms": "unwrap",
-       "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
-       "transforms.unwrap.delete.handling.mode": "rewrite",
-       "transforms.unwrap.drop.tombstones": "true",
-       "errors.log.enable": "true"
-     }
-   }'
-
-   # Token Connector
-   curl -X POST http://localhost:8083/connectors \
-   -H "Content-Type: application/json" \
-   -d '{
-     "name": "mongodb-token-sink",
-     "config": {
-       "connector.class": "com.mongodb.kafka.connect.MongoSinkConnector",
-       "topics": "postgres.public.token_data",
-       "collection": "token",
-       "database": "messageuco",
-       "document.id.strategy": "com.mongodb.kafka.connect.sink.processor.id.strategy.PartialValueStrategy",
-       "document.id.strategy.partial.value.projection.list": "id",
-       "connection.uri": "mongodb://your_mongodb_user:your_mongodb_password@localhost:27017/messageuco",
-       "value.converter.schemas.enable": "false",
-       "value.converter": "org.apache.kafka.connect.json.JsonConverter",
-       "document.id.strategy.partial.value.projection.type": "allowlist",
-       "key.converter": "org.apache.kafka.connect.storage.StringConverter",
-       "deletes.enabled": "true",
-       "transforms": "unwrap",
-       "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
-       "transforms.unwrap.delete.handling.mode": "rewrite",
-       "transforms.unwrap.drop.tombstones": "true",
-       "errors.log.enable": "true"
-     }
-   }'
-
    # Message Environment Connector
    curl -X POST http://localhost:8083/connectors \
    -H "Content-Type: application/json" \
@@ -586,8 +524,6 @@ To configure CDC with Debezium, follow these steps:
 
 After configuration, data will be synchronized in the following MongoDB collections:
 
-- `token_state`: Token states
-- `token`: Token information
 - `message_environment`: Message-environment relationship
 - `environment`: Environment information
 

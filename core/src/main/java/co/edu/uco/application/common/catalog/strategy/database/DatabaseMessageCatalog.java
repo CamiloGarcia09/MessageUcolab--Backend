@@ -4,7 +4,7 @@ import co.edu.uco.application.secondaryports.entity.MessageData;
 import co.edu.uco.application.secondaryports.repository.DataBaseMessageRepository;
 import co.edu.uco.application.secondaryports.repository.SimplePage;
 import co.edu.uco.application.secondaryports.repository.SimplePageRequest;
-import co.edu.uco.application.secondaryports.repository.token.PageBuilder;
+import co.edu.uco.application.secondaryports.repository.PageBuilder;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;

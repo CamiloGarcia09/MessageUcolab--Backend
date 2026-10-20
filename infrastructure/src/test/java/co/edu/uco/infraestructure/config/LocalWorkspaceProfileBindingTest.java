@@ -1,13 +1,12 @@
 package co.edu.uco.infraestructure.config;
 
 import co.edu.uco.application.primaryports.facade.context.ActiveContextUseCaseFacade;
-import co.edu.uco.application.primaryports.facade.token.FindEnvironmentIdTokenUseCaseFacade;
-import co.edu.uco.application.primaryports.facade.token.VerifyAccessUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.context.ActiveContextUseCaseFacade;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.security.ExternalIdentityResolverPort;
 import co.edu.uco.infraestructure.primaryadapters.interceptors.ExternalIdentityInterceptor;
+import co.edu.uco.infraestructure.primaryadapters.interceptors.ActiveContextInterceptor;
 import co.edu.uco.infraestructure.primaryadapters.interceptors.LocalWorkspaceInterceptor;
-import co.edu.uco.infraestructure.primaryadapters.interceptors.TokenHeaderInterceptor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -25,23 +24,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LocalWorkspaceProfileBindingTest {
 
     @Test
-    @DisplayName("Sin perfil local-workspace: LocalWorkspaceConfig no habilita, filtros antiguos presentes")
-    void withoutLocalProfile_onlyLegacyInterceptorsPresent() {
+    @DisplayName("Sin perfil local-workspace: los filtros externos están presentes")
+    void withoutLocalProfile_externalInterceptorsPresent() {
         new ApplicationContextRunner()
                 .withUserConfiguration(
-                        TokenHeaderInterceptor.class,
+                        ActiveContextInterceptor.class,
                         ExternalIdentityInterceptor.class,
                         LocalWorkspaceInterceptor.class,
                         LocalWorkspaceConfig.class)
-                .withBean(VerifyAccessUseCaseFacade.class, Mockito::mock)
-                .withBean(FindEnvironmentIdTokenUseCaseFacade.class, Mockito::mock)
                 .withBean(ActiveContextUseCaseFacade.class, Mockito::mock)
                 .withBean(CatalogPort.class, Mockito::mock)
                 .withBean(ExternalIdentityResolverPort.class, Mockito::mock)
                 .withPropertyValues("components.security.simulated.enabled=true")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
-                    assertThat(context.getBean(TokenHeaderInterceptor.class)).isNotNull();
+                    assertThat(context.getBean(ActiveContextInterceptor.class)).isNotNull();
                     assertThat(context.getBean(ExternalIdentityInterceptor.class)).isNotNull();
                     assertThat(context).doesNotHaveBean(LocalWorkspaceInterceptor.class);
                     assertThat(context).doesNotHaveBean(LocalWorkspaceConfig.class);
@@ -49,16 +46,14 @@ class LocalWorkspaceProfileBindingTest {
     }
 
     @Test
-    @DisplayName("Con perfil local-workspace: LocalWorkspaceConfig e Interceptor presentes, filtros antiguos ausentes")
+    @DisplayName("Con perfil local-workspace: el filtro externo es excluido")
     void withLocalProfile_localComponentsPresentLegacyAbsent() {
         new ApplicationContextRunner()
                 .withUserConfiguration(
-                        TokenHeaderInterceptor.class,
+                        ActiveContextInterceptor.class,
                         ExternalIdentityInterceptor.class,
                         LocalWorkspaceInterceptor.class,
                         LocalWorkspaceConfig.class)
-                .withBean(VerifyAccessUseCaseFacade.class, Mockito::mock)
-                .withBean(FindEnvironmentIdTokenUseCaseFacade.class, Mockito::mock)
                 .withBean(ActiveContextUseCaseFacade.class, Mockito::mock)
                 .withBean(CatalogPort.class, Mockito::mock)
                 .withBean(ExternalIdentityResolverPort.class, Mockito::mock)
@@ -67,7 +62,7 @@ class LocalWorkspaceProfileBindingTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context.getBean(LocalWorkspaceConfig.class)).isNotNull();
                     assertThat(context.getBean(LocalWorkspaceInterceptor.class)).isNotNull();
-                    assertThat(context).doesNotHaveBean(TokenHeaderInterceptor.class);
+                    assertThat(context).doesNotHaveBean(ActiveContextInterceptor.class);
                     assertThat(context).doesNotHaveBean(ExternalIdentityInterceptor.class);
                 });
     }
@@ -77,8 +72,6 @@ class LocalWorkspaceProfileBindingTest {
     void withLocalProfile_bindsPropertiesFromLocalWorkspaceFile() {
         new ApplicationContextRunner()
                 .withUserConfiguration(LocalWorkspaceConfig.class)
-                .withBean(VerifyAccessUseCaseFacade.class, Mockito::mock)
-                .withBean(FindEnvironmentIdTokenUseCaseFacade.class, Mockito::mock)
                 .withBean(ActiveContextUseCaseFacade.class, Mockito::mock)
                 .withBean(CatalogPort.class, Mockito::mock)
                 .withBean(ExternalIdentityResolverPort.class, Mockito::mock)

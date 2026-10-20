@@ -53,7 +53,7 @@ de Spring Framework. Las rutas protegidas se deben verificar también en ejecuci
   Las fechas HTTP usan `spring.jackson.datatype.datetime.write-dates-as-timestamps=false`;
   la antigua propiedad bajo `spring.jackson.serialization` no es válida en Jackson 3.
 - `AdapterJsonConfig` proporciona un mapper Jackson 2 explícito para los adaptadores
-  internos existentes (Doppler, traducción y caché), con Java Time y fechas ISO.
+  internos existentes (traducción y caché), con Java Time y fechas ISO.
   No reemplaza el mapper HTTP Jackson 3 de Boot.
 - Los serializadores JSON/XML/YAML y los formatos persistidos de Redis se conservan.
   YAML se declara como dependencia directa, no como efecto incidental de SpringDoc.
@@ -172,3 +172,24 @@ seguridad para obtener esos resultados.
 Estos son hallazgos históricos, no una nueva ejecución de pruebas ni una consulta
 actual del estado de los servicios. Los cambios puntuales de datos autorizados en
 esa sesión no amplían el alcance permitido para futuras intervenciones.
+
+## Retiro del token propietario (20 de octubre de 2026)
+
+- Se retiran emisión, validación RSA, repositorios, modelos y catálogo exclusivos
+  del mecanismo propietario, así como su API de escritura de claves en Doppler.
+- Doppler CLI sigue inyectando la configuración. La app ya no requiere
+  `DOPPLERTOKEN`; el despliegue Azure solo recibe el secreto de lectura del CLI,
+  no un segundo secreto de escritura de la aplicación.
+- El frontend conserva `credentials: 'include'` y la sesión BFF. Se eliminan los
+  parámetros de token sin uso y el respaldo versionado del cliente anterior.
+- `local-workspace` conserva el contexto fijo validado por el PEP. Su ambiente
+  se transporta en `MessageAccessContext.workspaceEnvironmentId`, no como legado.
+- Fuera de ese perfil, `ActiveContextInterceptor` exige identidad externa y no
+  interpreta credenciales propietarias. El adaptador real del proveedor hacia
+  `ExternalIdentity` no forma parte de este retiro: una sesión PEP no debe
+  confundirse con la existencia de ese puente. Sin él, el modo por usuario sigue
+  cerrado (`401`), no se habilita un acceso alternativo.
+- El seed nuevo no define las tablas ni eventos exclusivos de tokens. No se
+  borraron volúmenes, registros persistidos, entradas Redis ni secretos remotos.
+  Su eventual limpieza requiere una operación independiente y delimitada.
+- No se modifica ni se opera el componente externo de seguridad.
