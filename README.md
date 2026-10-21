@@ -11,6 +11,12 @@ continue to be read through `CatalogParameterPort` from `parameter.properties`.
 
 Microsoft-hosted CI and protected Azure deployment run as separate Azure DevOps pipelines. The Azure for Students deployment, Doppler setup, infrastructure provisioning, and operations are documented in [`docs/azure-deployment.md`](docs/azure-deployment.md).
 
+Both pipelines require `GITHUB_PACKAGES_USER` and a secret `GITHUB_PACKAGES_TOKEN`
+with read access to the PEP Maven package. CI passes them to the Java container;
+image builds use BuildKit secrets and the credential-free `.mvn/settings.xml`
+template. See [CI package authentication](docs/security-integration.md#github-packages-en-azure-pipelines)
+for Azure DevOps variable setup and PR security restrictions.
+
 ## Prerequisites
 
 - JDK 25 (configure `JAVA_HOME` and your IDE project SDK)

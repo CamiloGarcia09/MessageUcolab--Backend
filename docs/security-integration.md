@@ -76,6 +76,47 @@ configurado por el desarrollador. Su contraseña debe referenciar
 `${env.GITHUB_PACKAGES_TOKEN}`, nunca contener un token literal. Si el usuario
 referencia `${env.GITHUB_PACKAGES_USER}`, esa variable también debe estar definida.
 
+### GitHub Packages en Azure Pipelines
+
+El agente hospedado no dispone del `~/.m2/settings.xml` del desarrollador, y las
+variables del agente no entran automáticamente en `docker run` ni en BuildKit.
+La plantilla versionada `.mvn/settings.xml` declara el servidor `github` con
+referencias a variables de entorno; no contiene credenciales literales.
+
+Configurar estas variables en Azure DevOps, sin poner sus valores en Git ni en el chat:
+
+| Variable | Valor requerido | Secreta |
+|---|---|---|
+| `GITHUB_PACKAGES_USER` | Login de GitHub de la cuenta propietaria del token; no el correo ni el nombre visible | No |
+| `GITHUB_PACKAGES_TOKEN` | PAT compatible con Maven Packages, vigente, con `read:packages` y acceso al paquete `security-pep-integration-spring-boot-starter` | Sí |
+
+- **CI / PR (`azure-pipelines.yml`)**: definir ambas en Variables del pipeline.
+  No se incorpora el grupo de despliegue completo al CI: el PR no necesita
+  credenciales de Azure, SSH ni del PEP. Si se prefiere Library, usar un grupo
+  exclusivo para lectura de paquetes y autorizar únicamente el pipeline pertinente.
+- **CD (`azure-deploy-pipeline.yml`)**: definirlas en el grupo ya existente
+  `messageucolab-cicd`, autorizado para ese pipeline. No sustituirlas por
+  `System.AccessToken`, `PEP_REGISTRATION_TOKEN` ni el token del CLI de Doppler.
+- Si la organización GitHub exige SSO, autorizar el PAT para esa organización.
+  Un token expirado o sin acceso al paquete puede seguir produciendo `401/403`
+  aunque el YAML esté correcto. No es necesario cambiar la versión del starter.
+- Los pasos validan que las variables existan y no sean macros sin resolver,
+  mediante `deployment/ci/Assert-GitHubPackagesCredentials.ps1`, sin imprimir valores.
+- Maven recibe las variables explícitamente en el contenedor y usa
+  `-s .mvn/settings.xml -U`; esto evita depender del settings local y permite
+  reconsultar dependencias tras un fallo guardado en caché, sin borrar toda la caché.
+- Los builds de imagen de CI y CD entregan `maven_settings` y
+  `github_packages_token` como secretos BuildKit. Solo el login no secreto se
+  transmite como argumento de build. El Dockerfile existente consume esos secretos
+  en sus pasos Maven, sin copiarlos a la imagen final ni al runtime.
+- En PRs de forks o de ramas no confiables, no habilitar secretos indiscriminadamente
+  para evitar el `401`. Usar una validación en contexto confiable según la política
+  del repositorio; ningún script del fork debe poder extraer el PAT.
+
+La corrección del YAML no crea ni renueva secretos en Azure DevOps. Su existencia,
+vigencia y autorización deben confirmarse en la ejecución remota; una compilación
+local con credenciales propias no demuestra que el pipeline ya tenga acceso.
+
 ## Credenciales en Docker
 
 - `PEP_REGISTRATION_TOKEN` pertenece al runtime de MessageUcoLab. Compose lo exige
