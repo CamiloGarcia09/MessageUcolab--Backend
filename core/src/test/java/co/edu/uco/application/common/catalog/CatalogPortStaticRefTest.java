@@ -30,8 +30,8 @@ class CatalogPortStaticRefTest {
 
     @Test
     void getTitle_resolvesBootstrapTitle_whenNoInstanceSet() {
-        assertThat(CatalogPortStaticRef.getTitle(MessageCatalogCodeEnum.TCH_027.getCode()))
-                .isEqualTo("Error generating signature");
+        assertThat(CatalogPortStaticRef.getTitle(MessageCatalogCodeEnum.TCH_021.getCode()))
+                .isEqualTo("Response success");
     }
 
     @Test

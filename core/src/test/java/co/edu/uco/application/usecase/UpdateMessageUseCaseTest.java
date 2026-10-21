@@ -108,7 +108,7 @@ class UpdateMessageUseCaseTest {
                 .build();
     }
 
-    private MessageAccessContext legacyContext() {
+    private MessageAccessContext workspaceContext() {
         return new MessageAccessContext("env-1", null);
     }
 
@@ -151,7 +151,7 @@ class UpdateMessageUseCaseTest {
     @Test
     void updateMessage_executesFullFlowInOrder() {
         UpdateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         stubExistingMessage();
 
@@ -170,7 +170,7 @@ class UpdateMessageUseCaseTest {
     @Test
     void updateMessage_usesExistingIdAndCodeInBuiltData() {
         UpdateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         stubExistingMessage();
         ArgumentCaptor<MessageData> captor = ArgumentCaptor.forClass(MessageData.class);
@@ -210,7 +210,7 @@ class UpdateMessageUseCaseTest {
     @Test
     void updateMessage_trimsMessageIdBeforeProcessing() {
         UpdateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         when(messageRepository.findByCode(MESSAGE_CODE)).thenReturn(Optional.of(existingMessage()));
 
@@ -224,7 +224,7 @@ class UpdateMessageUseCaseTest {
     @ValueSource(strings = {"", " ", "  "})
     void updateMessage_throwsBusinessRule_whenMessageIdIsBlank(String blankId) {
         UpdateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_206.getCode()))
                 .thenReturn("Id de mensaje requerido");
 
@@ -240,7 +240,7 @@ class UpdateMessageUseCaseTest {
     @Test
     void updateMessage_throwsForbidden_whenResolvedEnvironmentNotFound() {
         UpdateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         when(environmentResolver.resolve(context, PermissionCode.MESSAGE_UPDATE)).thenReturn("env-missing");
         when(environmentRepository.findById("env-missing")).thenReturn(Optional.empty());
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_035.getCode()))
@@ -257,7 +257,7 @@ class UpdateMessageUseCaseTest {
     @Test
     void updateMessage_throwsBusinessRule_whenMessageNotFound() {
         UpdateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         when(messageRepository.findByCode(MESSAGE_CODE)).thenReturn(Optional.empty());
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_208.getCode()))
@@ -274,7 +274,7 @@ class UpdateMessageUseCaseTest {
     @Test
     void updateMessage_propagatesValidationException() {
         UpdateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         stubExistingMessage();
         doThrow(BusinessRuleException.buildUserException("Validación fallida"))
@@ -303,7 +303,7 @@ class UpdateMessageUseCaseTest {
     @Test
     void updateMessage_throwsCrossWordsExceptionWithFun207_whenRepositoryFails() {
         UpdateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         stubExistingMessage();
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_207.getCode()))
@@ -326,7 +326,7 @@ class UpdateMessageUseCaseTest {
     @Test
     void updateMessage_rethrowsDomainExceptionFromRepository() {
         UpdateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         stubExistingMessage();
         BusinessRuleException domain = BusinessRuleException.buildUserException("conflict");

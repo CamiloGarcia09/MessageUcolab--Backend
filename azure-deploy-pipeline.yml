@@ -20,7 +20,6 @@ variables:
   IMAGE_TAG: $(Build.SourceVersion)
   DEPLOY_ROOT: /opt/messageucolab
   DOPPLER_DEPLOY_TOKEN_SECRET: doppler-deploy-token
-  DOPPLER_APP_TOKEN_SECRET: doppler-app-token
 
 stages:
   - stage: ValidateRequest
@@ -77,14 +76,23 @@ stages:
                     scriptLocation: inlineScript
                     inlineScript: |
                       $ErrorActionPreference = 'Stop'
+                      & "$(Build.SourcesDirectory)/deployment/ci/Assert-GitHubPackagesCredentials.ps1"
                       $loginServer = "$(ACR_NAME).azurecr.io"
                       $commitImage = "${loginServer}/$(IMAGE_REPOSITORY):$(IMAGE_TAG)"
                       az acr login --name "$(ACR_NAME)"
                       if ($LASTEXITCODE -ne 0) { throw 'El inicio de sesión en ACR falló.' }
-                      docker build --tag $commitImage .
+                      docker build `
+                        --secret "id=maven_settings,src=$(Build.SourcesDirectory)/.mvn/settings.xml" `
+                        --secret id=github_packages_token,env=GITHUB_PACKAGES_TOKEN `
+                        --build-arg "GITHUB_PACKAGES_USER=$env:GITHUB_PACKAGES_USER" `
+                        --tag $commitImage .
                       if ($LASTEXITCODE -ne 0) { throw 'La compilación de la imagen de la aplicación falló.' }
                       docker push $commitImage
                       if ($LASTEXITCODE -ne 0) { throw 'La publicación de la imagen del commit falló.' }
+                  env:
+                    DOCKER_BUILDKIT: '1'
+                    GITHUB_PACKAGES_USER: $(GITHUB_PACKAGES_USER)
+                    GITHUB_PACKAGES_TOKEN: $(GITHUB_PACKAGES_TOKEN)
 
                 - task: DownloadSecureFile@1
                   name: sshKey
@@ -163,7 +171,7 @@ stages:
                     scriptLocation: inlineScript
                     inlineScript: |
                       $ErrorActionPreference = 'Stop'
-                      $deployCommand = "chmod +x '$(DEPLOY_ROOT)/deployment/azure/deploy.sh' && sudo -u azureuser -H '$(DEPLOY_ROOT)/deployment/azure/deploy.sh' '$(IMAGE_TAG)' '$(ACR_NAME)' '$(KEY_VAULT_NAME)' '$(DOPPLER_DEPLOY_TOKEN_SECRET)' '$(DOPPLER_APP_TOKEN_SECRET)'"
+                      $deployCommand = "chmod +x '$(DEPLOY_ROOT)/deployment/azure/deploy.sh' && sudo -u azureuser -H '$(DEPLOY_ROOT)/deployment/azure/deploy.sh' '$(IMAGE_TAG)' '$(ACR_NAME)' '$(KEY_VAULT_NAME)' '$(DOPPLER_DEPLOY_TOKEN_SECRET)'"
                       $result = az vm run-command invoke `
                         --resource-group "$(AZURE_RESOURCE_GROUP)" `
                         --name "$(AZURE_VM_NAME)" `

@@ -75,7 +75,7 @@ class BootstrapMessageCatalogPortTest {
 
     @Test
     void getTitle_returnsTitle_whenKeyExists() {
-        assertThat(catalog.getTitle("TCH_027")).isEqualTo("Error generating signature");
+        assertThat(catalog.getTitle("TCH_021")).isEqualTo("Response success");
     }
 
     @Test

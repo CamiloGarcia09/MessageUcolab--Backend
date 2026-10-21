@@ -100,39 +100,6 @@ public enum MessageCatalogCodeEnum {
     // Mensajes técnicos — Cifrado / Seguridad
     // =========================================================================
 
-    /** Error al generar el par de llaves. */
-    TCH_024("TCH_024"),
-
-    /** Error al generar el token. */
-    TCH_025("TCH_025"),
-
-    /** Error al generar las llaves. */
-    TCH_026("TCH_026"),
-
-    /** Error al generar la firma. */
-    TCH_027("TCH_027"),
-
-    /** Error al verificar acceso con llave privada, firma y secreto. */
-    TCH_028("TCH_028"),
-
-    /** Error al enviar la petición a Doppler. */
-    TCH_029("TCH_029"),
-
-    /** Código de error de la respuesta de Doppler. */
-    TCH_030("TCH_030"),
-
-    /** Acceso denegado, el token es inválido. */
-    TCH_031("TCH_031"),
-
-    /** Acceso denegado, el header 'Token' no fue enviado. */
-    TCH_032("TCH_032"),
-
-    /** Acceso denegado, el token está expirado o inactivo. */
-    TCH_033("TCH_033"),
-
-    /** Algoritmo SHA-256 no disponible. */
-    TCH_034("TCH_034"),
-
     /** El id del entorno proporcionado no existe. */
     TCH_035("TCH_035"),
 
@@ -147,9 +114,6 @@ public enum MessageCatalogCodeEnum {
 
     /** Error al serializar el dominio del mensaje a JSON para el broker Pulsar. */
     TCH_039("TCH_039"),
-
-    /** Los datos o la llave pública para generar la firma no pueden ser nulos. */
-    TCH_040("TCH_040"),
 
     /** La URL del Azure Key Vault está ausente o vacía. */
     TCH_041("TCH_041"),
@@ -210,12 +174,6 @@ public enum MessageCatalogCodeEnum {
 
     /** Error al contar registros en SurrealDB. */
     TCH_060("TCH_060"),
-
-    /** Error al guardar el token en SurrealDB. */
-    TCH_061("TCH_061"),
-
-    /** Token persistido en SurrealDB. */
-    TCH_062("TCH_062"),
 
     /** Proyección de eventos de dominio en SurrealDB. */
     TCH_063("TCH_063"),
@@ -318,12 +276,6 @@ public enum MessageCatalogCodeEnum {
     /** Información consultada. */
     FUN_024("FUN_024"),
 
-    /** Error al verificar el token, intente nuevamente más tarde. */
-    FUN_025("FUN_025"),
-
-    /** El token no fue encontrado. */
-    FUN_026("FUN_026"),
-
     /** Información consultada. */
     FUN_027("FUN_027"),
 
@@ -366,9 +318,6 @@ public enum MessageCatalogCodeEnum {
     /** El código de mensaje no puede estar vacío o ser nulo. */
     FUN_040("FUN_040"),
 
-    /** Error al buscar el token. */
-    FUN_041("FUN_041"),
-
     /** El número de página excede el total de páginas. */
     FUN_042("FUN_042"),
 
@@ -389,9 +338,6 @@ public enum MessageCatalogCodeEnum {
 
     /** El mensaje no pudo ser traducido dinámicamente. */
     FUN_048("FUN_048"),
-
-    /** El token no fue encontrado en la base de datos. */
-    FUN_049("FUN_049"),
 
     /** El UUID a convertir no tiene un formato válido. */
     FUN_050("FUN_050"),
@@ -426,15 +372,6 @@ public enum MessageCatalogCodeEnum {
     /** Columna de ordenamiento por defecto. */
     FUN_060("FUN_060"),
 
-    /** Identificador del secreto del token. */
-    FUN_061("FUN_061"),
-
-    /** Nombre del campo secreto del puerto de secretos. */
-    FUN_062("FUN_062"),
-
-    /** Nombre del campo llave privada del puerto de secretos. */
-    FUN_063("FUN_063"),
-
     /** Patrón de validación de fechas. */
     FUN_064("FUN_064"),
 
@@ -461,15 +398,6 @@ public enum MessageCatalogCodeEnum {
 
     /** Dirección de ordenamiento descendente. */
     FUN_072("FUN_072"),
-
-    /** Id del estado de token activo. */
-    FUN_073("FUN_073"),
-
-    /** Colección de tokens. */
-    FUN_074("FUN_074"),
-
-    /** Colección de estados de token. */
-    FUN_075("FUN_075"),
 
     /** Colección de mensajes por entorno. */
     FUN_076("FUN_076"),
@@ -510,9 +438,6 @@ public enum MessageCatalogCodeEnum {
     /** Campo de mensaje. */
     FUN_088("FUN_088"),
 
-    /** Campo de nombre de secreto. */
-    FUN_089("FUN_089"),
-
     /** Campo de id de estado. */
     FUN_090("FUN_090"),
 
@@ -524,12 +449,6 @@ public enum MessageCatalogCodeEnum {
 
     /** Atributo de id de entorno. */
     FUN_093("FUN_093"),
-
-    /** Entidad de datos del token. */
-    FUN_094("FUN_094"),
-
-    /** Id del estado de token activo en infraestructura. */
-    FUN_095("FUN_095"),
 
     /** Etiqueta HTML de apertura. */
     FUN_096("FUN_096"),
@@ -585,9 +504,6 @@ public enum MessageCatalogCodeEnum {
     /** Header Accept. */
     FUN_113("FUN_113"),
 
-    /** Header Token. */
-    FUN_114("FUN_114"),
-
     /** Header Content-Type. */
     FUN_115("FUN_115"),
 
@@ -599,9 +515,6 @@ public enum MessageCatalogCodeEnum {
 
     /** Content type JSON. */
     FUN_118("FUN_118"),
-
-    /** Patrón de token Bearer. */
-    FUN_119("FUN_119"),
 
     /** Content type YAML. */
     FUN_120("FUN_120"),
@@ -617,21 +530,6 @@ public enum MessageCatalogCodeEnum {
 
     /** Patrón de formato de timestamp. */
     FUN_124("FUN_124"),
-
-    /** Algoritmo de generación de llaves. */
-    FUN_125("FUN_125"),
-
-    /** Algoritmo de cifrado de llaves. */
-    FUN_126("FUN_126"),
-
-    /** Campo secretName del DTO de Doppler. */
-    FUN_127("FUN_127"),
-
-    /** Campo privateKey del DTO de Doppler. */
-    FUN_128("FUN_128"),
-
-    /** Campo raw del DTO de Doppler. */
-    FUN_129("FUN_129"),
 
     /** Ruta del interceptor de la API de mensajes. */
     FUN_130("FUN_130"),
@@ -666,17 +564,8 @@ public enum MessageCatalogCodeEnum {
     /** Adaptador de repositorio Surreal. */
     FUN_140("FUN_140"),
 
-    /** Tabla de tokens en Surreal. */
-    FUN_141("FUN_141"),
-
-    /** Tabla de estados de token en Surreal. */
-    FUN_142("FUN_142"),
-
     /** Ruta del interceptor de la API de traducción de mensajes. */
     FUN_143("FUN_143"),
-
-    /** Id del estado de token inactivo. */
-    FUN_144("FUN_144"),
 
     /** El entorno solicitado no coincide con el entorno autenticado. */
     FUN_145("FUN_145"),

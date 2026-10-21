@@ -63,7 +63,7 @@ class BootstrapMessageCatalogEnumTest {
     }
 
     @Test
-    void count_isFortyNine() {
-        assertThat(BootstrapMessageCatalogEnum.values()).hasSize(49);
+    void count_isThirtyFiveAfterRetiringTokenCatalogEntries() {
+        assertThat(BootstrapMessageCatalogEnum.values()).hasSize(35);
     }
 }

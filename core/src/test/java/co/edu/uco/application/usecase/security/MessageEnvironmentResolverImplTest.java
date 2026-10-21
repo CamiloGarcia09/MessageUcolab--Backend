@@ -39,17 +39,17 @@ class MessageEnvironmentResolverImplTest {
 
     @Test
     void resolve_returnsLegacyEnvironmentWithoutExternalAuthorization() {
-        MessageAccessContext context = new MessageAccessContext("legacy-environment", null);
+        MessageAccessContext context = new MessageAccessContext("workspace-environment", null);
 
         String result = resolver.resolve(context, PermissionCode.MESSAGE_READ);
 
-        assertThat(result).isEqualTo("legacy-environment");
+        assertThat(result).isEqualTo("workspace-environment");
         verifyNoInteractions(activeContextPort, authorizationCompositeValidator, catalogPort);
     }
 
     @Test
     void resolve_usesActiveContextAndOperationPermissionWhenIdentityIsPresent() {
-        MessageAccessContext context = new MessageAccessContext("ignored-legacy", IDENTITY);
+        MessageAccessContext context = new MessageAccessContext("ignored-workspace", IDENTITY);
         when(activeContextPort.findActiveContext(IDENTITY)).thenReturn(
                 ActiveContextDTO.builder().environmentId(ENVIRONMENT_ID.toString()).build());
 

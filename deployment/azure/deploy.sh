@@ -2,8 +2,8 @@
 
 set -Eeuo pipefail
 
-if [[ $# -ne 5 ]]; then
-  echo "Usage: $0 <image-tag> <acr-name> <key-vault-name> <deploy-token-secret> <app-token-secret>" >&2
+if [[ $# -ne 4 ]]; then
+  echo "Usage: $0 <image-tag> <acr-name> <key-vault-name> <deploy-token-secret>" >&2
   exit 2
 fi
 
@@ -11,7 +11,6 @@ IMAGE_TAG="$1"
 ACR_NAME="$2"
 KEY_VAULT_NAME="$3"
 DEPLOY_TOKEN_SECRET="$4"
-APP_TOKEN_SECRET="$5"
 DEPLOY_ROOT="${DEPLOY_ROOT:-/opt/messageucolab}"
 COMPOSE_FILE="$DEPLOY_ROOT/deployment/azure/docker-compose.yml"
 CURRENT_TAG_FILE="$DEPLOY_ROOT/.current-image-tag"
@@ -29,13 +28,11 @@ fi
 az login --identity --allow-no-subscriptions --output none
 export ACR_LOGIN_SERVER="${ACR_NAME}.azurecr.io"
 export DOPPLER_TOKEN
-export DOPPLERTOKEN
 DOPPLER_TOKEN="$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "$DEPLOY_TOKEN_SECRET" --query value --output tsv)"
-DOPPLERTOKEN="$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name "$APP_TOKEN_SECRET" --query value --output tsv)"
 export IMAGE_TAG
 
 cleanup() {
-  unset DOPPLER_TOKEN DOPPLERTOKEN
+  unset DOPPLER_TOKEN
 }
 trap cleanup EXIT
 

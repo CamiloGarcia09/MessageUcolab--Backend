@@ -52,14 +52,20 @@ stages:
               targetType: inline
               script: |
                 $ErrorActionPreference = 'Stop'
+                & "$(Build.SourcesDirectory)/deployment/ci/Assert-GitHubPackagesCredentials.ps1"
                 New-Item -ItemType Directory -Force -Path '$(MAVEN_CACHE_FOLDER)' | Out-Null
                 docker run --rm `
+                  --env GITHUB_PACKAGES_USER `
+                  --env GITHUB_PACKAGES_TOKEN `
                   --volume "$(Build.SourcesDirectory):/workspace" `
                   --volume "$(MAVEN_CACHE_FOLDER):/root/.m2/repository" `
                   --workdir /workspace `
                   eclipse-temurin:25-jdk-noble `
-                  sh ./mvnw -B -ntp clean verify
+                  sh ./mvnw -s .mvn/settings.xml -U -B -ntp clean verify
                 if ($LASTEXITCODE -ne 0) { throw 'La compilación o las pruebas de Maven fallaron.' }
+            env:
+              GITHUB_PACKAGES_USER: $(GITHUB_PACKAGES_USER)
+              GITHUB_PACKAGES_TOKEN: $(GITHUB_PACKAGES_TOKEN)
 
           - task: PublishTestResults@2
             displayName: Publicar resultados de las pruebas
@@ -90,7 +96,6 @@ stages:
               ACR_LOGIN_SERVER: example.azurecr.io
               IMAGE_TAG: validation
               AZURE_KEYVAULT_UCOLAB_ENDPOINT: https://example.vault.azure.net
-              DOPPLERTOKEN: validation
               REDISPASSWORD: validation
               PULSARTOPICNAME: persistent://public/default/validation
               SURREALDBUSER: root
@@ -111,5 +116,15 @@ stages:
             inputs:
               targetType: inline
               script: |
-                docker build --tag "$(IMAGE_REPOSITORY):ci-$(Build.BuildId)" .
+                $ErrorActionPreference = 'Stop'
+                & "$(Build.SourcesDirectory)/deployment/ci/Assert-GitHubPackagesCredentials.ps1"
+                docker build `
+                  --secret "id=maven_settings,src=$(Build.SourcesDirectory)/.mvn/settings.xml" `
+                  --secret id=github_packages_token,env=GITHUB_PACKAGES_TOKEN `
+                  --build-arg "GITHUB_PACKAGES_USER=$env:GITHUB_PACKAGES_USER" `
+                  --tag "$(IMAGE_REPOSITORY):ci-$(Build.BuildId)" .
                 if ($LASTEXITCODE -ne 0) { throw 'La compilación de la imagen de la aplicación falló.' }
+            env:
+              DOCKER_BUILDKIT: '1'
+              GITHUB_PACKAGES_USER: $(GITHUB_PACKAGES_USER)
+              GITHUB_PACKAGES_TOKEN: $(GITHUB_PACKAGES_TOKEN)
