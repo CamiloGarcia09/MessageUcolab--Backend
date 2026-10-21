@@ -14,6 +14,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.APPLICATION_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
 
@@ -43,6 +44,7 @@ final class DeleteMessageControllerImpl implements DeleteMessageController {
     private MessageAccessContext context(ServerWebExchange exchange) {
         return new MessageAccessContext(
                 (String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE),
-                (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE));
+                (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE),
+                (String) exchange.getAttribute(APPLICATION_ID_ATTRIBUTE));
     }
 }

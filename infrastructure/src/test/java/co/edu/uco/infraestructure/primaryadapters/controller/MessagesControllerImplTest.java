@@ -1,9 +1,11 @@
 package co.edu.uco.infraestructure.primaryadapters.controller;
 
+import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
 import co.edu.uco.application.primaryports.dto.message.MessageDTO;
 import co.edu.uco.application.primaryports.dto.message.TranslateMessageDTO;
 import co.edu.uco.application.primaryports.dto.message.TranslatedMessageDTO;
 import co.edu.uco.application.primaryports.dto.page.PageRequestDTO;
+import co.edu.uco.application.primaryports.facade.catalog.FindCatalogUseCaseFacade;
 import co.edu.uco.application.primaryports.facade.message.FindMessageByCodeAndEnvironmentUseCaseFacade;
 import co.edu.uco.application.primaryports.facade.message.FindMessagesByEnvironmentUsecaseFacade;
 import co.edu.uco.application.primaryports.facade.message.TranslateMessageByCodeAndEnvironmentUseCaseFacade;
@@ -31,14 +33,18 @@ import reactor.test.StepVerifier;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.SubmissionPublisher;
 
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.APPLICATION_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -65,6 +71,8 @@ class MessagesControllerImplTest {
     @Mock
     private MessageEventStreamPort eventStream;
     @Mock
+    private FindCatalogUseCaseFacade catalogFacade;
+    @Mock
     private CatalogPort catalog;
 
     private MessagesControllerImpl controller;
@@ -72,7 +80,7 @@ class MessagesControllerImplTest {
     @BeforeEach
     void setUp() {
         controller = new MessagesControllerImpl(findPage, findOne, translate, presenter, translationPresenter,
-                pagePresenter, eventStream, catalog);
+                pagePresenter, eventStream, catalogFacade, catalog);
     }
 
     private MockServerWebExchange exchange() {
@@ -110,7 +118,7 @@ class MessagesControllerImplTest {
 
             StepVerifier.create(controller.findByEnvironmentAndMessage(
                             "1", "10", "asc", "code",
-                            null, null, null, null, null, null,
+                            null, null, null, null, null, null, "env-a,env-b",
                             exchange()))
                     .verifyComplete();
 
@@ -124,7 +132,8 @@ class MessagesControllerImplTest {
                     () -> assertThat(captured.getPage()).isEqualTo("1"),
                     () -> assertThat(captured.getSize()).isEqualTo("10"),
                     () -> assertThat(captured.getSort()).isEqualTo("asc"),
-                    () -> assertThat(captured.getColumnSort()).isEqualTo("code"));
+                    () -> assertThat(captured.getColumnSort()).isEqualTo("code"),
+                    () -> assertThat(captured.getFilterEnvironments()).isEqualTo("env-a,env-b"));
             verify(pagePresenter).presentRestSuccess(List.of(page), null);
         }
     }
@@ -216,7 +225,7 @@ class MessagesControllerImplTest {
         @DisplayName("Emite el evento del stream como ServerSentEvent")
         void emitsStreamEventAsServerSentEvent() {
             SubmissionPublisher<MessageEvent> publisher = new SubmissionPublisher<>();
-            when(eventStream.subscribe("env-1")).thenReturn(publisher);
+            when(eventStream.subscribe(Set.of("env-1"))).thenReturn(publisher);
             MessageEvent event = new MessageEvent("id-1", "MessageCreated", "env-1", "CODE");
 
             try {
@@ -236,7 +245,7 @@ class MessagesControllerImplTest {
         @DisplayName("Emite un heartbeat cuando no hay eventos del stream")
         void emitsHeartbeatWhenNoStreamEvent() {
             SubmissionPublisher<MessageEvent> publisher = new SubmissionPublisher<>();
-            when(eventStream.subscribe("env-1")).thenReturn(publisher);
+            when(eventStream.subscribe(Set.of("env-1"))).thenReturn(publisher);
 
             try {
                 StepVerifier.withVirtualTime(() -> controller.events(exchange()).take(1))
@@ -261,7 +270,30 @@ class MessagesControllerImplTest {
                     .expectError(UnauthorizedException.class)
                     .verify();
 
-            verify(eventStream, never()).subscribe(any());
+            verify(eventStream, never()).subscribe(anyString());
+            verify(eventStream, never()).subscribe(anySet());
+        }
+
+        @Test
+        @DisplayName("En modo sesion se suscribe a todos los ambientes de la aplicacion")
+        void subscribesToEveryEnvironmentOfTheSessionApplication() {
+            MockServerWebExchange exchange = MockServerWebExchange.from(
+                    MockServerHttpRequest.get("/messageucolab/v1/messages/events").build());
+            exchange.getAttributes().put(APPLICATION_ID_ATTRIBUTE, "app-1");
+            when(catalogFacade.findEnvironmentsByApplication("app-1", null)).thenReturn(List.of(
+                    CatalogItemDTO.create("env-dev", "Develop"), CatalogItemDTO.create("env-prod", "Production")));
+            SubmissionPublisher<MessageEvent> publisher = new SubmissionPublisher<>();
+            when(eventStream.subscribe(Set.of("env-dev", "env-prod"))).thenReturn(publisher);
+            MessageEvent event = new MessageEvent("id-2", "MessageCreated", "env-prod", "CODE");
+
+            try {
+                StepVerifier.create(controller.events(exchange).take(1))
+                        .then(() -> publisher.submit(event))
+                        .assertNext(serverSentEvent -> assertThat(serverSentEvent.data()).isSameAs(event))
+                        .verifyComplete();
+            } finally {
+                publisher.close();
+            }
         }
     }
 }

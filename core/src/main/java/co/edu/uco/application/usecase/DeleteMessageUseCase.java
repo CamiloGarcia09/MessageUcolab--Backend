@@ -46,9 +46,10 @@ public final class DeleteMessageUseCase implements HandlingDeleteMessagePort {
             throw BusinessRuleException.buildUserException(catalogPort.getMessage(FUN_206.getCode()));
         }
 
-        environmentResolver.resolve(context, PermissionCode.MESSAGE_DELETE);
+        var applicationId = environmentResolver.resolveApplication(context, PermissionCode.MESSAGE_DELETE);
 
-        var existing = messageRepository.findByCode(sanitizedId)
+        // Borra el mensaje de todos sus ambientes; solo dentro de la aplicacion del contexto.
+        var existing = messageRepository.findByCodeAndApplication(sanitizedId, applicationId)
                 .orElseThrow(() -> BusinessRuleException.buildUserException(catalogPort.getMessage(FUN_208.getCode())));
 
         try {

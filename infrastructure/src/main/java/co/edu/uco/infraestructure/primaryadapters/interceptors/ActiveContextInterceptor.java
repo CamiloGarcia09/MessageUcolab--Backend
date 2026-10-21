@@ -21,7 +21,7 @@ import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_
 
 @Component
 @Order(0)
-@Profile("!local-workspace")
+@Profile("!local-workspace & !security-session")
 public final class ActiveContextInterceptor implements WebFilter {
 
     private final EnvironmentContextResolver environment;

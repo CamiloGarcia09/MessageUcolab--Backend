@@ -94,4 +94,28 @@ class DatabaseMessageCatalogTest {
 
         assertThat(catalog.getMessageByCodeAndEnvironment("CODE", "env")).containsSame(m);
     }
+
+    @Test
+    void getMessagesWithApplication_passesEnvironmentFilterAndPageable() {
+        var request = new co.edu.uco.application.secondaryports.repository.SimplePageRequest();
+        request.setFilter(co.edu.uco.application.secondaryports.repository.MessageFilter.builder()
+                .environmentIds(java.util.List.of("env-1")).build());
+        var page = co.edu.uco.application.secondaryports.repository.SimplePage
+                .<co.edu.uco.application.secondaryports.entity.MessageData>of(java.util.List.of(), 1, 10, 0, 0);
+        org.mockito.Mockito.when(repository.findMessagesByApplication(
+                org.mockito.ArgumentMatchers.eq("app-1"), org.mockito.ArgumentMatchers.eq(java.util.List.of("env-1")),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(request.getFilter())))
+                .thenReturn(page);
+
+        org.assertj.core.api.Assertions.assertThat(catalog.getMessagesWithApplication("app-1", request)).isSameAs(page);
+    }
+
+    @Test
+    void getMessageByCodeAndApplication_delegatesToRepository() {
+        var message = java.util.Optional.of(new co.edu.uco.application.secondaryports.entity.MessageData());
+        org.mockito.Mockito.when(repository.findByCodeAndApplication("MSG_A", "app-1")).thenReturn(message);
+
+        org.assertj.core.api.Assertions.assertThat(catalog.getMessageByCodeAndApplication("MSG_A", "app-1"))
+                .isSameAs(message);
+    }
 }

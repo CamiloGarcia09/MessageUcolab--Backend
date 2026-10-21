@@ -21,7 +21,8 @@ final class CreateMessageControllerImpl implements CreateMessageController {
     public Mono<Void> createMessage(CreateMessageDTO dto, ServerWebExchange exchange) {
         return ReactiveHttpResponse.blocking(() -> {
             facade.execute(dto, new MessageAccessContext((String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE),
-                    (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE)));
+                    (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE),
+                    (String) exchange.getAttribute(APPLICATION_ID_ATTRIBUTE)));
             return "Mensaje creado exitosamente";
         }).flatMap(value -> ReactiveHttpResponse.present(presenter, List.of(value), exchange));
     }

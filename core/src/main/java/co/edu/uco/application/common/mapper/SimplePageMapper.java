@@ -5,6 +5,9 @@ import co.edu.uco.application.secondaryports.repository.MessageFilter;
 import co.edu.uco.application.secondaryports.repository.SimplePageRequest;
 import org.springframework.stereotype.Component;
 
+import java.util.Arrays;
+import java.util.List;
+
 import static co.edu.uco.application.CrosswordsConstant.*;
 import static co.edu.uco.crosscutting.helpers.UtilObject.isNullObject;
 import static co.edu.uco.crosscutting.helpers.UtilText.getDefault;
@@ -27,9 +30,17 @@ public final class SimplePageMapper {
                 .functionality(dto.getFilterFunctionality())
                 .type(dto.getFilterType())
                 .status(dto.getFilterStatus())
+                .environmentIds(environmentIds(dto.getFilterEnvironments()))
                 .build());
         return request;
     }
+    private static List<String> environmentIds(String value) {
+        return Arrays.stream(getDefault(value).split(","))
+                .map(String::trim)
+                .filter(id -> !id.isEmpty())
+                .toList();
+    }
+
     public PageRequestDTO toPageRequestDTO(SimplePageRequest request) {
         if (isNullObject(request)) {
             return new PageRequestDTO();

@@ -5,6 +5,6 @@ import co.edu.uco.application.secondaryports.entity.MessageTranslationResponseDa
 import java.util.Optional;
 
 public interface MessageTranslationCachePort {
-    Optional<MessageTranslationResponseData> findTranslation(String messageCode, String environmentId, String sourceLanguage, String targetLanguage);
-    void saveTranslation(String messageCode, String environmentId, String sourceLanguage, String targetLanguage, MessageTranslationResponseData translation);
+    Optional<MessageTranslationResponseData> findTranslation(String messageCode, String scopeId, String sourceLanguage, String targetLanguage);
+    void saveTranslation(String messageCode, String scopeId, String sourceLanguage, String targetLanguage, MessageTranslationResponseData translation);
 }

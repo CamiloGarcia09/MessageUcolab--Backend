@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,7 +60,7 @@ class FindMessageByEnvironmentUseCaseTest {
         useCase = new FindMessageByEnvironmentUseCase(
                 messageCatalogStrategy, entityMapper, listMessageValidator, rangeValidator,
                 environmentResolver, loggerFactory);
-        when(environmentResolver.resolve(ACCESS_CONTEXT, PermissionCode.MESSAGE_READ)).thenReturn("env");
+        when(environmentResolver.resolveApplication(ACCESS_CONTEXT, PermissionCode.MESSAGE_READ)).thenReturn("env");
     }
 
     @Test
@@ -68,7 +69,7 @@ class FindMessageByEnvironmentUseCaseTest {
         MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "type", "category", "func");
         SimplePage<MessageData> page = SimplePage.of(List.of(message), 1, 10, 1, 1);
         SimplePageRequest request = new SimplePageRequest();
-        when(messageCatalogStrategy.getMessagesWithEnvironment("env", request)).thenReturn(page);
+        when(messageCatalogStrategy.getMessagesWithApplication("env", request)).thenReturn(page);
         when(entityMapper.mapperDTO(message)).thenReturn(dto);
 
         SimplePage<MessageDTO> result = useCase.execute(ACCESS_CONTEXT, request);
@@ -82,7 +83,7 @@ class FindMessageByEnvironmentUseCaseTest {
     void execute_returnsEmptyPage_whenNoMessages() {
         SimplePage<MessageData> page = SimplePage.of(List.of(), 1, 10, 0, 0);
         SimplePageRequest request = new SimplePageRequest();
-        when(messageCatalogStrategy.getMessagesWithEnvironment("env", request)).thenReturn(page);
+        when(messageCatalogStrategy.getMessagesWithApplication("env", request)).thenReturn(page);
 
         SimplePage<MessageDTO> result = useCase.execute(ACCESS_CONTEXT, request);
 
@@ -90,11 +91,21 @@ class FindMessageByEnvironmentUseCaseTest {
     }
 
     @Test
+    void execute_skipsRangeValidation_whenApplicationHasNoMessages() {
+        SimplePageRequest request = new SimplePageRequest();
+        when(messageCatalogStrategy.getMessagesWithApplication("env", request))
+                .thenReturn(SimplePage.of(List.of(), 1, 10, 0, 0));
+
+        assertThat(useCase.execute(ACCESS_CONTEXT, request).getData()).isEmpty();
+        verifyNoInteractions(rangeValidator);
+    }
+
+    @Test
     void execute_rethrowsCrossWordsException() {
         SimplePageRequest request = new SimplePageRequest();
         doThrow(CrossWordsException.build("range error")).when(rangeValidator).validate(1, 0);
-        SimplePage<MessageData> page = SimplePage.of(List.of(), 1, 10, 0, 0);
-        when(messageCatalogStrategy.getMessagesWithEnvironment("env", request)).thenReturn(page);
+        SimplePage<MessageData> page = SimplePage.of(List.of(new MessageData()), 1, 10, 1, 0);
+        when(messageCatalogStrategy.getMessagesWithApplication("env", request)).thenReturn(page);
 
         assertThatThrownBy(() -> useCase.execute(ACCESS_CONTEXT, request))
                 .isInstanceOf(CrossWordsException.class)
@@ -104,7 +115,7 @@ class FindMessageByEnvironmentUseCaseTest {
     @Test
     void execute_throwsBusinessException_whenUnexpectedErrorOccurs() {
         SimplePageRequest request = new SimplePageRequest();
-        when(messageCatalogStrategy.getMessagesWithEnvironment("env", request))
+        when(messageCatalogStrategy.getMessagesWithApplication("env", request))
                 .thenThrow(new IllegalStateException("boom"));
         when(messageCatalogStrategy.getSystemMessageContent(MessageCatalogCodeEnum.FUN_011.getCode()))
                 .thenReturn("Unexpected error listing messages");

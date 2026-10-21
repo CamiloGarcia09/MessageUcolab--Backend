@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -16,6 +18,8 @@ public final class MessageFilter {
     private String functionality;
     private String type;
     private String status;
+    // Ambientes a mostrar; vacio significa todos los de la aplicacion.
+    private List<String> environmentIds;
 
     public boolean hasFilters() {
         return notBlank(code) || notBlank(title) || notBlank(category)

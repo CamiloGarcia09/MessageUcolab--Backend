@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,6 +43,7 @@ class CreateMessageSurrealAdapterTest {
     private static final UUID APP_ID = UUID.fromString("123e4567-e89b-12d3-a456-426614175705");
     private static final UUID FUNCTIONALITY_ID = UUID.fromString("123e4567-e89b-12d3-a456-426614175706");
     private static final String ENVIRONMENT_ID = "123e4567-e89b-12d3-a456-426614175707";
+    private static final String PRODUCTION_ID = "123e4567-e89b-12d3-a456-426614175709";
     private static final String MESSAGE_ENVIRONMENT_STATE_ID = "123e4567-e89b-12d3-a456-426614175708";
 
     @Mock
@@ -91,7 +93,7 @@ class CreateMessageSurrealAdapterTest {
     void createMessage_executesMessageAndEnvironmentUpsertsInsideASingleTransaction() {
         MessageData message = buildMessage();
 
-        adapter.createMessage(message, ENVIRONMENT_ID, MESSAGE_ENVIRONMENT_STATE_ID);
+        adapter.createMessage(message, List.of(ENVIRONMENT_ID), MESSAGE_ENVIRONMENT_STATE_ID);
 
         ArgumentCaptor<String> queries = ArgumentCaptor.forClass(String.class);
         verify(surreal, times(1)).query(queries.capture());
@@ -129,7 +131,7 @@ class CreateMessageSurrealAdapterTest {
     void createMessage_stripsTablePrefix_whenIdsArriveAsRecordIds() {
         MessageData message = buildMessage();
 
-        adapter.createMessage(message, "environment:" + ENVIRONMENT_ID,
+        adapter.createMessage(message, List.of("environment:" + ENVIRONMENT_ID),
                 "message_environment_state:" + MESSAGE_ENVIRONMENT_STATE_ID);
 
         ArgumentCaptor<String> queries = ArgumentCaptor.forClass(String.class);
@@ -153,11 +155,29 @@ class CreateMessageSurrealAdapterTest {
         doThrow(new RuntimeException("db down")).when(surreal).query(anyString());
         MessageData message = buildMessage();
 
-        assertThatThrownBy(() -> adapter.createMessage(message, ENVIRONMENT_ID,
+        assertThatThrownBy(() -> adapter.createMessage(message, List.of(ENVIRONMENT_ID),
                 MESSAGE_ENVIRONMENT_STATE_ID))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getTechnicalMessage())
                         .isEqualTo("msg"));
         verify(log).error(anyString(), any(RuntimeException.class));
+    }
+
+    @Test
+    void createMessage_linksTheSameMessageToEverySelectedEnvironmentInOneTransaction() {
+        MessageData message = buildMessage();
+
+        adapter.createMessage(message, List.of(ENVIRONMENT_ID, PRODUCTION_ID), MESSAGE_ENVIRONMENT_STATE_ID);
+
+        ArgumentCaptor<String> queries = ArgumentCaptor.forClass(String.class);
+        verify(surreal, times(1)).query(queries.capture());
+        String transaction = queries.getValue();
+        assertAll(
+                () -> assertThat(transaction.split("UPSERT message:`", -1)).hasSize(2),
+                () -> assertThat(transaction.split("UPSERT message_environment:`", -1)).hasSize(3),
+                () -> assertThat(transaction).contains("environment_id: environment:`" + ENVIRONMENT_ID + "`"),
+                () -> assertThat(transaction).contains("environment_id: environment:`" + PRODUCTION_ID + "`"),
+                () -> assertThat(transaction).startsWith("BEGIN TRANSACTION;"),
+                () -> assertThat(transaction).endsWith("COMMIT TRANSACTION;"));
     }
 }

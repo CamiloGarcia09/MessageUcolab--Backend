@@ -10,6 +10,7 @@ import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.APPLICATION_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.LOCAL_WORKSPACE_PATH;
@@ -39,6 +40,7 @@ public final class LocalWorkspaceInterceptor implements WebFilter {
         // Do not resolve the old per-user active context in this explicit local mode.
         exchange.getAttributes().remove(EXTERNAL_IDENTITY_ATTRIBUTE);
         exchange.getAttributes().put(ENVIRONMENT_ID_ATTRIBUTE, workspace.environmentId().toString());
+        exchange.getAttributes().put(APPLICATION_ID_ATTRIBUTE, workspace.applicationId().toString());
         return chain.filter(exchange);
     }
 

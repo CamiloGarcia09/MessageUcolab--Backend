@@ -92,6 +92,15 @@ public final class MessageCatalogStrategy {
         dbMessages.getData().forEach(message -> cacheCatalog.addMessageWithEnvironment(message, environment));
     }
 
+    // La lista por aplicacion combina ambientes y filtros: se consulta siempre la base de datos.
+    public SimplePage<MessageData> getMessagesWithApplication(String applicationId, SimplePageRequest request) {
+        return databaseCatalog.getMessagesWithApplication(applicationId, request);
+    }
+
+    public Optional<MessageData> getMessageByCodeAndApplication(String code, String applicationId) {
+        return databaseCatalog.getMessageByCodeAndApplication(code, applicationId);
+    }
+
     public void evictMessage(String code) {
         cacheCatalog.evictMessage(code);
     }

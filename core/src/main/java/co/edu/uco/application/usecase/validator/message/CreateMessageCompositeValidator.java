@@ -7,6 +7,7 @@ import co.edu.uco.application.secondaryports.repository.MessageCodeQueryPort;
 import co.edu.uco.application.secondaryports.repository.RecordExistsCatalogPort;
 import co.edu.uco.application.usecase.validator.CompositeValidator;
 import co.edu.uco.application.usecase.validator.Validator;
+import co.edu.uco.application.usecase.validator.message.environment.MessageEnvironmentSelectionCompositeValidator;
 import co.edu.uco.application.usecase.validator.message.rule.MessageCatalogIdExistsRule;
 import co.edu.uco.application.usecase.validator.message.rule.MessageCatalogIdRequiredRule;
 import co.edu.uco.application.usecase.validator.message.rule.MessageCatalogIdUuidRule;
@@ -41,7 +42,8 @@ public final class CreateMessageCompositeValidator extends CompositeValidator<Cr
     public CreateMessageCompositeValidator(CatalogPort catalogPort,
                                            RecordExistsCatalogPort recordExistsCatalogPort,
                                            FunctionalityCatalogRepository functionalityCatalogRepository,
-                                           MessageCodeQueryPort messageCodeQueryPort) {
+                                           MessageCodeQueryPort messageCodeQueryPort,
+                                           MessageEnvironmentSelectionCompositeValidator environmentSelectionValidator) {
         super(List.of(
                 forDto(new MessageCodeRequiredRule(catalogPort)),
                 forDto(new MessageCodeMaxLengthRule(catalogPort)),
@@ -66,6 +68,7 @@ public final class CreateMessageCompositeValidator extends CompositeValidator<Cr
                 forDto(new MessageCatalogIdUuidRule(catalogPort, CreateMessageDTO::getStatusId)),
                 forDto(new MessageCatalogIdExistsRule(catalogPort, recordExistsCatalogPort,
                         CreateMessageDTO::getStatusId, MESSAGE_STATE, FUN_195)),
+                forEnvironments(environmentSelectionValidator),
                 new MessageFunctionalityBelongsApplicationRule(catalogPort, functionalityCatalogRepository),
                 new MessageCodeDuplicatedRule(catalogPort, messageCodeQueryPort)
         ), catalogPort);
@@ -73,6 +76,11 @@ public final class CreateMessageCompositeValidator extends CompositeValidator<Cr
 
     public void validate(CreateMessageDTO dto, String applicationId) {
         super.validate(dto == null ? null : new CreateMessageValidationContext(dto, applicationId));
+    }
+
+    private static Validator<CreateMessageValidationContext> forEnvironments(
+            MessageEnvironmentSelectionCompositeValidator validator) {
+        return context -> validator.validate(context.dto().getEnvironmentIds(), context.applicationId());
     }
 
     private static Validator<CreateMessageValidationContext> forDto(Validator<CreateMessageDTO> validator) {

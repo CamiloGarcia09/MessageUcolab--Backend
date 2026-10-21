@@ -2,6 +2,10 @@ package co.edu.uco.application.usecase.security;
 
 import co.edu.uco.application.primaryports.dto.context.ActiveContextDTO;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
+import co.edu.uco.application.secondaryports.entity.ApplicationData;
+import co.edu.uco.application.secondaryports.entity.EnvironmentData;
+import co.edu.uco.application.secondaryports.entity.EnvironmentTypeData;
+import co.edu.uco.application.secondaryports.repository.EnvironmentRepository;
 import co.edu.uco.application.usecase.domain.security.AuthorizationScopeType;
 import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
@@ -13,6 +17,7 @@ import co.edu.uco.crosscutting.exceptions.UnauthorizedException;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,9 +38,65 @@ class MessageEnvironmentResolverImplTest {
     private final HandlingActiveContextPort activeContextPort = mock(HandlingActiveContextPort.class);
     private final AuthorizationCompositeValidator authorizationCompositeValidator =
             mock(AuthorizationCompositeValidator.class);
+    private final EnvironmentRepository environmentRepository = mock(EnvironmentRepository.class);
     private final CatalogPort catalogPort = mock(CatalogPort.class);
-    private final MessageEnvironmentResolver resolver =
-            new MessageEnvironmentResolverImpl(activeContextPort, authorizationCompositeValidator, catalogPort);
+    private final MessageEnvironmentResolver resolver = new MessageEnvironmentResolverImpl(
+            activeContextPort, authorizationCompositeValidator, environmentRepository, catalogPort);
+    private static final UUID APPLICATION_ID =
+            UUID.fromString("123e4567-e89b-12d3-a456-426614174020");
+
+    @Test
+    void resolveApplication_returnsNormalizedSessionApplicationWithoutFurtherLookups() {
+        MessageAccessContext context = new MessageAccessContext(null, null, APPLICATION_ID.toString().toUpperCase());
+
+        String result = resolver.resolveApplication(context, PermissionCode.MESSAGE_READ);
+
+        assertThat(result).isEqualTo(APPLICATION_ID.toString());
+        verifyNoInteractions(activeContextPort, authorizationCompositeValidator, environmentRepository, catalogPort);
+    }
+
+    @Test
+    void resolveApplication_authorizesActiveContextApplicationWhenIdentityIsPresent() {
+        MessageAccessContext context = new MessageAccessContext(null, IDENTITY);
+        when(activeContextPort.findActiveContext(IDENTITY)).thenReturn(ActiveContextDTO.builder()
+                .applicationId(APPLICATION_ID.toString())
+                .environmentId(ENVIRONMENT_ID.toString())
+                .build());
+
+        String result = resolver.resolveApplication(context, PermissionCode.MESSAGE_CREATE);
+
+        assertThat(result).isEqualTo(APPLICATION_ID.toString());
+        verify(authorizationCompositeValidator).validate(IDENTITY, PermissionCode.MESSAGE_CREATE,
+                AuthorizationScopeType.APPLICATION, APPLICATION_ID);
+    }
+
+    @Test
+    void resolveApplication_derivesApplicationFromWorkspaceEnvironment() {
+        MessageAccessContext context = new MessageAccessContext(ENVIRONMENT_ID.toString(), null);
+        when(environmentRepository.findById(ENVIRONMENT_ID.toString())).thenReturn(Optional.of(new EnvironmentData(
+                ENVIRONMENT_ID, ApplicationData.build(APPLICATION_ID, "App"),
+                new EnvironmentTypeData(UUID.randomUUID(), "Develop"))));
+
+        assertThat(resolver.resolveApplication(context, PermissionCode.MESSAGE_READ))
+                .isEqualTo(APPLICATION_ID.toString());
+    }
+
+    @Test
+    void resolveApplication_throwsForbidden_whenWorkspaceEnvironmentDoesNotExist() {
+        MessageAccessContext context = new MessageAccessContext(ENVIRONMENT_ID.toString(), null);
+        when(environmentRepository.findById(ENVIRONMENT_ID.toString())).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> resolver.resolveApplication(context, PermissionCode.MESSAGE_READ))
+                .isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
+    void resolveApplication_throwsUnauthorized_whenContextHasNoScope() {
+        assertThatThrownBy(() -> resolver.resolveApplication(new MessageAccessContext(null, null),
+                PermissionCode.MESSAGE_READ)).isInstanceOf(UnauthorizedException.class);
+        assertThatThrownBy(() -> resolver.resolveApplication(null, PermissionCode.MESSAGE_READ))
+                .isInstanceOf(UnauthorizedException.class);
+    }
 
     @Test
     void resolve_returnsLegacyEnvironmentWithoutExternalAuthorization() {

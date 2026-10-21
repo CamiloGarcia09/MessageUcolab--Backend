@@ -38,4 +38,16 @@ public final class DatabaseMessageCatalog extends DatabaseCatalog {
     public Optional<MessageData> getMessageByCodeAndEnvironment(String code, String environmentId) {
         return repository.findMessageByCodeAndEnvironment(code, environmentId);
     }
+
+    @Override
+    public SimplePage<MessageData> getMessagesWithApplication(String applicationId, SimplePageRequest request) {
+        var filter = request.getFilter();
+        return repository.findMessagesByApplication(applicationId,
+                filter == null ? null : filter.getEnvironmentIds(), PageBuilder.createPageRequest(request), filter);
+    }
+
+    @Override
+    public Optional<MessageData> getMessageByCodeAndApplication(String code, String applicationId) {
+        return repository.findByCodeAndApplication(code, applicationId);
+    }
 }

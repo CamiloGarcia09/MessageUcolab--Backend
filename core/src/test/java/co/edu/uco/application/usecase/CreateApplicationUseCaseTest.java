@@ -422,4 +422,38 @@ class CreateApplicationUseCaseTest {
                     .isInstanceOf(BusinessRuleException.class);
         }
     }
+
+    @Nested
+    @DisplayName("Id explícito: en modo sesión la aplicación conserva el UUID del componente de seguridad")
+    class ExplicitApplicationId {
+
+        @Test
+        @DisplayName("Usa el id recibido en lugar de generar uno nuevo")
+        void createApplication_usesProvidedId_whenDtoHasId() {
+            String securityApplicationId = "c2d9f822-36d3-4580-a838-4f79f3c7cff8";
+            CreateApplicationDTO dto = validDto();
+            dto.setId(securityApplicationId);
+            stubResolvableCatalog();
+
+            useCase.createApplication(dto, null);
+
+            verifyApplicationCreatedWithDefaultEnvironments();
+            assertThat(applicationCaptor.getValue().getId()).isEqualTo(UUID.fromString(securityApplicationId));
+            assertThat(environmentsCaptor.getValue())
+                    .allSatisfy(environment -> assertThat(environment.getApplication().getId())
+                            .isEqualTo(UUID.fromString(securityApplicationId)));
+        }
+
+        @Test
+        @DisplayName("Genera un id nuevo cuando no se envía")
+        void createApplication_generatesId_whenDtoHasNoId() {
+            CreateApplicationDTO dto = validDto();
+            stubResolvableCatalog();
+
+            useCase.createApplication(dto, null);
+
+            verifyApplicationCreatedWithDefaultEnvironments();
+            assertThat(applicationCaptor.getValue().getId()).isNotNull();
+        }
+    }
 }

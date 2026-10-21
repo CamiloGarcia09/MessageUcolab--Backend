@@ -1,7 +1,9 @@
 package co.edu.uco.infraestructure.primaryadapters.controller;
 
 import co.edu.uco.application.primaryports.dto.application.CreateApplicationDTO;
+import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
 import co.edu.uco.application.primaryports.facade.application.CreateApplicationUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.session.SessionApplicationUseCaseFacade;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.infraestructure.primaryadapters.*;
@@ -10,17 +12,32 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import java.util.List;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.SESSION_APPLICATIONS_ATTRIBUTE;
 
 @RestController
 final class CreateApplicationControllerImpl implements CreateApplicationController {
     private final CreateApplicationUseCaseFacade facade;
+    private final SessionApplicationUseCaseFacade sessionFacade;
     private final PresenterPort<String> presenter;
-    CreateApplicationControllerImpl(CreateApplicationUseCaseFacade facade, PresenterPort<String> presenter) {
-        this.facade = facade; this.presenter = presenter;
+    CreateApplicationControllerImpl(CreateApplicationUseCaseFacade facade, SessionApplicationUseCaseFacade sessionFacade,
+                                    PresenterPort<String> presenter) {
+        this.facade = facade; this.sessionFacade = sessionFacade; this.presenter = presenter;
     }
     public Mono<Void> createApplication(CreateApplicationDTO dto, ServerWebExchange exchange) {
-        return ReactiveHttpResponse.blocking(() -> { facade.execute(dto, identity(exchange)); return "Aplicación creada exitosamente"; })
+        return ReactiveHttpResponse.blocking(() -> {
+                    authorizeSessionApplication(dto, exchange);
+                    facade.execute(dto, identity(exchange));
+                    return "Aplicación creada exitosamente";
+                })
                 .flatMap(value -> ReactiveHttpResponse.present(presenter, List.of(value), exchange));
+    }
+    // En modo sesion solo se registra una aplicacion asignada al usuario, con su mismo UUID.
+    @SuppressWarnings("unchecked")
+    private void authorizeSessionApplication(CreateApplicationDTO dto, ServerWebExchange exchange) {
+        var sessionApplications = (List<CatalogItemDTO>) exchange.getAttribute(SESSION_APPLICATIONS_ATTRIBUTE);
+        if (sessionApplications != null) {
+            sessionFacade.authorizeApplication(sessionApplications, dto == null ? null : dto.getId());
+        }
     }
     private ExternalIdentity identity(ServerWebExchange exchange) {
         return (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE);

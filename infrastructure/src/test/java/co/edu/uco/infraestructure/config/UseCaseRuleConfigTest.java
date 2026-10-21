@@ -380,7 +380,7 @@ class UseCaseRuleConfigTest {
     @Test
     void messageEnvironmentResolver_connectsActiveContextAndAuthorization() {
         MessageEnvironmentResolver resolver = config.messageEnvironmentResolver(
-                handlingActiveContextPort, authorizationCompositeValidator, catalogPort);
+                handlingActiveContextPort, authorizationCompositeValidator, environmentRepository, catalogPort);
 
         assertThat(resolver).isInstanceOf(MessageEnvironmentResolverImpl.class);
     }
@@ -416,7 +416,8 @@ class UseCaseRuleConfigTest {
     void createMessageCompositeValidator_rejectsNullDtoUsingCatalogMessage() {
         when(catalogPort.getMessage("FUN_010")).thenReturn("Datos invalidos");
         CreateMessageCompositeValidator composite = config.createMessageCompositeValidator(
-                catalogPort, recordExistsCatalogPort, functionalityCatalogRepository, messageCodeQueryPort);
+                catalogPort, recordExistsCatalogPort, functionalityCatalogRepository, messageCodeQueryPort,
+                config.messageEnvironmentSelectionCompositeValidator(catalogPort, environmentRepository));
 
         assertThatThrownBy(() -> composite.validate((CreateMessageDTO) null, LANGUAGE_ID))
                 .isInstanceOf(BusinessRuleException.class)
