@@ -31,9 +31,9 @@ Aplicacion obligatoria de esta ley:
 | Campo | Valor |
 |---|---|
 | Ultima actualizacion | 2026-10-20 |
-| Estado global | Retiro del token propietario y regresion automatizada completados; integracion con proveedor real pendiente |
+| Estado global | Retiro del token propietario verificado; recuperacion 401 del frontend con popup y reconexion manual implementada, pruebas nuevas pendientes de autorizacion |
 | Fase actual | Fase 7 - Codigo backend/frontend retirado y verificado; cierre operativo parcial |
-| Proxima implementacion | Completar el puente de identidad externa fuera de local-workspace |
+| Proxima implementacion | Validar popup y reconexion manual del frontend tras autorizacion; completar el puente de identidad fuera de local-workspace |
 | Bloqueo actual | El modo por usuario requiere el adaptador real hacia ExternalIdentity; no se cambia seguridad para suplirlo |
 
 ### Contrato vigente tras el retiro (2026-10-20)
@@ -797,6 +797,8 @@ seguridad. El endpoint de registro de organizaciones conserva su politica pendie
 
 | Fecha | Fase | Cambio | Estado resultante |
 |---|---|---|---|
+| 2026-10-20 | Fase 6 / UX de sesion | Por decision del usuario se sustituye la reautenticacion automatica por un popup del frontend MessageUcoLab con boton Volver a Conectar. El 401 no navega, solo bloquea el acceso y pausa SSE; el login se abre exclusivamente al pulsar. Sin cambios en datos ni componentes de seguridad | Implementado; npm run build exitoso y diff --check sin errores. No se crearon ni ejecutaron pruebas; autorizacion pendiente |
+| 2026-10-20 | Fase 6 / sesion frontend | Recuperacion centralizada de 401 mediante login publico con retorno, guard persistente contra bucles, bloqueo explicito y pausa de SSE; sin reenvio de mutaciones ni cambios en seguridad. Import Keycloak configura access token de 300 segundos, no timeout de inactividad | Implementado y compilado; pruebas nuevas pendientes de autorizacion, sin validacion runtime de expiracion |
 | 2026-10-20 | Fase 7 | Retiro del mecanismo propietario y su cliente obsoleto; pruebas obsoletas retiradas/adaptadas, filtro de contexto externo cubierto, `clean verify` exitoso y cobertura/auditoría registradas; PEP, sesión BFF y componentes externos preservados | Codigo completado y verificado; fase operativa PARCIAL por limpieza remota y validacion runtime no ejecutadas |
 | 2026-09-21 | Planificacion | Creacion del documento; se registran decisiones, fases, riesgos y criterios de salida | Fase 0 `PARCIAL`; Fase 1 `PENDIENTE` |
 | 2026-09-21 | Fase 1 | Se valida la expiracion antes de acceder a secretos o criptografia y se agregan pruebas de vigencia y limite temporal | Fase 1 `EN CURSO`; incremento de expiracion completado |

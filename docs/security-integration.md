@@ -193,3 +193,58 @@ esa sesión no amplían el alcance permitido para futuras intervenciones.
   borraron volúmenes, registros persistidos, entradas Redis ni secretos remotos.
   Su eventual limpieza requiere una operación independiente y delimitada.
 - No se modifica ni se opera el componente externo de seguridad.
+
+## Recuperación de acceso del frontend (20 de octubre de 2026)
+
+Se identificó en el código público del release `v0.1.6` que `SessionController`
+consulta el principal de la sesión BFF, mientras `InternalBffSessionTokenController`
+carga el access token almacenado mediante `loadAuthorizedClient`, sin renovarlo en
+ese recorrido. Por eso un `200` de `/api/v1/session` no demuestra que la credencial
+que utiliza el PEP siga vigente. Los registros consultados contienen rechazos
+`401` en el PEP; no se inspeccionaron credenciales de usuario ni se reprodujo su
+expiración de forma automatizada.
+
+La adaptación se limita al frontend MessageUcoLab:
+
+- `src/security/session.js` centraliza los rechazos `401` y bloquea el acceso local,
+  sin redirigir ni reautenticar automáticamente. Solo el botón **Volver a Conectar**
+  abre el endpoint público `/oauth2/authorization/keycloak`, conservando `return_to`.
+  No cierra la sesión global ni llama al canal interno de intercambio de tokens.
+- `src/api.js` detecta `401` incluso cuando el BFF reconoce la sesión; las consultas
+  usan `cache: 'no-store'`. El estado de recuperación se confirma mediante una
+  lectura protegida exitosa, nunca por el `200` del BFF ni por una escritura.
+- `src/components/SessionExpiredDialog.vue` muestra un diálogo modal nativo, con
+  los colores, tipografía y botón del frontend. Conserva el foco dentro del diálogo
+  y bloquea la interacción con el fondo. El aviso menciona inactividad o vencimiento,
+  porque un `401` no permite atribuir el rechazo exclusivamente a inactividad.
+- `sessionStorage` recuerda si se regresó de un intento manual sin recuperar el
+  acceso, para mostrar una explicación apropiada. Ya no hay intentos automáticos
+  ni ventana de 60 segundos: la reconexión siempre requiere pulsar el botón.
+- `src/store.js`, `src/main.js` y `src/App.vue` muestran el bloqueo, suspenden la
+  navegación y paran SSE al perder la sesión. El contenido administrativo no se
+  sustituye por una pantalla de recuperación: el popup lo cubre y lo deja inerte.
+  Tras volver del login, el arranque normal
+  recarga el contexto y las lecturas. Ninguna mutación se reenvía automáticamente.
+- Los `403` siguen siendo denegaciones de permisos: no desencadenan reautenticación.
+- Los fallos de red no se presentan como sesión perdida por inactividad. La
+  recuperación de transporte SSE existente sigue siendo independiente del `401`;
+  no inicia login ni ejecuta escrituras de negocio.
+
+### Tiempos observados
+
+Se leyó, sin modificarlo, el archivo de importación del contenedor Keycloak
+`/opt/keycloak/data/import/security-baseline-realm.json`: define
+`accessTokenLifespan: 300` segundos (5 minutos), sin overrides de duración por
+cliente en ese archivo. Es vigencia desde la emisión del token, no inactividad.
+No se puede garantizar con el archivo de importación que el realm persistido no
+haya sido modificado después desde administración.
+
+El archivo no establece explícitamente `ssoSessionIdleTimeout` ni los tiempos
+de sesión por cliente. No se consultó el API administrativo ni se asume un valor
+de inactividad efectivo a partir del tiempo de vida del access token. El frontend
+no introduce un temporizador de cierre por inactividad.
+
+Validación de este incremento: build del frontend con Vite completado. No había
+suite ni comando `test` en el frontend; creación/ejecución de pruebas nuevas queda
+pendiente de autorización para `unit-test-agent`. No se modificó ni reinició
+seguridad, no se ejecutaron mutaciones sobre sus datos y no se desplegó el backend.
