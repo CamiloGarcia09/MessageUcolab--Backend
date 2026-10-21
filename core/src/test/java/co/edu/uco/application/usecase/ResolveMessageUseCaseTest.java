@@ -28,7 +28,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ResolveMessageUseCaseTest {
-    private static final MessageAccessContext CONTEXT = new MessageAccessContext("legacy-env", null);
+    private static final MessageAccessContext CONTEXT = new MessageAccessContext("workspace-env", null);
 
     @Mock private FindMessageCodeValidator validator;
     @Mock private MessageEnvironmentResolver environmentResolver;

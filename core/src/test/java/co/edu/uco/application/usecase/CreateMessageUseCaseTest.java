@@ -109,7 +109,7 @@ class CreateMessageUseCaseTest {
                 .build();
     }
 
-    private MessageAccessContext legacyContext() {
+    private MessageAccessContext workspaceContext() {
         return new MessageAccessContext("env-1", null);
     }
 
@@ -149,7 +149,7 @@ class CreateMessageUseCaseTest {
     @Test
     void createMessage_derivesApplicationIdFromResolvedEnvironmentAndPersists() {
         CreateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         stubActiveStateFoundAmongForeignOnes();
 
@@ -170,7 +170,7 @@ class CreateMessageUseCaseTest {
     void createMessage_persistsAndLogsNormalizedCode_whenDtoCodeIsRawSuffix() {
         CreateMessageDTO dto = validDto();
         dto.setCode("  wel  come  ");
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         stubActiveStateFoundAmongForeignOnes();
         ArgumentCaptor<MessageData> messageCaptor = ArgumentCaptor.forClass(MessageData.class);
@@ -203,7 +203,7 @@ class CreateMessageUseCaseTest {
     @Test
     void createMessage_buildsCatalogEntitiesWithDerivedApplicationIdAndEmptyNames() {
         CreateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         stubActiveStateFoundAmongForeignOnes();
         ArgumentCaptor<MessageData> messageCaptor = ArgumentCaptor.forClass(MessageData.class);
@@ -233,7 +233,7 @@ class CreateMessageUseCaseTest {
     @Test
     void createMessage_throwsForbiddenUsingFun035_whenResolvedEnvironmentDoesNotExist() {
         CreateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         when(environmentResolver.resolve(context, PermissionCode.MESSAGE_CREATE)).thenReturn("env-missing");
         when(environmentRepository.findById("env-missing")).thenReturn(Optional.empty());
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_035.getCode()))
@@ -252,7 +252,7 @@ class CreateMessageUseCaseTest {
     void createMessage_throwsCrossWordsException_whenCatalogReferenceIsNotUuid() {
         CreateMessageDTO dto = validDto();
         dto.setTypeId("not-a-uuid");
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         stubActiveStateFoundAmongForeignOnes();
 
@@ -278,7 +278,7 @@ class CreateMessageUseCaseTest {
     @Test
     void createMessage_propagatesValidationErrorWithoutQueryingEnvironmentStateCatalog() {
         CreateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         doThrow(BusinessRuleException.buildUserException("Invalid message"))
                 .when(validator).validate(dto, APP_UUID);
@@ -293,7 +293,7 @@ class CreateMessageUseCaseTest {
     @Test
     void createMessage_throwsCrossWordsException_whenRepositoryFails() {
         CreateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         stubActiveStateFoundAmongForeignOnes();
         doThrow(new RuntimeException("db down")).when(createMessageRepository)
@@ -309,7 +309,7 @@ class CreateMessageUseCaseTest {
     @Test
     void createMessage_rethrowsDomainExceptionFromRepository() {
         CreateMessageDTO dto = validDto();
-        MessageAccessContext context = legacyContext();
+        MessageAccessContext context = workspaceContext();
         stubEnvironmentResolvingTo("env-1", APP_UUID);
         stubActiveStateFoundAmongForeignOnes();
         doThrow(BusinessRuleException.buildUserException("conflict"))
@@ -326,7 +326,7 @@ class CreateMessageUseCaseTest {
         @ValueSource(strings = {"active", "ACTIVE", "aCtIvE"})
         void createMessage_persistsActiveStateId_whenCatalogNameDiffersOnlyInCase(String catalogStateName) {
             CreateMessageDTO dto = validDto();
-            MessageAccessContext context = legacyContext();
+            MessageAccessContext context = workspaceContext();
             stubEnvironmentResolvingTo("env-1", APP_UUID);
             when(messageEnvironmentStateRepository.findAll())
                     .thenReturn(List.of(
@@ -342,7 +342,7 @@ class CreateMessageUseCaseTest {
         @Test
         void createMessage_skipsNullAndForeignEntries_whenCatalogReturnsMixedStates() {
             CreateMessageDTO dto = validDto();
-            MessageAccessContext context = legacyContext();
+            MessageAccessContext context = workspaceContext();
             stubEnvironmentResolvingTo("env-1", APP_UUID);
             List<MessageEnvironmentStateData> mixedStates = Arrays.asList(
                     null,
@@ -361,7 +361,7 @@ class CreateMessageUseCaseTest {
         void createMessage_throwsBusinessRuleUsingFun197_whenCatalogHasNoActiveState(
                 String scenario, List<MessageEnvironmentStateData> states) {
             CreateMessageDTO dto = validDto();
-            MessageAccessContext context = legacyContext();
+            MessageAccessContext context = workspaceContext();
             stubEnvironmentResolvingTo("env-1", APP_UUID);
             when(messageEnvironmentStateRepository.findAll()).thenReturn(states);
             when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_197.getCode()))

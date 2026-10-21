@@ -119,7 +119,7 @@ class MessagesControllerImplTest {
             verify(findPage).execute(contextCaptor.capture(), requestCaptor.capture());
             PageRequestDTO captured = requestCaptor.getValue();
             assertAll(
-                    () -> assertThat(contextCaptor.getValue().legacyEnvironmentId()).isEqualTo("env-1"),
+                    () -> assertThat(contextCaptor.getValue().workspaceEnvironmentId()).isEqualTo("env-1"),
                     () -> assertThat(contextCaptor.getValue().externalIdentity()).isNull(),
                     () -> assertThat(captured.getPage()).isEqualTo("1"),
                     () -> assertThat(captured.getSize()).isEqualTo("10"),
@@ -160,7 +160,7 @@ class MessagesControllerImplTest {
             ArgumentCaptor<MessageAccessContext> contextCaptor = ArgumentCaptor.forClass(MessageAccessContext.class);
             verify(findOne).execute(eq("CODE"), contextCaptor.capture());
             assertThat(contextCaptor.getValue())
-                    .extracting(MessageAccessContext::legacyEnvironmentId, MessageAccessContext::externalIdentity)
+                    .extracting(MessageAccessContext::workspaceEnvironmentId, MessageAccessContext::externalIdentity)
                     .containsExactly("env-1", IDENTITY);
         }
     }

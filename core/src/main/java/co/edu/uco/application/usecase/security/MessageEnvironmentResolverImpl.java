@@ -35,8 +35,8 @@ public final class MessageEnvironmentResolverImpl implements MessageEnvironmentR
                     AuthorizationScopeType.ENVIRONMENT, environmentId);
             return environmentId.toString();
         }
-        if (context != null && !isEmptyOrNull(context.legacyEnvironmentId())) {
-            return context.legacyEnvironmentId();
+        if (context != null && !isEmptyOrNull(context.workspaceEnvironmentId())) {
+            return context.workspaceEnvironmentId();
         }
         throw UnauthorizedException.buildUserException(
                 catalogPort.getMessage(MessageCatalogCodeEnum.FUN_152.getCode()));

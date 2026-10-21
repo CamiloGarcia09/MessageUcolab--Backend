@@ -201,7 +201,7 @@ Los interceptores Servlet no deben trasladarse mecánicamente a un `WebFilter`. 
 
 | Componente actual | Tratamiento |
 |---|---|
-| `TokenHeaderInterceptor` | Migrar a `WebFilter` si intercepta solicitudes WebFlux |
+| `ActiveContextInterceptor` | `WebFilter` de contexto externo; credenciales propietarias retiradas |
 | `AcceptHeaderInterceptor` | Migrar la negociación de formatos al contexto reactivo |
 | `ExternalIdentityInterceptor` | Preservar la resolución y validación de identidad |
 | `LoggingConfig` | Revisar filtros, contexto de logging y propagación de MDC |

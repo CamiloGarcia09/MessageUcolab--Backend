@@ -11,15 +11,11 @@ public final class InfrastructureConstant {
     public static final String FIELD_ENVIRONMENT_ID = "environment_id";
     public static final String FIELD_MESSAGE_ENVIRONMENT_ID = "message_environment_id";
     public static final String FIELD_MESSAGE = "message";
-    public static final String FIELD_SECRET_NAME = "secret_name";
     public static final String FIELD_STATE_ID = "state_id";
     public static final String FIELD_TYPE_ID = "type_id";
     public static final String FIELD_APPLICATION_ID = "application_id";
     public static final String ENVIRONMENT_ID_ATTRIBUTE = "environmentId";
     public static final String EXTERNAL_IDENTITY_ATTRIBUTE = "externalIdentity";
-    public static final String TOKEN_ENTITY = "token_data";
-    public static final String TOKEN_STATE_ACTIVE_ID = "123e4567-e89b-12d3-a456-426614175000";
-    public static final String TOKEN_STATE_INACTIVE_ID = "123e4567-e89b-12d3-a456-426614175001";
 
     public static final String PACKAGE_BASE = "co.edu.uco";
     public static final String PACKAGE_REPOSITORY_ADAPTER = "co.edu.uco.infraestructure.secondaryadapters.repository";
@@ -58,29 +54,19 @@ public final class InfrastructureConstant {
     public static final String LOGGING_THREAD = "THREAD";
     public static final String LOGGING_APP_NAME = "APP";
     public static final String REQUEST_GET_HEADER_ACCEPT = "Accept";
-    public static final String REQUEST_GET_HEADER_TOKEN = "Token";
     public static final String REQUEST_GET_HEADER_CONTENT_TYPE = "Content-Type";
     public static final String REQUEST_GET_HEADER_AUTHORIZATION = "Authorization";
     public static final String MEDIA_TYPE_DEFAULT = "*/*";
     public static final String JSON_SERIALIZER_CONTENT_TYPE = "application/json";
-    public static final String BEARER_TOKEN = "Bearer %s";
     public static final String YAML_SERIALIZER_CONTENT_TYPE = "application/yaml";
     public static final String HTML_SERIALIZER_CONTENT_TYPE = "text/html";
     public static final String TEXT_SERIALIZER_CONTENT_TYPE = "text/plain";
     public static final String XML_SERIALIZER_CONTENT_TYPE = "application/xml";
     public static final String PATTERN_TIMESTAMP_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSX";
-    public static final int PAIR_KEY_SIZE = 2048;
-    public static final String ALGORITHM_GENERATE_PAIR_KEY = "RSA";
-    public static final String ALGORITHM_PAIR_KEY = "RSA/ECB/OAEPWithSHA-256AndMGF1Padding";
-    public static final String DOPPLER_DTO_SECRET_NAME = "secretName";
-    public static final String DOPPLER_DTO_PRIVATE_KEY = "privateKey";
-    public static final String DOPPLER_DTO_NAME = "name";
-    public static final String DOPPLER_DTO_VALUE = "value";
-    public static final String DOPPLER_DTO_RAW = "raw";
-    public static final String DOPPLER_CONFIG_PREFIX = "doppler";
     public static final String WEB_CONFIG_API_APPLICATION = "/messageucolab/v1/application/**/message/*";
     public static final String WEB_CONFIG_API_MESSAGES = "/messageucolab/v1/messages/**";
     public static final String WEB_CONFIG_API_CATALOG = "/messageucolab/v1/catalog/**";
+    public static final String LOCAL_WORKSPACE_PATH = "/messageucolab/v1/workspace/local";
 
     public static final String SWAGGER_UI_HTML = "/swagger-ui.html";
     public static final String SWAGGER_UI = "/swagger-ui/**";
@@ -93,12 +79,6 @@ public final class InfrastructureConstant {
 
     public static final String SURREAL_CONFIG_PREFIX = "surreal";
     public static final String SURREAL_ADAPTER = "surrealRepositoryAdapter";
-
-    public static final String TOKEN_SURREAL_ADAPTER = "tokenSurrealAdapter";
-    public static final String TOKEN_STATE_SURREAL_ADAPTER = "tokenStateSurrealAdapter";
-
-    public static final String SURREAL_TABLE_TOKEN = "token";
-    public static final String SURREAL_TABLE_TOKEN_STATE = "token_state";
 
     public static final String PARAMETER_PROPERTIES_FILE = "parameter.properties";
 

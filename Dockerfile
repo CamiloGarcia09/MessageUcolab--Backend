@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.10
 FROM eclipse-temurin:25-jdk-noble AS build
 
 WORKDIR /app
@@ -12,14 +13,19 @@ COPY infrastructure/pom.xml infrastructure/
 COPY core/pom.xml core/
 COPY utils/pom.xml utils/
 
-RUN ./mvnw dependency:go-offline -B -ntp
+ARG GITHUB_PACKAGES_USER
+RUN --mount=type=secret,id=maven_settings,required=true \
+    --mount=type=secret,id=github_packages_token,env=GITHUB_PACKAGES_TOKEN,required=true \
+    ./mvnw -s /run/secrets/maven_settings dependency:go-offline -B -ntp
 
 COPY infrastructure/src infrastructure/src
 COPY core/src core/src
 COPY utils/src utils/src
 COPY deployment/docker/scripts/surreal/surreal-init.surql deployment/docker/scripts/surreal/surreal-init.surql
 
-RUN ./mvnw clean verify -B -ntp
+RUN --mount=type=secret,id=maven_settings,required=true \
+    --mount=type=secret,id=github_packages_token,env=GITHUB_PACKAGES_TOKEN,required=true \
+    ./mvnw -s /run/secrets/maven_settings clean verify -B -ntp
 
 FROM eclipse-temurin:25-jre-noble
 

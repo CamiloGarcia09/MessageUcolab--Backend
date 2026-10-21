@@ -12,11 +12,6 @@ class EnumConstantsTest {
     }
 
     @Test
-    void rsaAlgorithm_hasExpectedValue() {
-        assertThat(EnumConstants.RSA_ALGORITHM.getValue()).isEqualTo("RSA");
-    }
-
-    @Test
     void dateFormat_hasExpectedValue() {
         assertThat(EnumConstants.DATE_FORMAT.getValue()).isEqualTo("yyyy-MM-dd'T'HH:mm:ss");
     }

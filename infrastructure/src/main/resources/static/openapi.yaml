@@ -4,7 +4,9 @@ info:
   description: |
     Contrato de la API de MessageUcoLab bajo el enfoque Contract First.
     Define las operaciones, parametros, modelos de entrada y salida, respuestas
-    y autenticacion Bearer para la integracion del equipo.
+    y autenticacion mediante el componente externo de seguridad. El frontend usa
+    su sesion BFF; los clientes Bearer deben seguir el contrato del proveedor.
+    MessageUcoLab no emite tokens propios ni acepta el header Token.
   version: 1.0.0
 
 servers:
@@ -25,6 +27,49 @@ tags:
     description: Creacion de aplicaciones y funcionalidades.
 
 paths:
+  /messageucolab/v1/workspace/local:
+    get:
+      tags: [Contexto]
+      summary: Obtener el destino fijo del desarrollo local
+      description: |
+        Disponible únicamente con el perfil local-workspace. No modifica contextos
+        de usuario. Requiere sesion autenticada y permiso en el PEP externo.
+        Los IDs proceden de la configuración del backend y deben corresponder al
+        mismo workspace persistido. Nunca activar este perfil en producción.
+      operationId: getLocalWorkspace
+      responses:
+        '200':
+          description: Configuración del workspace local fijo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    minItems: 1
+                    maxItems: 1
+                    items:
+                      type: object
+                      required: [organizationId, organizationName, applicationId, applicationName, environmentId, environmentName]
+                      properties:
+                        organizationId:
+                          type: string
+                          format: uuid
+                        organizationName:
+                          type: string
+                        applicationId:
+                          type: string
+                          format: uuid
+                        applicationName:
+                          type: string
+                        environmentId:
+                          type: string
+                          format: uuid
+                        environmentName:
+                          type: string
+
   /messageucolab/v1/application:
     post:
       tags: [Administracion]

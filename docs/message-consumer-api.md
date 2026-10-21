@@ -5,14 +5,17 @@
 ```http
 GET /messageucolab/v1/messages/resolve?code=MSG_WELCOME
 Accept: application/json
-Token: <token-de-integracion>
 ```
 
 La URL base depende del despliegue, por ejemplo `http://localhost:8000` detrás
-del gateway. `Token` es el header de integración existente: su validación
-determina el ambiente autorizado. No enviar aplicación o ambiente por query.
-El flujo de identidad externa existente también se conserva, cuando está
-habilitado; no se incorpora un nuevo mecanismo de autenticación.
+del gateway. El componente externo de seguridad autentica y autoriza la petición.
+El navegador administrativo conserva la sesión BFF y sus cookies; los servicios
+consumidores deben acordar sus credenciales y permisos con el responsable de seguridad.
+No se emiten credenciales en MessageUcoLab ni se acepta el header propietario retirado.
+El ambiente procede del contexto autorizado del backend, nunca de una query arbitraria.
+En local, `local-workspace` fija el destino y conserva el enforcement del PEP.
+Fuera de ese perfil se requiere una identidad externa resuelta y su contexto activo;
+el puente del proveedor real a ese contexto debe estar disponible antes de usarlo.
 
 ## Respuesta exitosa: HTTP 200
 
@@ -51,7 +54,7 @@ consumidores y conservar la comprobación de disponibilidad en cada petición.
 - `400`: falta el parámetro `code`.
 - Código vacío: se aplica el validador de códigos existente y su respuesta de dominio.
 - `401`: credencial ausente o inválida.
-- `403`: identidad sin permiso `MESSAGE_READ`, cuando utiliza el flujo de identidad externa.
+- `403`: sesión o identidad sin permiso para consultar mensajes.
 - `404`: mensaje inexistente, inactivo, deshabilitado para el ambiente o de otra aplicación.
 - `500`: fallo técnico; no se presenta como mensaje inexistente.
 

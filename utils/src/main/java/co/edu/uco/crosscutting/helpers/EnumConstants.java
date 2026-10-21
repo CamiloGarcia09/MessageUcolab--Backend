@@ -2,7 +2,6 @@ package co.edu.uco.crosscutting.helpers;
 
 public enum EnumConstants {
     PULSAR_URL("pulsar://localhost:6650"),
-    RSA_ALGORITHM("RSA"),
     DATE_FORMAT("yyyy-MM-dd'T'HH:mm:ss"),
     DEFAULT_UUID_STRING("00000000-0000-0000-0000-000000000000"),
     ERROR_UUID_INVALID_FORMAT("The UUID to be converted has no valid format."),
