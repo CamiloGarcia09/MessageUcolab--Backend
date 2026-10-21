@@ -15,7 +15,7 @@ import static co.edu.uco.infraestructure.config.InfrastructureConstant.*;
 
 @Component
 @Order(-200)
-@Profile("!local-workspace")
+@Profile("!local-workspace & !security-session")
 @ConditionalOnProperty(prefix = "components.security.simulated", name = "enabled", havingValue = "true")
 public final class ExternalIdentityInterceptor implements WebFilter {
     private static final Pattern BEARER = Pattern.compile("^Bearer (.+)$", Pattern.CASE_INSENSITIVE);

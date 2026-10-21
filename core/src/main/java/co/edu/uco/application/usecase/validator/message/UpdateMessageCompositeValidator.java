@@ -6,6 +6,7 @@ import co.edu.uco.application.secondaryports.repository.FunctionalityCatalogRepo
 import co.edu.uco.application.secondaryports.repository.RecordExistsCatalogPort;
 import co.edu.uco.application.usecase.validator.CompositeValidator;
 import co.edu.uco.application.usecase.validator.Validator;
+import co.edu.uco.application.usecase.validator.message.environment.MessageEnvironmentSelectionCompositeValidator;
 import co.edu.uco.application.usecase.validator.message.rule.UpdateMessageCatalogIdExistsRule;
 import co.edu.uco.application.usecase.validator.message.rule.UpdateMessageCatalogIdRequiredRule;
 import co.edu.uco.application.usecase.validator.message.rule.UpdateMessageCatalogIdUuidRule;
@@ -35,7 +36,8 @@ public final class UpdateMessageCompositeValidator extends CompositeValidator<Up
 
     public UpdateMessageCompositeValidator(CatalogPort catalogPort,
                                            RecordExistsCatalogPort recordExistsCatalogPort,
-                                           FunctionalityCatalogRepository functionalityCatalogRepository) {
+                                           FunctionalityCatalogRepository functionalityCatalogRepository,
+                                           MessageEnvironmentSelectionCompositeValidator environmentSelectionValidator) {
         super(List.of(
                 forDto(new UpdateMessageTitleRequiredRule(catalogPort)),
                 forDto(new UpdateMessageTitleMinLengthRule(catalogPort)),
@@ -57,12 +59,23 @@ public final class UpdateMessageCompositeValidator extends CompositeValidator<Up
                 forDto(new UpdateMessageCatalogIdUuidRule(catalogPort, UpdateMessageDTO::getStatusId)),
                 forDto(new UpdateMessageCatalogIdExistsRule(catalogPort, recordExistsCatalogPort,
                         UpdateMessageDTO::getStatusId, MESSAGE_STATE, FUN_195)),
+                forEnvironments(environmentSelectionValidator),
                 new UpdateMessageFunctionalityBelongsApplicationRule(catalogPort, functionalityCatalogRepository)
         ), catalogPort);
     }
 
     public void validate(UpdateMessageDTO dto, String applicationId) {
         super.validate(dto == null ? null : new UpdateMessageValidationContext(dto, applicationId));
+    }
+
+    // Sin environmentIds la edicion conserva los ambientes actuales del mensaje.
+    private static Validator<UpdateMessageValidationContext> forEnvironments(
+            MessageEnvironmentSelectionCompositeValidator validator) {
+        return context -> {
+            if (context.dto().getEnvironmentIds() != null) {
+                validator.validate(context.dto().getEnvironmentIds(), context.applicationId());
+            }
+        };
     }
 
     private static Validator<UpdateMessageValidationContext> forDto(Validator<UpdateMessageDTO> validator) {

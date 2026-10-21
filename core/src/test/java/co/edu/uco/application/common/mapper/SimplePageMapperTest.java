@@ -88,4 +88,23 @@ class SimplePageMapperTest {
 
         assertThat(result).isNotNull();
     }
+
+    @org.junit.jupiter.api.Test
+    void toSimplePageRequest_splitsEnvironmentFilterIgnoringBlanks() {
+        var dto = co.edu.uco.application.primaryports.dto.page.PageRequestDTO.builder()
+                .filterEnvironments(" env-1, ,env-2 ,").build();
+
+        var request = new SimplePageMapper().toSimplePageRequest(dto);
+
+        org.assertj.core.api.Assertions.assertThat(request.getFilter().getEnvironmentIds())
+                .containsExactly("env-1", "env-2");
+    }
+
+    @org.junit.jupiter.api.Test
+    void toSimplePageRequest_usesEmptyEnvironmentFilter_whenParameterIsMissing() {
+        var request = new SimplePageMapper().toSimplePageRequest(
+                co.edu.uco.application.primaryports.dto.page.PageRequestDTO.builder().build());
+
+        org.assertj.core.api.Assertions.assertThat(request.getFilter().getEnvironmentIds()).isEmpty();
+    }
 }

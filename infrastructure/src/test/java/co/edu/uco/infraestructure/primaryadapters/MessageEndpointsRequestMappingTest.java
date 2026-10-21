@@ -36,7 +36,7 @@ class MessageEndpointsRequestMappingTest {
             Method method = MessagesController.class.getMethod("findByEnvironmentAndMessage",
                     String.class, String.class, String.class, String.class,
                     String.class, String.class, String.class, String.class, String.class, String.class,
-                    ServerWebExchange.class);
+                    String.class, ServerWebExchange.class);
             GetMapping mapping = method.getAnnotation(GetMapping.class);
 
             assertThat(mapping).isNotNull();

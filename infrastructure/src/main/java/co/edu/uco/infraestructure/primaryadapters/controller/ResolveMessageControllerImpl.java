@@ -21,7 +21,8 @@ final class ResolveMessageControllerImpl implements ResolveMessageController {
     }
     public Mono<Void> resolve(String code, ServerWebExchange exchange) {
         var context = new MessageAccessContext((String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE),
-                (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE));
+                (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE),
+                (String) exchange.getAttribute(APPLICATION_ID_ATTRIBUTE));
         return ReactiveHttpResponse.blocking(() -> facade.execute(code, context))
                 .flatMap(value -> ReactiveHttpResponse.present(presenter, List.of(value), exchange));
     }

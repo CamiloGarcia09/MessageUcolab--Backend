@@ -1,5 +1,6 @@
 package co.edu.uco.application.common.mapper.entity.impl;
 
+import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
 import co.edu.uco.application.primaryports.dto.message.MessageDTO;
 import co.edu.uco.application.secondaryports.entity.MessageData;
 import co.edu.uco.application.common.mapper.entity.DataMapper;
@@ -20,8 +21,10 @@ public final class MessageEntityMapper implements DataMapper<MessageData, Messag
     @Override
     public MessageData mapperData(MessageDomain domain) { return mapper.map(domain, MessageData.class); }
     @Override
-    public MessageDTO mapperDTO(MessageData entity) { return MessageDTO.create(entity.getCode(), entity.getTitle(),
+    public MessageDTO mapperDTO(MessageData entity) { return new MessageDTO(entity.getCode(), entity.getTitle(),
             entity.getContent(), entity.getType().getName(),
             entity.getCategory().getName(), entity.getFunctionality().getName(),
-            entity.getCreatedAt()); }
+            entity.getCreatedAt(), entity.getEnvironments().stream()
+                    .map(environment -> CatalogItemDTO.create(environment.getId().toString(), environment.getName()))
+                    .toList()); }
 }

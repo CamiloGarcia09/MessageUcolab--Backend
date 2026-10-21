@@ -5,6 +5,7 @@ import co.edu.uco.crosscutting.helpers.UtilText;
 import co.edu.uco.crosscutting.helpers.UtilUUID;
 import lombok.Getter;
 
+import java.util.List;
 import java.util.UUID;
 import java.time.Instant;
 
@@ -24,6 +25,7 @@ public final class MessageData {
     private String application;
     private FunctionalityData functionality;
     private Instant createdAt;
+    private List<MessageEnvironmentRefData> environments;
     public MessageData() {
         setId(UtilUUID.getNewUUID());
         setCode(UtilText.EMPTY);
@@ -34,6 +36,7 @@ public final class MessageData {
         setCategory(MessageCategoryData.build());
         setStatus(StatusMessageData.build());
         setFunctionality(FunctionalityData.build());
+        setEnvironments(List.of());
     }
     public MessageData(UUID id, String code, String title, String content, MessageTypeData type,
                        MessageCategoryData category,  String application, FunctionalityData functionality) {
@@ -46,6 +49,7 @@ public final class MessageData {
         setApplication(application);
         setCategory(category);
         setFunctionality(functionality);
+        setEnvironments(List.of());
     }
     public void setId(UUID id) {
         this.id = getDefaultUUID(id);
@@ -71,5 +75,8 @@ public final class MessageData {
     }
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+    public void setEnvironments(List<MessageEnvironmentRefData> environments) {
+        this.environments = environments == null ? List.of() : List.copyOf(environments);
     }
 }

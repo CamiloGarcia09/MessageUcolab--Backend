@@ -88,4 +88,21 @@ class InMemoryMessageEventAdapterTest {
                     .verifyComplete();
         }
     }
+
+    @org.junit.jupiter.api.Test
+    void subscribeToEnvironmentSet_receivesOnlyEventsOfThoseEnvironments() {
+        var adapter = new InMemoryMessageEventAdapter();
+        var events = Flux.from(org.reactivestreams.FlowAdapters.toPublisher(
+                adapter.subscribe(java.util.Set.of("env-dev", "env-prod"))));
+
+        StepVerifier.create(events.take(2))
+                .then(() -> {
+                    adapter.publish(new MessageEvent("1", "MessageCreated", "env-dev", "A"));
+                    adapter.publish(new MessageEvent("2", "MessageCreated", "env-qa", "B"));
+                    adapter.publish(new MessageEvent("3", "MessageCreated", "env-prod", "C"));
+                })
+                .assertNext(event -> org.assertj.core.api.Assertions.assertThat(event.id()).isEqualTo("1"))
+                .assertNext(event -> org.assertj.core.api.Assertions.assertThat(event.id()).isEqualTo("3"))
+                .verifyComplete();
+    }
 }

@@ -6,6 +6,8 @@ import co.edu.uco.application.secondaryports.repository.ApplicationRepository;
 import co.edu.uco.application.secondaryports.repository.OrganizationRepository;
 import co.edu.uco.application.secondaryports.repository.RecordExistsCatalogPort;
 import co.edu.uco.application.usecase.validator.CompositeValidator;
+import co.edu.uco.application.usecase.validator.application.rule.ApplicationIdDuplicatedRule;
+import co.edu.uco.application.usecase.validator.application.rule.ApplicationIdUuidRule;
 import co.edu.uco.application.usecase.validator.application.rule.ApplicationLanguageExistsRule;
 import co.edu.uco.application.usecase.validator.application.rule.ApplicationLanguageRequiredRule;
 import co.edu.uco.application.usecase.validator.application.rule.ApplicationNameDuplicatedRule;
@@ -28,6 +30,7 @@ public final class CreateApplicationCompositeValidator extends CompositeValidato
                                                ApplicationRepository applicationRepository,
                                                OrganizationRepository organizationRepository) {
         super(List.of(
+                new ApplicationIdUuidRule(catalogPort),
                 new ApplicationNameRequiredRule(catalogPort),
                 new ApplicationNameMaxLengthRule(catalogPort),
                 new ApplicationOrganizationIdRequiredRule(catalogPort),
@@ -37,7 +40,8 @@ public final class CreateApplicationCompositeValidator extends CompositeValidato
                 new ApplicationLanguageExistsRule(catalogPort, recordExistsCatalogPort),
                 new ApplicationStateRequiredRule(catalogPort),
                 new ApplicationStateExistsRule(catalogPort, recordExistsCatalogPort),
-                new ApplicationNameDuplicatedRule(catalogPort, applicationRepository)
+                new ApplicationNameDuplicatedRule(catalogPort, applicationRepository),
+                new ApplicationIdDuplicatedRule(catalogPort, applicationRepository)
         ), catalogPort);
     }
 }

@@ -23,8 +23,8 @@ Todas las rutas de la tabla llevan el prefijo `/messageucolab/v1`.
 |---|---|---|---|
 | POST | `/application` | Crear aplicación y sus ambientes Develop, Testing y Production | Bearer |
 | POST | `/application/functionality` | Crear funcionalidad | Bearer |
-| POST | `/messages` | Crear mensaje en el ambiente autorizado | Bearer |
-| GET | `/messages` | Buscar por código o listar con paginación | Bearer |
+| POST | `/messages` | Crear el mensaje en uno o varios ambientes de la aplicación | Bearer |
+| GET | `/messages` | Buscar por código o listar con paginación y filtro `filterEnvironments` | Bearer |
 | POST | `/messages/{messageCode}/translations` | Traducir sin guardar la traducción | Bearer |
 | GET | `/me/contexts` | Listar contextos disponibles para la identidad | Bearer |
 | GET | `/me/context` | Consultar contexto activo | Bearer |
@@ -76,7 +76,7 @@ Los UUID de los ejemplos son ilustrativos y deben sustituirse por identificadore
 |---|---|
 | Crear aplicación | `name`, `organizationId`, `languageId`, `stateId` |
 | Crear funcionalidad | `name`, `applicationId`, `stateId` |
-| Crear mensaje | `code`, `title`, `content`, `typeId`, `categoryId`, `statusId`, `functionalityId` |
+| Crear mensaje | `code`, `title`, `content`, `typeId`, `categoryId`, `statusId`, `functionalityId`, `environmentIds` |
 | Seleccionar contexto | `organizationId`, `applicationId`, `environmentId` |
 | Traducir mensaje | `targetLanguage` (`sourceLanguage` es opcional y su valor predeterminado es `auto`) |
 
@@ -87,6 +87,12 @@ El nombre de aplicación o funcionalidad admite hasta 50 caracteres. Para crear 
 - `title` tiene entre 10 y 50 caracteres.
 - `content` tiene entre 10 y 100 caracteres.
 - Los identificadores referenciados deben existir; la funcionalidad debe pertenecer a la aplicación autorizada.
+- `environmentIds` lista los ambientes donde se crea el mismo mensaje (uno, dos o todos). Deben
+  existir, pertenecer a la aplicación y no repetirse. El contenido es único: editarlo cambia todos
+  sus ambientes. En la edición, `environmentIds` es opcional y, si se envía, reemplaza los ambientes.
+- Eliminar un mensaje lo borra de todos sus ambientes.
+- El listado devuelve en `environments` los ambientes de cada mensaje; `filterEnvironments` (ids
+  separados por coma) limita el resultado. Sin mensajes devuelve una página vacía.
 
 La creación responde con HTTP `200` y una confirmación, por ejemplo:
 

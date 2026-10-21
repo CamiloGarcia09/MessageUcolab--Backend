@@ -44,9 +44,13 @@ public final class FindMessageByEnvironmentUseCase implements HandlingFindMessag
     public SimplePage<MessageDTO> execute(MessageAccessContext context, SimplePageRequest pageRequest) {
         try {
             listMessageValidator.validate(pageRequest);
-            var environment = environmentResolver.resolve(context, PermissionCode.MESSAGE_READ);
-            var page = messageCatalogStrategy.getMessagesWithEnvironment(environment, pageRequest);
-            rangeValidator.validate(pageRequest.getPage(), page.getTotalPages());
+            // Mensajes de la aplicacion; el filtro de ambientes viene en la peticion.
+            var applicationId = environmentResolver.resolveApplication(context, PermissionCode.MESSAGE_READ);
+            var page = messageCatalogStrategy.getMessagesWithApplication(applicationId, pageRequest);
+            // Una aplicacion o un filtro sin mensajes devuelve una pagina vacia, no un error.
+            if (page.getTotalItems() > 0) {
+                rangeValidator.validate(pageRequest.getPage(), page.getTotalPages());
+            }
             var messages = page.getData().stream().map(entityMapper::mapperDTO).toList();
             return SimplePage.of(messages, page.getPage(), page.getSize(),page.getTotalItems(), page.getTotalPages());
         } catch (CrossWordsException exception) {

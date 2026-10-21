@@ -7,12 +7,13 @@ import co.edu.uco.application.secondaryports.entity.ApplicationData;
 import co.edu.uco.application.secondaryports.entity.FunctionalityData;
 import co.edu.uco.application.secondaryports.entity.MessageCategoryData;
 import co.edu.uco.application.secondaryports.entity.MessageData;
+import co.edu.uco.application.secondaryports.entity.MessageEnvironmentStateData;
 import co.edu.uco.application.secondaryports.entity.MessageTypeData;
 import co.edu.uco.application.secondaryports.entity.StatusMessageData;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.DataBaseMessageRepository;
-import co.edu.uco.application.secondaryports.repository.EnvironmentRepository;
+import co.edu.uco.application.secondaryports.repository.MessageEnvironmentStateCatalogRepository;
 import co.edu.uco.application.secondaryports.repository.UpdateMessageRepository;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
 import co.edu.uco.application.usecase.domain.security.PermissionCode;
@@ -21,17 +22,19 @@ import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.application.usecase.validator.message.UpdateMessageCompositeValidator;
 import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
-import co.edu.uco.crosscutting.exceptions.ForbiddenException;
 import co.edu.uco.crosscutting.helpers.UtilUUID;
 import org.springframework.stereotype.Component;
+import java.util.List;
+import static co.edu.uco.application.CrosswordsConstant.STATE_ACTIVE;
 
-import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_035;
+import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_197;
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_206;
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_207;
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_208;
 import static co.edu.uco.crosscutting.helpers.UtilText.EMPTY;
 import static co.edu.uco.crosscutting.helpers.UtilText.trim;
 import static co.edu.uco.crosscutting.helpers.UtilUUID.getStringFromUUID;
+import static co.edu.uco.crosscutting.helpers.UtilUUID.getUUIDFromString;
 
 @Component
 public final class UpdateMessageUseCase implements HandlingUpdateMessagePort {
@@ -40,7 +43,7 @@ public final class UpdateMessageUseCase implements HandlingUpdateMessagePort {
     private final DataBaseMessageRepository messageRepository;
     private final UpdateMessageCompositeValidator validator;
     private final MessageEnvironmentResolver environmentResolver;
-    private final EnvironmentRepository environmentRepository;
+    private final MessageEnvironmentStateCatalogRepository messageEnvironmentStateRepository;
     private final MessageCatalogStrategy messageCatalogStrategy;
     private final CatalogPort catalogPort;
     private final LoggingPort log;
@@ -50,7 +53,7 @@ public final class UpdateMessageUseCase implements HandlingUpdateMessagePort {
             DataBaseMessageRepository messageRepository,
             UpdateMessageCompositeValidator validator,
             MessageEnvironmentResolver environmentResolver,
-            EnvironmentRepository environmentRepository,
+            MessageEnvironmentStateCatalogRepository messageEnvironmentStateRepository,
             MessageCatalogStrategy messageCatalogStrategy,
             CatalogPort catalogPort,
             LoggingPortFactory loggerFactory) {
@@ -58,7 +61,7 @@ public final class UpdateMessageUseCase implements HandlingUpdateMessagePort {
         this.messageRepository = messageRepository;
         this.validator = validator;
         this.environmentResolver = environmentResolver;
-        this.environmentRepository = environmentRepository;
+        this.messageEnvironmentStateRepository = messageEnvironmentStateRepository;
         this.messageCatalogStrategy = messageCatalogStrategy;
         this.catalogPort = catalogPort;
         this.log = loggerFactory.getLogger(UpdateMessageUseCase.class);
@@ -71,17 +74,18 @@ public final class UpdateMessageUseCase implements HandlingUpdateMessagePort {
             throw BusinessRuleException.buildUserException(catalogPort.getMessage(FUN_206.getCode()));
         }
 
-        var authenticatedEnvironmentId =
-                environmentResolver.resolve(context, PermissionCode.MESSAGE_UPDATE);
+        var applicationId = environmentResolver.resolveApplication(context, PermissionCode.MESSAGE_UPDATE);
 
-        var applicationId = environmentRepository.findById(authenticatedEnvironmentId)
-                .map(environment -> getStringFromUUID(environment.getApplication().getId()))
-                .orElseThrow(() -> ForbiddenException.buildUserException(catalogPort.getMessage(FUN_035.getCode())));
-
-        var existing = messageRepository.findByCode(sanitizedId)
+        // El codigo es unico por aplicacion: nunca se busca en otras aplicaciones.
+        var existing = messageRepository.findByCodeAndApplication(sanitizedId, applicationId)
                 .orElseThrow(() -> BusinessRuleException.buildUserException(catalogPort.getMessage(FUN_208.getCode())));
 
         validator.validate(dto, applicationId);
+
+        List<String> environmentIds = dto.getEnvironmentIds() == null ? null : dto.getEnvironmentIds().stream()
+                .map(environmentId -> getUUIDFromString(environmentId).toString())
+                .toList();
+        var messageEnvironmentStateId = environmentIds == null ? null : activeMessageEnvironmentStateId();
 
         try {
             var messageData = new MessageData(
@@ -100,7 +104,7 @@ public final class UpdateMessageUseCase implements HandlingUpdateMessagePort {
             );
             messageData.setStatus(new StatusMessageData(UtilUUID.getStringToUUID(dto.getStatusId()), EMPTY));
 
-            updateMessageRepository.updateMessage(messageData);
+            updateMessageRepository.updateMessage(messageData, environmentIds, messageEnvironmentStateId);
             messageCatalogStrategy.evictMessage(existing.getCode());
             log.info("Message updated successfully with id: {}", sanitizedId);
         } catch (CrossWordsException ex) {
@@ -109,5 +113,15 @@ public final class UpdateMessageUseCase implements HandlingUpdateMessagePort {
             log.error("Error updating message in repository", ex);
             throw CrossWordsException.build(catalogPort.getMessage(FUN_207.getCode()), ex);
         }
+    }
+
+    private String activeMessageEnvironmentStateId() {
+        var states = messageEnvironmentStateRepository.findAll();
+        return (states == null ? List.<MessageEnvironmentStateData>of() : states)
+                .stream()
+                .filter(state -> state != null && STATE_ACTIVE.equalsIgnoreCase(state.getName()))
+                .map(state -> getStringFromUUID(state.getId()))
+                .findFirst()
+                .orElseThrow(() -> BusinessRuleException.buildUserException(catalogPort.getMessage(FUN_197.getCode())));
     }
 }

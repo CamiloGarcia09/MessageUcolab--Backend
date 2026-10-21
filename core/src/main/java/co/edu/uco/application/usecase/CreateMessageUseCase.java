@@ -12,7 +12,6 @@ import co.edu.uco.application.secondaryports.entity.StatusMessageData;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.CreateMessageRepository;
-import co.edu.uco.application.secondaryports.repository.EnvironmentRepository;
 import co.edu.uco.application.secondaryports.repository.MessageEnvironmentStateCatalogRepository;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
 import co.edu.uco.application.usecase.domain.security.PermissionCode;
@@ -21,18 +20,17 @@ import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.application.usecase.validator.message.CreateMessageCompositeValidator;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
 import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
-import co.edu.uco.crosscutting.exceptions.ForbiddenException;
 import co.edu.uco.crosscutting.helpers.UtilUUID;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 import static co.edu.uco.application.CrosswordsConstant.STATE_ACTIVE;
-import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_035;
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_197;
 import static co.edu.uco.crosscutting.helpers.UtilText.EMPTY;
 import static co.edu.uco.crosscutting.helpers.UtilMessageCode.normalize;
 import static co.edu.uco.crosscutting.helpers.UtilUUID.getStringFromUUID;
+import static co.edu.uco.crosscutting.helpers.UtilUUID.getUUIDFromString;
 
 @Component
 public final class CreateMessageUseCase implements HandlingCreateMessagePort {
@@ -40,7 +38,6 @@ public final class CreateMessageUseCase implements HandlingCreateMessagePort {
     private final CreateMessageRepository createMessageRepository;
     private final CreateMessageCompositeValidator validator;
     private final MessageEnvironmentResolver environmentResolver;
-    private final EnvironmentRepository environmentRepository;
     private final MessageEnvironmentStateCatalogRepository messageEnvironmentStateRepository;
     private final CatalogPort catalogPort;
     private final LoggingPort log;
@@ -49,14 +46,12 @@ public final class CreateMessageUseCase implements HandlingCreateMessagePort {
             CreateMessageRepository createMessageRepository,
             CreateMessageCompositeValidator validator,
             MessageEnvironmentResolver environmentResolver,
-            EnvironmentRepository environmentRepository,
             MessageEnvironmentStateCatalogRepository messageEnvironmentStateRepository,
             CatalogPort catalogPort,
             LoggingPortFactory loggerFactory) {
         this.createMessageRepository = createMessageRepository;
         this.validator = validator;
         this.environmentResolver = environmentResolver;
-        this.environmentRepository = environmentRepository;
         this.messageEnvironmentStateRepository = messageEnvironmentStateRepository;
         this.catalogPort = catalogPort;
         this.log = loggerFactory.getLogger(CreateMessageUseCase.class);
@@ -64,12 +59,11 @@ public final class CreateMessageUseCase implements HandlingCreateMessagePort {
 
     @Override
     public void createMessage(CreateMessageDTO dto, MessageAccessContext context) {
-        var authenticatedEnvironmentId =
-                environmentResolver.resolve(context, PermissionCode.MESSAGE_CREATE);
-        var applicationId = environmentRepository.findById(authenticatedEnvironmentId)
-                .map(environment -> getStringFromUUID(environment.getApplication().getId()))
-                .orElseThrow(() -> ForbiddenException.buildUserException(catalogPort.getMessage(FUN_035.getCode())));
+        var applicationId = environmentResolver.resolveApplication(context, PermissionCode.MESSAGE_CREATE);
         validator.validate(dto, applicationId);
+        var environmentIds = dto.getEnvironmentIds().stream()
+                .map(environmentId -> getUUIDFromString(environmentId).toString())
+                .toList();
         var messageEnvironmentStateId = activeMessageEnvironmentStateId();
         var normalizedCode = normalize(dto.getCode());
 
@@ -92,7 +86,7 @@ public final class CreateMessageUseCase implements HandlingCreateMessagePort {
 
             createMessageRepository.createMessage(
                     messageData,
-                    authenticatedEnvironmentId,
+                    environmentIds,
                     messageEnvironmentStateId
             );
 

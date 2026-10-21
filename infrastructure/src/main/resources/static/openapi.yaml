@@ -232,7 +232,9 @@ paths:
         Con code retorna data como una lista con el mensaje encontrado; los parametros
         de paginacion no se usan. Sin code retorna data como una lista con un objeto
         de pagina, cuyo campo data contiene los mensajes.
-        El ambiente procede del contexto activo de la identidad autenticada con Bearer.
+        Los mensajes pertenecen a la aplicacion del contexto (en modo sesion, X-Application-Id
+        validado contra el componente de seguridad). Cada mensaje informa en environments los
+        ambientes donde existe; filterEnvironments limita el listado a esos ambientes.
       operationId: findMessages
       security:
         - bearerAuth: []
@@ -270,6 +272,12 @@ paths:
           schema:
             type: string
             default: id
+        - name: filterEnvironments
+          in: query
+          description: Ids de ambiente separados por coma. Vacio muestra los mensajes de todos los ambientes de la aplicacion.
+          schema:
+            type: string
+          example: 7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82,de1b8223-1e9c-4807-beec-b2c1cff44e73
       responses:
         '200':
           $ref: '#/components/responses/MessagesFound'
@@ -927,7 +935,7 @@ components:
           format: uuid
     CreateMessageRequest:
       type: object
-      required: [code, title, content, typeId, categoryId, statusId, functionalityId]
+      required: [code, title, content, typeId, categoryId, statusId, functionalityId, environmentIds]
       example:
         code: WELCOME
         title: Mensaje de bienvenida
@@ -936,6 +944,9 @@ components:
         categoryId: 123e4567-e89b-12d3-a456-426614174050
         statusId: 123e4567-e89b-12d3-a456-426614174060
         functionalityId: 123e4567-e89b-12d3-a456-426614174070
+        environmentIds:
+          - 7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82
+          - de1b8223-1e9c-4807-beec-b2c1cff44e73
       properties:
         code:
           type: string
@@ -966,6 +977,14 @@ components:
         functionalityId:
           type: string
           format: uuid
+        environmentIds:
+          type: array
+          description: Ambientes de la aplicacion donde se crea el mismo mensaje (uno o varios, sin repetir).
+          minItems: 1
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
     TranslateMessageRequest:
       type: object
       required: [targetLanguage]

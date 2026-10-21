@@ -37,21 +37,21 @@ public final class FindMessageByCodeAndEnvironmentUseCase implements HandlingFin
     }
     @Override
     public MessageDTO execute(String messageCode, MessageAccessContext context) {
-        String environmentId = null;
+        String applicationId = null;
         try {
             findMessageCodeValidator.validate(messageCode);
-            environmentId = environmentResolver.resolve(context, PermissionCode.MESSAGE_READ);
+            applicationId = environmentResolver.resolveApplication(context, PermissionCode.MESSAGE_READ);
             var messageDataOptional = messageCatalogStrategy
-                    .getMessageByCodeAndEnvironment(messageCode, environmentId);
+                    .getMessageByCodeAndApplication(messageCode, applicationId);
             if (messageDataOptional.isEmpty()) {
-                var errorMessage = String.format(messageCatalogStrategy.getSystemMessageContent(MessageCatalogCodeEnum.FUN_012.getCode()), messageCode, environmentId);
+                var errorMessage = String.format(messageCatalogStrategy.getSystemMessageContent(MessageCatalogCodeEnum.FUN_012.getCode()), messageCode, applicationId);
                 throw BusinessException.buildUserException(errorMessage);
             }
             return entityMapper.mapperDTO(messageDataOptional.get());
         } catch (CrossWordsException exception) {
             throw exception;
         } catch (Exception exception) {
-            String errorMessage = String.format(messageCatalogStrategy.getSystemMessageContent(MessageCatalogCodeEnum.FUN_012.getCode()), messageCode, environmentId);
+            String errorMessage = String.format(messageCatalogStrategy.getSystemMessageContent(MessageCatalogCodeEnum.FUN_012.getCode()), messageCode, applicationId);
             log.error(errorMessage, exception);
             throw BusinessException.buildUserException(errorMessage);
         }

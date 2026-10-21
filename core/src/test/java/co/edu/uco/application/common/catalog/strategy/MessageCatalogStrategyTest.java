@@ -293,4 +293,25 @@ class MessageCatalogStrategyTest {
         verify(log).info("using cache");
         verify(cacheCatalog, never()).addMessageWithEnvironment(any(MessageData.class), anyString());
     }
+
+    @Test
+    void getMessagesWithApplication_alwaysQueriesDatabaseAndSkipsCache() {
+        SimplePageRequest request = request(1, 10);
+        var page = co.edu.uco.application.secondaryports.repository.SimplePage
+                .<MessageData>of(java.util.List.of(message()), 1, 10, 1, 1);
+        when(databaseCatalog.getMessagesWithApplication("app-1", request)).thenReturn(page);
+
+        org.assertj.core.api.Assertions.assertThat(strategy.getMessagesWithApplication("app-1", request)).isSameAs(page);
+        org.mockito.Mockito.verifyNoInteractions(cacheCatalog);
+    }
+
+    @Test
+    void getMessageByCodeAndApplication_queriesDatabase() {
+        var found = java.util.Optional.of(message());
+        when(databaseCatalog.getMessageByCodeAndApplication("CODE", "app-1")).thenReturn(found);
+
+        org.assertj.core.api.Assertions.assertThat(strategy.getMessageByCodeAndApplication("CODE", "app-1"))
+                .isSameAs(found);
+        org.mockito.Mockito.verifyNoInteractions(cacheCatalog);
+    }
 }

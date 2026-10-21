@@ -43,7 +43,16 @@ import co.edu.uco.application.usecase.validator.application.CreateApplicationCom
 import co.edu.uco.application.usecase.validator.context.SelectActiveContextCompositeValidator;
 import co.edu.uco.application.usecase.validator.message.CreateMessageCompositeValidator;
 import co.edu.uco.application.usecase.validator.message.UpdateMessageCompositeValidator;
+import co.edu.uco.application.usecase.validator.message.environment.MessageEnvironmentSelectionCompositeValidator;
 import co.edu.uco.application.usecase.validator.organization.CreateOrganizationCompositeValidator;
+import co.edu.uco.application.primaryports.facade.session.SessionApplicationUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.session.impl.SessionApplicationUseCaseFacadeImpl;
+import co.edu.uco.application.secondaryports.security.SecurityApplicationPort;
+import co.edu.uco.application.usecase.SessionApplicationUseCase;
+import co.edu.uco.application.usecase.handling.HandlingSessionApplicationPort;
+import co.edu.uco.application.usecase.validator.session.SessionApplicationAccessCompositeValidator;
+import co.edu.uco.application.usecase.validator.session.SessionApplicationCompositeValidator;
+import co.edu.uco.application.usecase.validator.session.SessionApplicationRegistrationCompositeValidator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -106,12 +115,57 @@ public class UseCaseRuleConfig {
     }
 
     @Bean
+    SessionApplicationCompositeValidator sessionApplicationCompositeValidator(
+            CatalogPort catalogPort,
+            ApplicationRepository applicationRepository,
+            EnvironmentRepository environmentRepository) {
+        return new SessionApplicationCompositeValidator(catalogPort, applicationRepository, environmentRepository);
+    }
+
+    @Bean
+    SessionApplicationAccessCompositeValidator sessionApplicationAccessCompositeValidator(
+            CatalogPort catalogPort,
+            ApplicationRepository applicationRepository) {
+        return new SessionApplicationAccessCompositeValidator(catalogPort, applicationRepository);
+    }
+
+    @Bean
+    SessionApplicationRegistrationCompositeValidator sessionApplicationRegistrationCompositeValidator(
+            CatalogPort catalogPort) {
+        return new SessionApplicationRegistrationCompositeValidator(catalogPort);
+    }
+
+    @Bean
+    HandlingSessionApplicationPort handlingSessionApplicationPort(
+            SecurityApplicationPort securityApplicationPort,
+            ApplicationRepository applicationRepository,
+            SessionApplicationCompositeValidator sessionApplicationValidator,
+            SessionApplicationAccessCompositeValidator sessionApplicationAccessValidator,
+            SessionApplicationRegistrationCompositeValidator sessionApplicationRegistrationValidator,
+            CatalogPort catalogPort) {
+        return new SessionApplicationUseCase(
+                securityApplicationPort,
+                applicationRepository,
+                sessionApplicationValidator,
+                sessionApplicationAccessValidator,
+                sessionApplicationRegistrationValidator,
+                catalogPort);
+    }
+
+    @Bean
+    SessionApplicationUseCaseFacade sessionApplicationUseCaseFacade(
+            HandlingSessionApplicationPort handlingSessionApplicationPort) {
+        return new SessionApplicationUseCaseFacadeImpl(handlingSessionApplicationPort);
+    }
+
+    @Bean
     MessageEnvironmentResolver messageEnvironmentResolver(
             HandlingActiveContextPort handlingActiveContextPort,
             AuthorizationCompositeValidator authorizationCompositeValidator,
+            EnvironmentRepository environmentRepository,
             CatalogPort catalogPort) {
         return new MessageEnvironmentResolverImpl(
-                handlingActiveContextPort, authorizationCompositeValidator, catalogPort);
+                handlingActiveContextPort, authorizationCompositeValidator, environmentRepository, catalogPort);
     }
 
     @Bean
@@ -151,18 +205,29 @@ public class UseCaseRuleConfig {
             CatalogPort catalogPort,
             RecordExistsCatalogPort recordExistsCatalogPort,
             FunctionalityCatalogRepository functionalityCatalogRepository,
-            MessageCodeQueryPort messageCodeQueryPort) {
+            MessageCodeQueryPort messageCodeQueryPort,
+            MessageEnvironmentSelectionCompositeValidator messageEnvironmentSelectionValidator) {
         return new CreateMessageCompositeValidator(
-                catalogPort, recordExistsCatalogPort, functionalityCatalogRepository, messageCodeQueryPort);
+                catalogPort, recordExistsCatalogPort, functionalityCatalogRepository, messageCodeQueryPort,
+                messageEnvironmentSelectionValidator);
+    }
+
+    @Bean
+    MessageEnvironmentSelectionCompositeValidator messageEnvironmentSelectionCompositeValidator(
+            CatalogPort catalogPort,
+            EnvironmentRepository environmentRepository) {
+        return new MessageEnvironmentSelectionCompositeValidator(catalogPort, environmentRepository);
     }
 
     @Bean
     UpdateMessageCompositeValidator updateMessageCompositeValidator(
             CatalogPort catalogPort,
             RecordExistsCatalogPort recordExistsCatalogPort,
-            FunctionalityCatalogRepository functionalityCatalogRepository) {
+            FunctionalityCatalogRepository functionalityCatalogRepository,
+            MessageEnvironmentSelectionCompositeValidator messageEnvironmentSelectionValidator) {
         return new UpdateMessageCompositeValidator(
-                catalogPort, recordExistsCatalogPort, functionalityCatalogRepository);
+                catalogPort, recordExistsCatalogPort, functionalityCatalogRepository,
+                messageEnvironmentSelectionValidator);
     }
 
     @Bean

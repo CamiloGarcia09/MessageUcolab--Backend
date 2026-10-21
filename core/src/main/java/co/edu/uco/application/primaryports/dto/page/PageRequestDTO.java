@@ -20,4 +20,6 @@ public final class PageRequestDTO {
     private String filterFunctionality;
     private String filterType;
     private String filterStatus;
+    // Ids de ambiente separados por coma; vacio muestra todos los de la aplicacion.
+    private String filterEnvironments;
 }

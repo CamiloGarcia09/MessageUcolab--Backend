@@ -12,6 +12,8 @@ import co.edu.uco.crosscutting.helpers.UtilUUID;
 import com.surrealdb.Surreal;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 import static co.edu.uco.crosscutting.helpers.UtilText.getDefault;
 import static co.edu.uco.infraestructure.secondaryadapters.repository.surreal.impl.SurrealQLUtil.quote;
 import static co.edu.uco.infraestructure.secondaryadapters.repository.surreal.impl.SurrealQLUtil.recordIdLiteral;
@@ -38,9 +40,8 @@ public class CreateMessageSurrealAdapter implements CreateMessageRepository {
     }
 
     @Override
-    public void createMessage(MessageData message, String environmentId, String messageEnvironmentStateId) {
+    public void createMessage(MessageData message, List<String> environmentIds, String messageEnvironmentStateId) {
         String messageId = message.getId().toString();
-        String messageEnvId = UtilUUID.getNewUUID().toString();
 
         String appId = message.getFunctionality().getApplication().getId().toString();
         String funcId = message.getFunctionality().getId().toString();
@@ -59,11 +60,17 @@ public class CreateMessageSurrealAdapter implements CreateMessageRepository {
                 + "functionality_id: " + toRecordId(TABLE_FUNCTIONALITY, funcId)
                 + " };";
 
-        String upsertMessageEnvSql = "UPSERT " + toRecordId(TABLE_MESSAGE_ENVIRONMENT, messageEnvId) + " CONTENT { "
-                + "message_id: " + toRecordId(TABLE_MESSAGE, messageId) + ", "
-                + "environment_id: " + toRecordId(TABLE_ENVIRONMENT, environmentId) + ", "
-                + "state_data_id: " + toRecordId(TABLE_MESSAGE_ENV_STATE, messageEnvironmentStateId)
-                + " };";
+        // Un mismo mensaje enlazado a cada ambiente elegido; todo o nada.
+        StringBuilder upsertMessageEnvSql = new StringBuilder();
+        for (String environmentId : environmentIds) {
+            upsertMessageEnvSql.append("UPSERT ")
+                    .append(toRecordId(TABLE_MESSAGE_ENVIRONMENT, UtilUUID.getNewUUID().toString()))
+                    .append(" CONTENT { ")
+                    .append("message_id: ").append(toRecordId(TABLE_MESSAGE, messageId)).append(", ")
+                    .append("environment_id: ").append(toRecordId(TABLE_ENVIRONMENT, environmentId)).append(", ")
+                    .append("state_data_id: ").append(toRecordId(TABLE_MESSAGE_ENV_STATE, messageEnvironmentStateId))
+                    .append(" };");
+        }
 
         String transactionSql = "BEGIN TRANSACTION;"
                 + upsertMessageSql

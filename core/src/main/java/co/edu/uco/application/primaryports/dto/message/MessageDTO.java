@@ -1,10 +1,12 @@
 package co.edu.uco.application.primaryports.dto.message;
 
+import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 
 import java.time.Instant;
+import java.util.List;
 
 import static co.edu.uco.crosscutting.helpers.UtilText.trim;
 
@@ -20,6 +22,7 @@ public final class MessageDTO {
     private final String category;
     private final String functionality;
     private final Instant createdAt;
+    private final List<CatalogItemDTO> environments;
 
     public MessageDTO(String code, String title, String content, String type, String category,
                       String functionality) {
@@ -28,6 +31,10 @@ public final class MessageDTO {
 
     public MessageDTO(String code, String title, String content, String type, String category,
                       String functionality, Instant createdAt) {
+        this(code, title, content, type, category, functionality, createdAt, List.of());
+    }
+    public MessageDTO(String code, String title, String content, String type, String category,
+                      String functionality, Instant createdAt, List<CatalogItemDTO> environments) {
         this.code = trim(code);
         this.title = trim(title);
         this.content = trim(content);
@@ -35,6 +42,7 @@ public final class MessageDTO {
         this.category = trim(category);
         this.functionality = trim(functionality);
         this.createdAt = createdAt;
+        this.environments = environments == null ? List.of() : List.copyOf(environments);
     }
 
     public static MessageDTO create(String code, String title, String content, String type, String category,

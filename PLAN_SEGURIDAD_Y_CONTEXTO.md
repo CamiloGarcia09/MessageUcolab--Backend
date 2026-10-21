@@ -30,10 +30,10 @@ Aplicacion obligatoria de esta ley:
 
 | Campo | Valor |
 |---|---|
-| Ultima actualizacion | 2026-10-20 |
+| Ultima actualizacion | 2026-10-21 |
 | Estado global | Retiro del token propietario verificado; recuperacion 401 del frontend con popup y reconexion manual implementada, pruebas nuevas pendientes de autorizacion |
 | Fase actual | Fase 7 - Codigo backend/frontend retirado y verificado; cierre operativo parcial |
-| Proxima implementacion | Validar popup y reconexion manual del frontend tras autorizacion; completar el puente de identidad fuera de local-workspace |
+| Proxima implementacion | Ejecutar las pruebas del modo `security-session`; definir permisos por rol/perfil y tabla de usuarios |
 | Bloqueo actual | El modo por usuario requiere el adaptador real hacia ExternalIdentity; no se cambia seguridad para suplirlo |
 
 ### Contrato vigente tras el retiro (2026-10-20)
@@ -59,6 +59,85 @@ ya no tiene consumidores y solicita su retiro del backend y frontend MessageUcoL
   El nuevo seed deja de crearlos; cualquier purga remota requiere alcance propio.
 - Las evidencias de pruebas de fases anteriores son historicas, no verifican este
   retiro. El usuario autorizo `unit-test-agent` con GPT-6 Luna en primer plano.
+
+### Modo sesion: aplicacion desde el componente de seguridad (2026-10-21)
+
+Requisito: al iniciar sesion, MessageUcoLab debe saber a que aplicaciones pertenece
+el usuario y operar solo sobre los mensajes de la aplicacion elegida. Por ahora el
+usuario accede a todo dentro de esa aplicacion; roles y perfiles se afinaran despues.
+
+Decisiones confirmadas por el usuario:
+
+- La fuente es `GET /api/v1/me/applications` del PDP (Security Baseline `0.1.7`),
+  autenticado con la cookie de sesion BFF `SECURITY_BASELINE_SESSION`.
+- La consulta la hace el backend reenviando esa cookie; el cliente no decide su alcance.
+- La aplicacion de negocio comparte el UUID de la aplicacion de seguridad.
+- Si el usuario tiene varias aplicaciones, elige una al entrar y puede cambiarla.
+
+Implementacion (perfil `security-session`, overlay `docker-compose.security-session.yml`):
+
+- `SecurityApplicationPort` / `PdpSecurityApplicationAdapter`: consulta el PDP con
+  timeout de 5 s y cache de 30 s por hash SHA-256 de la sesion; nunca guarda ni registra
+  el valor de la cookie. `401` -> `FUN_152`, `403` -> `FUN_153`, otros -> tecnico.
+- `SessionApplicationInterceptor`: en `/messageucolab/v1/**` guarda las aplicaciones de la
+  sesion; en `messages` exige `X-Application-Id` y `X-Environment-Id` y fija
+  `ENVIRONMENT_ID_ATTRIBUTE` solo tras validarlos. El resto del flujo de mensajes no cambia.
+- `SessionApplicationCompositeValidator` (orden contractual): identificadores requeridos
+  (`FUN_155`), UUID de aplicacion y ambiente (`FUN_038`), aplicacion asignada a la sesion
+  (`FUN_153`, 403, antes de consultar repositorios), aplicacion registrada (`FUN_157`, 404),
+  ambiente existente (`FUN_158`, 404) y ambiente de la aplicacion (`FUN_160`, 409).
+- `GET /messageucolab/v1/session/applications`: aplicaciones de la sesion con
+  `registered` y la organizacion de negocio cuando ya existe con el mismo UUID.
+- Creacion de aplicacion: `id` opcional. `ApplicationIdUuidRule` (`FUN_038`) y
+  `ApplicationIdDuplicatedRule` (`FUN_211`, 409, nuevo) evitan que el `UPSERT` sobrescriba.
+  En modo sesion `SessionApplicationRegistrationCompositeValidator` exige que el id
+  pertenezca a la sesion (`FUN_172`, `FUN_038`, `FUN_153`).
+- `ActiveContextInterceptor` y `ExternalIdentityInterceptor` quedan fuera de
+  `local-workspace` y de `security-session`.
+- Frontend: `VITE_SESSION_WORKSPACE=true` muestra el selector de aplicaciones, registra
+  las no existentes con su UUID y envia los encabezados en API y SSE.
+
+Pendiente: pruebas nuevas escritas pero no ejecutadas (las ejecuta el usuario); el
+seed de Redis incluye `FUN_211`, pero un Redis ya inicializado no lo tendra hasta
+recargarlo; `catalog/*` y la creacion de funcionalidades aun no se restringen a las
+aplicaciones de la sesion; el PEP compara rutas exactas, por lo que
+`/catalog/applications/{id}/environments` debe registrarse por cada aplicacion.
+
+### Mensajes en varios ambientes: contexto solo de aplicacion (2026-10-21)
+
+Decisiones confirmadas por el usuario:
+
+- El contexto de la sesion es solo la aplicacion. El ambiente es un dato de cada mensaje.
+- Al crear se eligen uno, dos o los tres ambientes; se crea un solo `message` y una relacion
+  `message_environment` por ambiente en la misma transaccion. El contenido es compartido.
+- El listado es por aplicacion, una fila por mensaje con sus ambientes, y filtra por ambientes.
+- Eliminar borra el mensaje de todos sus ambientes; editar puede reemplazar sus ambientes.
+- `GET /messages/resolve` sigue resolviendo por ambiente explicito (`X-Environment-Id`).
+
+Implementacion:
+
+- `MessageAccessContext` agrega `applicationId` (constructor compatible de dos argumentos) y
+  `MessageEnvironmentResolver.resolveApplication` lo resuelve desde sesion, identidad externa
+  (autoriza scope `APPLICATION`) o el ambiente fijo de local-workspace.
+- `SessionApplicationInterceptor` fija `APPLICATION_ID_ATTRIBUTE` con
+  `SessionApplicationAccessCompositeValidator` (`FUN_172`, `FUN_038`, `FUN_153`, `FUN_157`) y solo
+  valida ambiente si llega `X-Environment-Id`.
+- `MessageEnvironmentSelectionCompositeValidator` (orden contractual): requerido (`FUN_212`, nuevo),
+  UUID (`FUN_038`), sin repetidos (`FUN_213`, nuevo), existencia (`FUN_035`, 404) y pertenencia a la
+  aplicacion (`FUN_036`, 403). Lo usan la creacion y la edicion antes de funcionalidad y duplicados.
+- Editar y eliminar buscan con `findByCodeAndApplication`: antes `findByCode` no filtraba por
+  aplicacion aunque el codigo solo es unico dentro de ella.
+- `findMessagesByApplication` lee `message_data_collection` filtrando la aplicacion por UUID y
+  cruza los ambientes por codigo con `message_environment_readmodel`; los ambientes de la
+  aplicacion salen de la tabla fuente `environment`. El listado por aplicacion no usa la cache Redis.
+- La cache de traducciones pasa a clave por aplicacion (`scopeId`). El SSE en modo sesion se
+  suscribe a todos los ambientes de la aplicacion.
+- Frontend: sin selector de ambiente en la cabecera; casillas al crear (con Todos), filtro y
+  etiquetas en el listado y ambientes en el detalle.
+
+Pendiente: pruebas escritas y compiladas, no ejecutadas (las ejecuta el usuario); el seed de Redis
+incluye `FUN_212`/`FUN_213` pero un Redis ya inicializado no los tendra hasta recargarlo; el
+frontend no tiene aun pantalla de edicion para cambiar ambientes de un mensaje existente.
 
 ### Convenciones de estado
 

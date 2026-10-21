@@ -744,6 +744,15 @@ public enum MessageCatalogCodeEnum {
     /** El mensaje fue eliminado exitosamente. */
     FUN_210("FUN_210"),
 
+    /** Ya existe una aplicación con el identificador proporcionado. */
+    FUN_211("FUN_211"),
+
+    /** Se debe seleccionar al menos un ambiente para el mensaje. */
+    FUN_212("FUN_212"),
+
+    /** Los ambientes seleccionados para el mensaje no pueden repetirse. */
+    FUN_213("FUN_213"),
+
     /** Error al actualizar el mensaje en SurrealDB (log técnico). */
     TCH_072("TCH_072"),
 

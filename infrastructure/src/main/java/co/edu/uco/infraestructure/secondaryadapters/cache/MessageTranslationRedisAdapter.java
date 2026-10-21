@@ -54,16 +54,16 @@ public final class MessageTranslationRedisAdapter implements MessageTranslationC
     @Override
     public Optional<MessageTranslationResponseData> findTranslation(
             String messageCode,
-            String environmentId,
+            String scopeId,
             String sourceLanguage,
             String targetLanguage
     ) {
-        if (isNullObject(messageCode) || isNullObject(environmentId)
+        if (isNullObject(messageCode) || isNullObject(scopeId)
                 || isEmptyOrNull(sourceLanguage) || isEmptyOrNull(targetLanguage)) {
             return Optional.empty();
         }
         try {
-            var json = redisTemplate.opsForValue().get(buildKey(messageCode, environmentId, sourceLanguage, targetLanguage));
+            var json = redisTemplate.opsForValue().get(buildKey(messageCode, scopeId, sourceLanguage, targetLanguage));
             if (isEmptyOrNull(json)) {
                 return Optional.empty();
             }
@@ -84,12 +84,12 @@ public final class MessageTranslationRedisAdapter implements MessageTranslationC
     @Override
     public void saveTranslation(
             String messageCode,
-            String environmentId,
+            String scopeId,
             String sourceLanguage,
             String targetLanguage,
             MessageTranslationResponseData translation
     ) {
-        if (isNullObject(messageCode) || isNullObject(environmentId)
+        if (isNullObject(messageCode) || isNullObject(scopeId)
                 || isEmptyOrNull(sourceLanguage) || isEmptyOrNull(targetLanguage)
                 || isNullObject(translation)) {
             return;
@@ -105,7 +105,7 @@ public final class MessageTranslationRedisAdapter implements MessageTranslationC
                     FIELD_MODEL, translation.getModel()
             ));
             redisTemplate.opsForValue().set(
-                    buildKey(messageCode, environmentId, sourceLanguage, targetLanguage),
+                    buildKey(messageCode, scopeId, sourceLanguage, targetLanguage),
                     json,
                     Duration.ofSeconds(TRANSLATION_CACHE_TTL_SECONDS)
             );
@@ -116,10 +116,10 @@ public final class MessageTranslationRedisAdapter implements MessageTranslationC
         }
     }
 
-    private String buildKey(String messageCode, String environmentId, String sourceLanguage, String targetLanguage) {
+    private String buildKey(String messageCode, String scopeId, String sourceLanguage, String targetLanguage) {
         return CACHE_VERSION + TRANSLATION_CACHE_KEY_SEPARATOR
                 + trim(messageCode) + TRANSLATION_CACHE_KEY_SEPARATOR
-                + trim(environmentId) + TRANSLATION_CACHE_KEY_SEPARATOR
+                + trim(scopeId) + TRANSLATION_CACHE_KEY_SEPARATOR
                 + trim(sourceLanguage) + TRANSLATION_CACHE_KEY_SEPARATOR
                 + trim(targetLanguage);
     }

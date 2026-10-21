@@ -35,6 +35,7 @@ public interface MessagesController {
             @RequestParam(value = "filterFunctionality", required = false) String filterFunctionality,
             @RequestParam(value = "filterType", required = false) String filterType,
             @RequestParam(value = "filterStatus", required = false) String filterStatus,
+            @RequestParam(value = "filterEnvironments", required = false) String filterEnvironments,
             ServerWebExchange exchange
     );
 
