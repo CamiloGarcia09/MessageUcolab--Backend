@@ -27,7 +27,7 @@ public class FunctionalityCatalogSurrealAdapter extends SurrealCatalogSupport im
     @Override
     public List<FunctionalityData> findAllByApplicationId(final String applicationId) {
         final String appRecordId = "application:" + applicationId;
-        final String sql = "SELECT * FROM " + SURREAL_TABLE_FUNCTIONALITY
+        final String sql = "SELECT *, state_id.name AS state_name FROM " + SURREAL_TABLE_FUNCTIONALITY
                 + " WHERE application_id = " + quote(appRecordId)
                 + " OR application_id = " + recordIdLiteral("application", applicationId) + ";";
         return query(sql, "Error al consultar funcionalidades en SurrealDB: " + sql, this::toFunctionalityData);
@@ -37,6 +37,8 @@ public class FunctionalityCatalogSurrealAdapter extends SurrealCatalogSupport im
         final FunctionalityData data = FunctionalityData.build();
         data.setId(extractIdAsUUID(obj.get("id")));
         data.setName(stringOf(obj.get("name")));
+        data.setStateId(extractIdAsUUID(obj.get("state_id")));
+        data.setState(stringOf(obj.get("state_name")));
 
         final ApplicationData app = ApplicationData.build();
         final Value appIdValue = obj.get("application_id");

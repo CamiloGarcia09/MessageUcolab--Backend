@@ -10,9 +10,7 @@ import co.edu.uco.crosscutting.exceptions.UnauthorizedException;
 import co.edu.uco.crosscutting.exceptions.enumeration.ExceptionLocation;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.net.URI;
@@ -35,11 +33,12 @@ import static co.edu.uco.infraestructure.config.InfrastructureConstant.CACHE_MAX
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.SECURITY_SESSION_COOKIE;
 
 /**
+ * Adaptador legado no registrado en Spring. El flujo personal usa /api/v1/session
+ * y no consulta las asignaciones de aplicaciones de seguridad.
  * Consulta GET /api/v1/me/applications del PDP reenviando la cookie de la sesion BFF.
  * Las respuestas se conservan unos segundos por sesion (clave hash, nunca el valor)
  * para no duplicar la consulta en cada peticion del mismo usuario.
  */
-@Component
 public final class PdpSecurityApplicationAdapter implements SecurityApplicationPort {
 
     private static final String ME_APPLICATIONS_PATH = "/api/v1/me/applications";
@@ -53,7 +52,6 @@ public final class PdpSecurityApplicationAdapter implements SecurityApplicationP
     private final URI applicationsUri;
     private final Map<String, CachedApplications> cache = new ConcurrentHashMap<>();
 
-    @Autowired
     public PdpSecurityApplicationAdapter(@Value("${components.security.session.pdp-url:http://localhost:18080}")
                                          final String pdpUrl,
                                          final ObjectMapper objectMapper,

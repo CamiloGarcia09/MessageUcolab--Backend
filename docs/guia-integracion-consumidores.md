@@ -33,12 +33,16 @@ El frontend administrativo conserva el login del PDP/BFF y envía sus cookies co
 Para servicios no humanos, no asumir que la sesión de un administrador es una
 credencial de servicio ni compartir su contexto activo entre aplicaciones.
 
-De forma predeterminada, la aplicación se valida contra la sesión BFF mediante
-`X-Application-Id`. La resolución recibe `X-Environment-Id` como dato explícito y
+De forma predeterminada, `X-Application-Id` identifica una aplicación de una
+organización propia del usuario autenticado en la sesión BFF, no una asignación
+de aplicación del componente de seguridad. La resolución recibe `X-Environment-Id` como dato explícito y
 comprueba que el ambiente pertenece a esa aplicación. No hay un destino fijo de
 desarrollo ni un fallback que deduzca la aplicación desde el ambiente.
 No se requieren perfiles de Spring ni banderas de frontend para activar este
 flujo. No hay un interceptor alternativo de identidad simulada ni fallback propietario.
+El modelo personal no implementa acceso máquina-a-máquina sin sesión BFF. Ese
+contrato queda pendiente; no compartir cookies del propietario como solución.
+Ver [organizaciones personales](personal-workspaces.md).
 
 ## 3. Consultar un mensaje
 
@@ -48,7 +52,7 @@ Esta petición debe llevar la autenticación acordada con seguridad:
 ```http
 GET /messageucolab/v1/messages/resolve?code=MSG_PRODSAVED
 Accept: application/json
-X-Application-Id: <UUID de la aplicación asignada a la sesión>
+X-Application-Id: <UUID de una aplicación de una organización propia>
 X-Environment-Id: <UUID de un ambiente de esa aplicación>
 ```
 

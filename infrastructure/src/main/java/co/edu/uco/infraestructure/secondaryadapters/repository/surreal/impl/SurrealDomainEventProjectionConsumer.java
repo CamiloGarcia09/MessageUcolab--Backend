@@ -237,6 +237,7 @@ public final class SurrealDomainEventProjectionConsumer {
                 + ", message.category = " + catalogLiteral(categoryId, findByRecordId(categoryId), "name")
                 + ", message.status = " + catalogLiteral(statusId, findByRecordId(statusId), "name")
                 + ", message.functionality = " + catalogLiteral(functionalityId, findByRecordId(functionalityId), "name")
+                + ", message.updated_at = " + literal(record.get("updated_at"))
                 + " WHERE message_id = " + quote(messageRecordId) + ";";
         execute(sql);
         final String messageCode = stringOf(record.get("code"));
@@ -367,6 +368,7 @@ public final class SurrealDomainEventProjectionConsumer {
                 + ", application: " + quote(applicationName(applicationId))
                 + ", functionality: " + catalogLiteral(functionalityId, findByRecordId(functionalityId), "name")
                 + ", created_at: " + literal(message.get("created_at"))
+                + ", updated_at: " + literal(message.get("updated_at"))
                 + " }";
     }
 

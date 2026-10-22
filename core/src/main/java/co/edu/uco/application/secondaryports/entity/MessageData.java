@@ -25,6 +25,7 @@ public final class MessageData {
     private String application;
     private FunctionalityData functionality;
     private Instant createdAt;
+    private Instant updatedAt;
     private List<MessageEnvironmentRefData> environments;
     public MessageData() {
         setId(UtilUUID.getNewUUID());
@@ -75,6 +76,9 @@ public final class MessageData {
     }
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
     public void setEnvironments(List<MessageEnvironmentRefData> environments) {
         this.environments = environments == null ? List.of() : List.copyOf(environments);

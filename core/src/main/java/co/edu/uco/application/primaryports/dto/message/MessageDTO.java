@@ -23,6 +23,10 @@ public final class MessageDTO {
     private final String functionality;
     private final Instant createdAt;
     private final List<CatalogItemDTO> environments;
+    private final String status;
+    private final String statusId;
+    private final String functionalityId;
+    private final Instant updatedAt;
 
     public MessageDTO(String code, String title, String content, String type, String category,
                       String functionality) {
@@ -35,6 +39,13 @@ public final class MessageDTO {
     }
     public MessageDTO(String code, String title, String content, String type, String category,
                       String functionality, Instant createdAt, List<CatalogItemDTO> environments) {
+        this(code, title, content, type, category, functionality, createdAt, environments,
+                "", null, null, null);
+    }
+
+    public MessageDTO(String code, String title, String content, String type, String category,
+                      String functionality, Instant createdAt, List<CatalogItemDTO> environments,
+                      String status, String statusId, String functionalityId, Instant updatedAt) {
         this.code = trim(code);
         this.title = trim(title);
         this.content = trim(content);
@@ -43,6 +54,10 @@ public final class MessageDTO {
         this.functionality = trim(functionality);
         this.createdAt = createdAt;
         this.environments = environments == null ? List.of() : List.copyOf(environments);
+        this.status = trim(status);
+        this.statusId = statusId;
+        this.functionalityId = functionalityId;
+        this.updatedAt = updatedAt;
     }
 
     public static MessageDTO create(String code, String title, String content, String type, String category,

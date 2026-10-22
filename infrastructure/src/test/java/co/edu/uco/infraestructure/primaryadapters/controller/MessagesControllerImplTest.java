@@ -138,6 +138,8 @@ class MessagesControllerImplTest {
             StepVerifier.create(controller.findByEnvironmentAndMessage(
                             "1", "10", "asc", "code",
                             null, null, null, null, null, null, "env-a,env-b",
+                            "7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82",
+                            "c9dc13ee-2f0e-4912-946d-e7e4352c6510",
                             exchange()))
                     .verifyComplete();
 
@@ -151,7 +153,11 @@ class MessagesControllerImplTest {
                     () -> assertThat(captured.getSize()).isEqualTo("10"),
                     () -> assertThat(captured.getSort()).isEqualTo("asc"),
                     () -> assertThat(captured.getColumnSort()).isEqualTo("code"),
-                    () -> assertThat(captured.getFilterEnvironments()).isEqualTo("env-a,env-b"));
+                    () -> assertThat(captured.getFilterEnvironments()).isEqualTo("env-a,env-b"),
+                    () -> assertThat(captured.getFilterStatusId())
+                            .isEqualTo("7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82"),
+                    () -> assertThat(captured.getFilterFunctionalityId())
+                            .isEqualTo("c9dc13ee-2f0e-4912-946d-e7e4352c6510"));
             verify(pagePresenter).presentRestSuccess(List.of(page), null);
         }
     }

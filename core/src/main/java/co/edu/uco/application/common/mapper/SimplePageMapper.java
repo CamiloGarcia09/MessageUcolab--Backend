@@ -30,6 +30,8 @@ public final class SimplePageMapper {
                 .functionality(dto.getFilterFunctionality())
                 .type(dto.getFilterType())
                 .status(dto.getFilterStatus())
+                .statusId(dto.getFilterStatusId())
+                .functionalityId(dto.getFilterFunctionalityId())
                 .environmentIds(environmentIds(dto.getFilterEnvironments()))
                 .build());
         return request;

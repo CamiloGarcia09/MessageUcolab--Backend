@@ -25,7 +25,6 @@ import static co.edu.uco.application.CrosswordsConstant.STATE_ACTIVE;
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_175;
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_177;
 import static co.edu.uco.crosscutting.helpers.UtilObject.isNullObject;
-import static co.edu.uco.crosscutting.helpers.UtilText.isEmptyOrNull;
 import static co.edu.uco.crosscutting.helpers.UtilUUID.getUUIDFromString;
 
 public final class CreateApplicationUseCase implements HandlingCreateApplicationPort {
@@ -58,7 +57,7 @@ public final class CreateApplicationUseCase implements HandlingCreateApplication
             OrganizationEntity organization = new OrganizationEntity();
             organization.setId(getUUIDFromString(dto.getOrganizationId()));
             organization.setName("");
-            var applicationId = isEmptyOrNull(dto.getId()) ? UtilUUID.getNewUUID() : getUUIDFromString(dto.getId());
+            var applicationId = UtilUUID.getNewUUID();
             var application = new ApplicationData(applicationId, dto.getName(), organization);
             var environments = defaultEnvironments(application);
             var environmentStateId = activeEnvironmentStateId();

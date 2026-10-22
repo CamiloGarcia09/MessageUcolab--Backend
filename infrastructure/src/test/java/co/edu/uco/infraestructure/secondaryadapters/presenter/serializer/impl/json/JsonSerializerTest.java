@@ -2,6 +2,8 @@ package co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.impl.j
 
 import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
 import co.edu.uco.application.secondaryports.Response;
+import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
+import co.edu.uco.application.primaryports.dto.catalog.FunctionalityCatalogItemDTO;
 import co.edu.uco.application.secondaryports.repository.SimplePage;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
@@ -54,6 +56,26 @@ class JsonSerializerTest {
                 .contains("\"hola\"")
                 .startsWith("{")
                 .endsWith("}");
+    }
+
+    @Test
+    void serialize_functionalityCatalogSubtypeExposesStateFieldsWithoutChangingOtherCatalogs() throws Exception {
+        Response<CatalogItemDTO> functionalities = new Response<>(List.of(
+                new FunctionalityCatalogItemDTO("functionality-id", "Search", "state-id", "Active", true)),
+                List.of());
+        Response<CatalogItemDTO> applications = new Response<>(
+                List.of(CatalogItemDTO.create("application-id", "Consumer app")), List.of());
+
+        JsonNode functionality = JSON_PARSER.readTree(serializer.serialize(functionalities)).get("data").get(0);
+        JsonNode application = JSON_PARSER.readTree(serializer.serialize(applications)).get("data").get(0);
+
+        assertAll(
+                () -> assertThat(functionality.get("id").asText()).isEqualTo("functionality-id"),
+                () -> assertThat(functionality.get("name").asText()).isEqualTo("Search"),
+                () -> assertThat(functionality.get("stateId").asText()).isEqualTo("state-id"),
+                () -> assertThat(functionality.get("state").asText()).isEqualTo("Active"),
+                () -> assertThat(functionality.get("active").asBoolean()).isTrue(),
+                () -> assertThat(application.fieldNames()).toIterable().containsExactly("id", "name"));
     }
 
     @Nested

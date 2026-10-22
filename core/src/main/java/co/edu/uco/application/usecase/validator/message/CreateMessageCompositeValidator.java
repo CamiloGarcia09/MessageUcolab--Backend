@@ -19,6 +19,7 @@ import co.edu.uco.application.usecase.validator.message.rule.MessageContentMaxLe
 import co.edu.uco.application.usecase.validator.message.rule.MessageContentMinLengthRule;
 import co.edu.uco.application.usecase.validator.message.rule.MessageContentRequiredRule;
 import co.edu.uco.application.usecase.validator.message.rule.MessageFunctionalityBelongsApplicationRule;
+import co.edu.uco.application.usecase.validator.message.rule.MessageFunctionalityActiveRule;
 import co.edu.uco.application.usecase.validator.message.rule.MessageFunctionalityIdRequiredRule;
 import co.edu.uco.application.usecase.validator.message.rule.MessageFunctionalityIdUuidRule;
 import co.edu.uco.application.usecase.validator.message.rule.MessageTitleMaxLengthRule;
@@ -70,6 +71,7 @@ public final class CreateMessageCompositeValidator extends CompositeValidator<Cr
                         CreateMessageDTO::getStatusId, MESSAGE_STATE, FUN_195)),
                 forEnvironments(environmentSelectionValidator),
                 new MessageFunctionalityBelongsApplicationRule(catalogPort, functionalityCatalogRepository),
+                new MessageFunctionalityActiveRule(catalogPort, functionalityCatalogRepository),
                 new MessageCodeDuplicatedRule(catalogPort, messageCodeQueryPort)
         ), catalogPort);
     }

@@ -1,6 +1,7 @@
 package co.edu.uco.infraestructure.primaryadapters.interceptors;
 
 import co.edu.uco.application.primaryports.facade.session.SessionApplicationUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.workspace.PersonalWorkspaceUseCaseFacade;
 import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
 import co.edu.uco.crosscutting.exceptions.ConflictException;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
@@ -25,11 +26,12 @@ import static co.edu.uco.infraestructure.config.InfrastructureConstant.REQUEST_H
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.REQUEST_HEADER_ENVIRONMENT_ID;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.SECURITY_SESSION_COOKIE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.SESSION_APPLICATIONS_ATTRIBUTE;
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.WORKSPACE_USER_ATTRIBUTE;
 
 /**
- * El componente de seguridad informa las aplicaciones del usuario y el
- * cliente elige una de ellas. El servidor valida esa eleccion antes de fijar la aplicacion
- * de negocio; nunca acepta una aplicacion fuera de la sesion. El ambiente es un dato de
+ * El BFF identifica al usuario y MessageUcoLab consulta sus aplicaciones propias.
+ * El servidor valida la propiedad antes de fijar la aplicacion
+ * de negocio; nunca acepta una aplicacion ajena. El ambiente es un dato de
  * cada mensaje y solo se valida cuando la peticion lo envia explicitamente.
  */
 @Component
@@ -38,9 +40,12 @@ public final class SessionApplicationInterceptor implements WebFilter {
 
     private static final String API_PREFIX = "/messageucolab/v1/";
     private final SessionApplicationUseCaseFacade facade;
+    private final PersonalWorkspaceUseCaseFacade workspace;
 
-    public SessionApplicationInterceptor(final SessionApplicationUseCaseFacade facade) {
+    public SessionApplicationInterceptor(final SessionApplicationUseCaseFacade facade,
+                                         final PersonalWorkspaceUseCaseFacade workspace) {
         this.facade = facade;
+        this.workspace = workspace;
     }
 
     @Override
@@ -58,7 +63,9 @@ public final class SessionApplicationInterceptor implements WebFilter {
 
         // Solo los errores de esta resolucion se traducen aqui; los del controlador siguen su flujo.
         return Mono.fromCallable(() -> {
-                    var applications = facade.findCurrentUserApplications(session);
+                    var workspaceSession = workspace.openSession(session);
+                    var applications = workspaceSession.applications();
+                    exchange.getAttributes().put(WORKSPACE_USER_ATTRIBUTE, workspaceSession.user());
                     exchange.getAttributes().put(SESSION_APPLICATIONS_ATTRIBUTE, applications);
                     if (requiresApplication) {
                         exchange.getAttributes().put(APPLICATION_ID_ATTRIBUTE,

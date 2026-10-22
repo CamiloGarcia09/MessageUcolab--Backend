@@ -2,6 +2,9 @@ package co.edu.uco.infraestructure.primaryadapters.interceptors;
 
 import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
 import co.edu.uco.application.primaryports.facade.session.SessionApplicationUseCaseFacade;
+import co.edu.uco.application.primaryports.dto.session.WorkspaceUserDTO;
+import co.edu.uco.application.primaryports.facade.workspace.PersonalWorkspaceUseCaseFacade;
+import co.edu.uco.application.usecase.domain.security.WorkspaceSession;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
 import co.edu.uco.crosscutting.exceptions.ConflictException;
@@ -29,6 +32,7 @@ import java.util.function.Supplier;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.APPLICATION_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.SESSION_APPLICATIONS_ATTRIBUTE;
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.WORKSPACE_USER_ATTRIBUTE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -46,6 +50,8 @@ class SessionApplicationInterceptorTest {
 
     @Mock
     private SessionApplicationUseCaseFacade facade;
+    @Mock
+    private PersonalWorkspaceUseCaseFacade workspace;
 
     private SessionApplicationInterceptor interceptor;
     private AtomicBoolean chainInvoked;
@@ -53,7 +59,7 @@ class SessionApplicationInterceptorTest {
 
     @BeforeEach
     void setUp() {
-        interceptor = new SessionApplicationInterceptor(facade);
+        interceptor = new SessionApplicationInterceptor(facade, workspace);
         chainInvoked = new AtomicBoolean();
         chain = exchange -> {
             chainInvoked.set(true);
@@ -73,7 +79,7 @@ class SessionApplicationInterceptorTest {
 
     @Test
     void filter_resolvesSelectedApplicationWithoutEnvironment_forMessageOperations() {
-        when(facade.findCurrentUserApplications(SESSION)).thenReturn(APPLICATIONS);
+        when(workspace.openSession(SESSION)).thenReturn(workspaceSession());
         when(facade.resolveApplication(APPLICATIONS, APPLICATION_ID)).thenReturn(APPLICATION_ID);
         MockServerWebExchange exchange = exchange(MockServerHttpRequest.get("/messageucolab/v1/messages?page=1&size=20")
                 .cookie(new HttpCookie("SECURITY_BASELINE_SESSION", SESSION))
@@ -85,12 +91,13 @@ class SessionApplicationInterceptorTest {
         assertThat((String) exchange.getAttribute(APPLICATION_ID_ATTRIBUTE)).isEqualTo(APPLICATION_ID);
         assertThat((Object) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE)).isNull();
         assertThat((Object) exchange.getAttribute(SESSION_APPLICATIONS_ATTRIBUTE)).isEqualTo(APPLICATIONS);
+        assertThat((Object) exchange.getAttribute(WORKSPACE_USER_ATTRIBUTE)).isEqualTo(workspaceSession().user());
         verify(facade, never()).resolveEnvironment(any(), any(), any());
     }
 
     @Test
     void filter_alsoValidatesExplicitEnvironment_whenHeaderIsPresent() {
-        when(facade.findCurrentUserApplications(SESSION)).thenReturn(APPLICATIONS);
+        when(workspace.openSession(SESSION)).thenReturn(workspaceSession());
         when(facade.resolveApplication(APPLICATIONS, APPLICATION_ID)).thenReturn(APPLICATION_ID);
         when(facade.resolveEnvironment(APPLICATIONS, APPLICATION_ID, ENVIRONMENT_ID)).thenReturn(ENVIRONMENT_ID);
         MockServerWebExchange exchange = exchange(withSessionAndContext(
@@ -109,7 +116,7 @@ class SessionApplicationInterceptorTest {
             "/messageucolab/v1/application"
     })
     void filter_storesSessionApplicationsWithoutResolvingEnvironment_forNonMessagePaths(String path) {
-        when(facade.findCurrentUserApplications(SESSION)).thenReturn(APPLICATIONS);
+        when(workspace.openSession(SESSION)).thenReturn(workspaceSession());
         MockServerWebExchange exchange = exchange(MockServerHttpRequest.get(path).cookie(new HttpCookie(
                 "SECURITY_BASELINE_SESSION", SESSION)));
 
@@ -124,13 +131,18 @@ class SessionApplicationInterceptorTest {
 
     @Test
     void filter_passesNullSession_whenCookieIsMissing() {
-        when(facade.findCurrentUserApplications(null))
+        when(workspace.openSession(null))
                 .thenThrow(UnauthorizedException.buildUserException("Authentication required"));
         MockServerWebExchange exchange = exchange(MockServerHttpRequest.get("/messageucolab/v1/messages"));
 
         interceptor.filter(exchange, chain).block();
 
         assertRejected(exchange, HttpStatus.UNAUTHORIZED);
+    }
+
+    private static WorkspaceSession workspaceSession() {
+        return new WorkspaceSession(new WorkspaceUserDTO(java.util.UUID.fromString("123e4567-e89b-12d3-a456-426614174000"),
+                "owner@example.test", "Owner"), APPLICATIONS);
     }
 
     @Test
@@ -158,7 +170,7 @@ class SessionApplicationInterceptorTest {
 
     @Test
     void filter_rejectsWithServiceUnavailable_whenSecurityComponentFails() {
-        when(facade.findCurrentUserApplications(SESSION))
+        when(workspace.openSession(SESSION))
                 .thenThrow(BusinessException.buildTechnicalException("PDP unavailable"));
         MockServerWebExchange exchange = exchange(withSessionAndContext(
                 MockServerHttpRequest.get("/messageucolab/v1/messages")));
@@ -169,7 +181,7 @@ class SessionApplicationInterceptorTest {
     }
 
     private void assertResolutionErrorMapsTo(Supplier<RuntimeException> error, HttpStatus status) {
-        when(facade.findCurrentUserApplications(SESSION)).thenReturn(APPLICATIONS);
+        when(workspace.openSession(SESSION)).thenReturn(workspaceSession());
         when(facade.resolveApplication(APPLICATIONS, APPLICATION_ID)).thenThrow(error.get());
         MockServerWebExchange exchange = exchange(withSessionAndContext(
                 MockServerHttpRequest.get("/messageucolab/v1/messages")));

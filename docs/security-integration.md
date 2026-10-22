@@ -4,7 +4,25 @@ Esta configuración pertenece únicamente a MessageUcoLab. No modifica ni arranc
 el stack `security-baseline`, sus repositorios o su frontend. El equipo responsable
 de seguridad debe mantener disponibles los servicios y permisos requeridos.
 
-## Retiro de contextos y autorización local (22 de octubre de 2026)
+## Modelo vigente: organizaciones personales
+
+La decisión posterior al retiro de contextos es gestionar organizaciones personales
+y aplicaciones de negocio propias en MessageUcoLab. Seguridad conserva autenticación,
+sesión BFF y permisos por ruta. La propiedad de los datos se comprueba en el dominio.
+El backend consume `GET /api/v1/session` y no las asignaciones `/api/v1/me/applications`.
+El correo es informativo; la identidad estable es `identity_source + tenantId + subject`.
+No se modificó el componente de seguridad ni se añadieron roles o membresías locales.
+
+Ver [organizaciones personales](personal-workspaces.md) para contratos,
+inicialización de Azure desde cero mediante los seeds y evidencia de la
+actualización local ya aplicada, con catálogo cargado y despliegue propio
+completado con 1.812 pruebas y `BUILD SUCCESS` en Docker. El backend quedó
+saludable y se confirmó rechazo sin sesión; la comprobación desde una sesión
+autenticada y los permisos efectivos de las rutas nuevas siguen pendientes.
+Las evidencias de pruebas de las secciones siguientes corresponden al flujo
+anterior, no certifican este cambio.
+
+## Antecedente: retiro de contextos y autorización local (22 de octubre de 2026)
 
 Se eliminan `external_identity`, `active_context`, `membership`, `permission`,
 `role`, `role_permission` y `role_assignment` del seed SurrealDB y del código que

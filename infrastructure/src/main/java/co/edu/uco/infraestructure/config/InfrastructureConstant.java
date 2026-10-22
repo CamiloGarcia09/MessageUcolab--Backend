@@ -68,6 +68,7 @@ public final class InfrastructureConstant {
     public static final String WEB_CONFIG_API_CATALOG = "/messageucolab/v1/catalog/**";
     public static final String SESSION_APPLICATIONS_PATH = "/messageucolab/v1/session/applications";
     public static final String SESSION_APPLICATIONS_ATTRIBUTE = "sessionApplications";
+    public static final String WORKSPACE_USER_ATTRIBUTE = "workspaceUser";
     public static final String SECURITY_SESSION_COOKIE = "SECURITY_BASELINE_SESSION";
     public static final String REQUEST_HEADER_APPLICATION_ID = "X-Application-Id";
     public static final String REQUEST_HEADER_ENVIRONMENT_ID = "X-Environment-Id";

@@ -72,7 +72,7 @@ class CreateApplicationUseCaseTest {
 
         verify(applicationRepository).createWithEnvironments(appCaptor.capture(), eq("lang-1"), eq("state-1"),
                 envCaptor.capture(), eq(ACTIVE_STATE_ID.toString()));
-        assertThat(appCaptor.getValue().getId()).isEqualTo(UUID.fromString(APP_ID));
+        assertThat(appCaptor.getValue().getId()).isNotEqualTo(UUID.fromString(APP_ID));
         assertThat(envCaptor.getValue()).extracting(environment -> environment.getType().getName())
                 .containsExactly("Develop", "Testing", "Production");
         verify(validator).validate(dto);

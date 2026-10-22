@@ -4,6 +4,7 @@ import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.entity.MessageData;
 import co.edu.uco.application.secondaryports.repository.SimplePageRequest;
 import co.edu.uco.application.usecase.validator.message.rule.MessageFilterEnvironmentsUuidRule;
+import co.edu.uco.application.usecase.validator.message.rule.MessageFilterCatalogIdsUuidRule;
 import co.edu.uco.application.usecase.validator.page.SimplePageRequestCompositeValidator;
 import org.springframework.stereotype.Component;
 
@@ -11,14 +12,17 @@ import org.springframework.stereotype.Component;
 public final class ListMessageValidator {
     private final SimplePageRequestCompositeValidator pageRequestValidator;
     private final MessageFilterEnvironmentsUuidRule environmentFilterRule;
+    private final MessageFilterCatalogIdsUuidRule catalogFilterRule;
 
     public ListMessageValidator(SimplePageRequestCompositeValidator pageRequestValidator, CatalogPort catalogPort) {
         this.pageRequestValidator = pageRequestValidator;
         this.environmentFilterRule = new MessageFilterEnvironmentsUuidRule(catalogPort);
+        this.catalogFilterRule = new MessageFilterCatalogIdsUuidRule(catalogPort);
     }
 
     public void validate(SimplePageRequest data) {
         pageRequestValidator.validate(data, MessageData.class);
         environmentFilterRule.validate(data);
+        catalogFilterRule.validate(data);
     }
 }

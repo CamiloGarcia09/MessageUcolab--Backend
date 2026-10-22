@@ -19,6 +19,25 @@ class MessageDTOTest {
     class Getters {
 
         @Test
+        void constructor_preservesOptionalMetadataAndLegacyConstructorDefaults() {
+            java.time.Instant createdAt = java.time.Instant.parse("2025-01-02T03:04:05Z");
+            java.time.Instant updatedAt = java.time.Instant.parse("2025-02-03T04:05:06Z");
+            MessageDTO current = new MessageDTO(" CODE ", "Title", "Content", "info", "general", "func",
+                    createdAt, List.of(), "Inactive", "status-id", "functionality-id", updatedAt);
+            MessageDTO legacy = new MessageDTO("CODE", "Title", "Content", "info", "general", "func");
+
+            assertAll(
+                    () -> assertThat(current.getCode()).isEqualTo("CODE"),
+                    () -> assertThat(current.getCreatedAt()).isEqualTo(createdAt),
+                    () -> assertThat(current.getUpdatedAt()).isEqualTo(updatedAt),
+                    () -> assertThat(current.getStatus()).isEqualTo("Inactive"),
+                    () -> assertThat(current.getStatusId()).isEqualTo("status-id"),
+                    () -> assertThat(current.getFunctionalityId()).isEqualTo("functionality-id"),
+                    () -> assertThat(legacy.getStatus()).isEmpty(),
+                    () -> assertThat(legacy.getUpdatedAt()).isNull());
+        }
+
+        @Test
         void create_returnsTrimmedValues() {
             MessageDTO dto = MessageDTO.create("  CODE  ", "  Title  ", "  Content  ", " info ", " general ", " func ");
 

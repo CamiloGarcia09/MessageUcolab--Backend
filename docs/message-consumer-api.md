@@ -5,7 +5,7 @@
 ```http
 GET /messageucolab/v1/messages/resolve?code=MSG_WELCOME
 Accept: application/json
-X-Application-Id: <UUID de la aplicación asignada a la sesión>
+X-Application-Id: <UUID de una aplicación de una organización propia>
 X-Environment-Id: <UUID de un ambiente de esa aplicación>
 ```
 
@@ -14,12 +14,17 @@ del gateway. El componente externo de seguridad autentica y autoriza la petició
 El navegador administrativo conserva la sesión BFF y sus cookies; los servicios
 consumidores deben acordar sus credenciales y permisos con el responsable de seguridad.
 No se emiten credenciales en MessageUcoLab ni se acepta el header propietario retirado.
-En el flujo predeterminado de sesión BFF, `X-Application-Id` debe corresponder a una aplicación de la
-sesión y `X-Environment-Id` a un ambiente de esa aplicación. El ambiente se pasa
+En el flujo predeterminado de sesión BFF, `X-Application-Id` debe corresponder a una aplicación de una
+organización propiedad del usuario autenticado y `X-Environment-Id` a un ambiente de esa aplicación. El ambiente se pasa
 explícitamente a la operación, no forma parte de `MessageAccessContext` ni se usa
 para inferir la aplicación. Se validan su UUID, existencia y pertenencia antes de
 consultar el mensaje. Este flujo no necesita perfiles de activación ni banderas
 del frontend; no existe un destino fijo de desarrollo.
+
+Las aplicaciones de negocio tienen UUID propios, no los de las aplicaciones de
+seguridad. Este modelo personal no implementa credenciales máquina-a-máquina ni
+autoriza consumidores sin identidad BFF; esa evolución requiere un contrato
+explícito, sin compartir la sesión del propietario. Ver [espacios personales](personal-workspaces.md).
 
 ## Respuesta exitosa: HTTP 200
 

@@ -13,11 +13,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.modelmapper.ModelMapper;
 import java.time.Instant;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static co.edu.uco.crosscutting.helpers.UtilUUID.DEFAULT_UUID;
 
 @ExtendWith(MockitoExtension.class)
 class MessageEntityMapperTest {
@@ -69,6 +71,12 @@ class MessageEntityMapperTest {
     void mapperDTO_buildsDtoFromEntityComposites() {
         MessageData data = messageData();
         data.setCreatedAt(Instant.parse("2025-01-02T03:04:05Z"));
+        data.setUpdatedAt(Instant.parse("2025-02-03T04:05:06Z"));
+        data.setStatus(new co.edu.uco.application.secondaryports.entity.StatusMessageData(
+                UUID.fromString("c9dc13ee-2f0e-4912-946d-e7e4352c6510"), "Inactive"));
+        data.setFunctionality(new FunctionalityData(
+                UUID.fromString("c2d9f822-36d3-4580-a838-4f79f3c7cff8"), "func", null));
+        data.setId(UUID.fromString("7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82"));
         MessageDTO dto = mapper.mapperDTO(data);
 
         assertAll(
@@ -78,7 +86,11 @@ class MessageEntityMapperTest {
                 () -> assertThat(dto.getType()).isEqualTo("info"),
                 () -> assertThat(dto.getCategory()).isEqualTo("general"),
                 () -> assertThat(dto.getFunctionality()).isEqualTo("func"),
-                () -> assertThat(dto.getCreatedAt()).isEqualTo(Instant.parse("2025-01-02T03:04:05Z")));
+                () -> assertThat(dto.getCreatedAt()).isEqualTo(Instant.parse("2025-01-02T03:04:05Z")),
+                () -> assertThat(dto.getUpdatedAt()).isEqualTo(Instant.parse("2025-02-03T04:05:06Z")),
+                () -> assertThat(dto.getStatus()).isEqualTo("Inactive"),
+                () -> assertThat(dto.getStatusId()).isEqualTo("c9dc13ee-2f0e-4912-946d-e7e4352c6510"),
+                () -> assertThat(dto.getFunctionalityId()).isEqualTo("c2d9f822-36d3-4580-a838-4f79f3c7cff8"));
     }
 
     @Test
@@ -88,12 +100,17 @@ class MessageEntityMapperTest {
         message.setTitle("Title");
         message.setContent("Content");
         message.setApplication("app");
+        message.setStatus(new co.edu.uco.application.secondaryports.entity.StatusMessageData(DEFAULT_UUID, ""));
+        message.setFunctionality(new FunctionalityData(DEFAULT_UUID, "", null));
 
         MessageDTO dto = mapper.mapperDTO(message);
 
         assertAll(
                 () -> assertThat(dto.getType()).isEmpty(),
                 () -> assertThat(dto.getCategory()).isEmpty(),
-                () -> assertThat(dto.getFunctionality()).isEmpty());
+                () -> assertThat(dto.getFunctionality()).isEmpty(),
+                () -> assertThat(dto.getStatusId()).isNull(),
+                () -> assertThat(dto.getFunctionalityId()).isNull(),
+                () -> assertThat(dto.getUpdatedAt()).isNull());
     }
 }

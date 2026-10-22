@@ -2,7 +2,6 @@ package co.edu.uco.application.usecase.validator.application;
 
 import co.edu.uco.application.primaryports.dto.application.CreateApplicationDTO;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
-import co.edu.uco.application.secondaryports.entity.ApplicationData;
 import co.edu.uco.application.secondaryports.repository.ApplicationRepository;
 import co.edu.uco.application.secondaryports.repository.OrganizationRepository;
 import co.edu.uco.application.secondaryports.repository.RecordExistsCatalogPort;
@@ -72,7 +71,6 @@ class CreateApplicationCompositeValidatorTest {
     @Test
     void validate_acceptsValidDto() {
         when(recordExistsCatalogPort.exists(any(), anyString())).thenReturn(true);
-        when(applicationRepository.findByName("Message App")).thenReturn(Optional.empty());
 
         assertDoesNotThrow(() -> validator.validate(validDto()));
     }
@@ -81,7 +79,7 @@ class CreateApplicationCompositeValidatorTest {
     void validate_looksUpOrganizationBeforeCatalogAndDuplicateChecks() {
         when(recordExistsCatalogPort.exists(ReferenceCatalog.LANGUAGE_BASE, LANGUAGE_ID)).thenReturn(true);
         when(recordExistsCatalogPort.exists(ReferenceCatalog.APPLICATION_STATE, STATE_ID)).thenReturn(true);
-        when(applicationRepository.findByName("Message App")).thenReturn(Optional.empty());
+        when(applicationRepository.existsByNameAndOrganization("Message App", ORGANIZATION_ID)).thenReturn(false);
         CreateApplicationDTO dto = validDto();
 
         validator.validate(dto);
@@ -90,7 +88,7 @@ class CreateApplicationCompositeValidatorTest {
         validationOrder.verify(organizationRepository).findById(UUID.fromString(ORGANIZATION_ID));
         validationOrder.verify(recordExistsCatalogPort).exists(ReferenceCatalog.LANGUAGE_BASE, LANGUAGE_ID);
         validationOrder.verify(recordExistsCatalogPort).exists(ReferenceCatalog.APPLICATION_STATE, STATE_ID);
-        validationOrder.verify(applicationRepository).findByName("Message App");
+        validationOrder.verify(applicationRepository).existsByNameAndOrganization("Message App", ORGANIZATION_ID);
     }
 
     @Test
@@ -269,8 +267,7 @@ class CreateApplicationCompositeValidatorTest {
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_169.getCode()))
                 .thenReturn("Ya existe una aplicación con el nombre proporcionado.");
         when(recordExistsCatalogPort.exists(any(), anyString())).thenReturn(true);
-        when(applicationRepository.findByName("Message App"))
-                .thenReturn(Optional.of(new ApplicationData()));
+        when(applicationRepository.existsByNameAndOrganization("Message App", ORGANIZATION_ID)).thenReturn(true);
         CreateApplicationDTO dto = validDto();
 
         assertThatThrownBy(() -> validator.validate(dto))

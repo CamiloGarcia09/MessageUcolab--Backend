@@ -10,6 +10,8 @@ public interface ApplicationRepository {
 
     Optional<ApplicationData> findByName(String name);
 
+    boolean existsByNameAndOrganization(String name, String organizationId);
+
     Optional<ApplicationData> findById(String id);
 
     boolean existsById(String id);

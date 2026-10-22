@@ -117,6 +117,7 @@ class MessageSurrealRepositoryAdapterImplTest {
         doReturn(nameValue("ACTIVE")).when(doc).get("status");
         doReturn(nameValue("FUNC")).when(doc).get("functionality");
         doReturn(createdAt).when(doc).get("created_at");
+        lenient().doReturn(null).when(doc).get("updated_at");
         return doc;
     }
 
@@ -439,6 +440,34 @@ class MessageSurrealRepositoryAdapterImplTest {
     }
 
     @Test
+    void findMessagesByEnvironment_appliesCatalogIdFiltersToBothCountAndPageQueries() {
+        String statusId = "7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82";
+        String functionalityId = "c9dc13ee-2f0e-4912-946d-e7e4352c6510";
+        MessageFilter filter = MessageFilter.builder()
+                .code("welcome")
+                .statusId(statusId)
+                .functionalityId(functionalityId)
+                .environmentIds(List.of("env-1", "env-2"))
+                .build();
+        doReturn(emptyResponse()).when(surreal).query(anyString());
+
+        adapter.findMessagesByEnvironment("app-1", PageRequest.of(0, 10), filter);
+
+        ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
+        verify(surreal, times(2)).query(queryCaptor.capture());
+        assertThat(queryCaptor.getAllValues()).allSatisfy(query -> assertThat(query)
+                .contains("environment_id")
+                .contains("message.status.id = 'message_state:" + statusId + "'")
+                .contains("message.status.id = '" + statusId + "'")
+                .contains("message.status.id = message_state:`" + statusId + "`")
+                .contains("message.functionality.id = 'functionality:" + functionalityId + "'")
+                .contains("message.functionality.id = '" + functionalityId + "'")
+                .contains("message.functionality.id = functionality:`" + functionalityId + "`")
+                .contains("welcome")
+                .doesNotContain("message.status.name", "message.functionality.name", "'Active'", "'Inactive'"));
+    }
+
+    @Test
     void findMessagesByEnvironment_noFilterConditions_whenFilterEmpty() {
         doReturn(emptyResponse()).when(surreal).query(anyString());
 
@@ -600,6 +629,7 @@ class MessageSurrealRepositoryAdapterImplTest {
         doReturn(stringValue("Content")).when(doc).get("content");
         doReturn(stringValue("App")).when(doc).get("application");
         doReturn(noneCreatedAt).when(doc).get("created_at");
+        doReturn(null).when(doc).get("updated_at");
         doReturn(null).when(doc).get("type");
         doReturn(nullValue).when(doc).get("category");
         doReturn(noneValue).when(doc).get("status");

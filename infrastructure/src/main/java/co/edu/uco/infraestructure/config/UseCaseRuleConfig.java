@@ -42,7 +42,15 @@ import co.edu.uco.application.usecase.validator.message.environment.MessageEnvir
 import co.edu.uco.application.usecase.validator.organization.CreateOrganizationCompositeValidator;
 import co.edu.uco.application.primaryports.facade.session.SessionApplicationUseCaseFacade;
 import co.edu.uco.application.primaryports.facade.session.impl.SessionApplicationUseCaseFacadeImpl;
-import co.edu.uco.application.secondaryports.security.SecurityApplicationPort;
+import co.edu.uco.application.secondaryports.security.SessionIdentityPort;
+import co.edu.uco.application.secondaryports.repository.PersonalWorkspaceRepository;
+import co.edu.uco.application.usecase.PersonalWorkspaceUseCase;
+import co.edu.uco.application.usecase.validator.workspace.SessionIdentityCompositeValidator;
+import co.edu.uco.application.usecase.validator.workspace.WorkspaceOwnershipCompositeValidator;
+import co.edu.uco.application.usecase.validator.workspace.CreatePersonalOrganizationCompositeValidator;
+import co.edu.uco.application.usecase.validator.workspace.WorkspaceUserCompositeValidator;
+import co.edu.uco.application.primaryports.facade.workspace.PersonalWorkspaceUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.workspace.impl.PersonalWorkspaceUseCaseFacadeImpl;
 import co.edu.uco.application.usecase.SessionApplicationUseCase;
 import co.edu.uco.application.usecase.handling.HandlingSessionApplicationPort;
 import co.edu.uco.application.usecase.validator.session.SessionApplicationAccessCompositeValidator;
@@ -54,6 +62,22 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class UseCaseRuleConfig {
+
+    @Bean
+    PersonalWorkspaceUseCase personalWorkspaceUseCase(SessionIdentityPort identityPort,
+            PersonalWorkspaceRepository repository, CatalogPort catalogPort,
+            HandlingCreateApplicationPort createApplicationPort) {
+        return new PersonalWorkspaceUseCase(identityPort, repository,
+                new SessionIdentityCompositeValidator(catalogPort),
+                new WorkspaceOwnershipCompositeValidator(catalogPort, repository),
+                new CreatePersonalOrganizationCompositeValidator(catalogPort, repository), createApplicationPort,
+                new WorkspaceUserCompositeValidator(catalogPort));
+    }
+
+    @Bean
+    PersonalWorkspaceUseCaseFacade personalWorkspaceUseCaseFacade(PersonalWorkspaceUseCase useCase) {
+        return new PersonalWorkspaceUseCaseFacadeImpl(useCase);
+    }
 
     @Bean
     HandlingCreateFunctionalityPort handlingCreateFunctionalityPort(
@@ -91,14 +115,14 @@ public class UseCaseRuleConfig {
 
     @Bean
     HandlingSessionApplicationPort handlingSessionApplicationPort(
-            SecurityApplicationPort securityApplicationPort,
+            PersonalWorkspaceUseCase workspace,
             ApplicationRepository applicationRepository,
             SessionApplicationCompositeValidator sessionApplicationValidator,
             SessionApplicationAccessCompositeValidator sessionApplicationAccessValidator,
             SessionApplicationRegistrationCompositeValidator sessionApplicationRegistrationValidator,
             CatalogPort catalogPort) {
         return new SessionApplicationUseCase(
-                securityApplicationPort,
+                workspace,
                 applicationRepository,
                 sessionApplicationValidator,
                 sessionApplicationAccessValidator,

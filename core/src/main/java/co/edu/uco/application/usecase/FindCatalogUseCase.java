@@ -1,6 +1,7 @@
 package co.edu.uco.application.usecase;
 
 import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
+import co.edu.uco.application.primaryports.dto.catalog.FunctionalityCatalogItemDTO;
 import co.edu.uco.application.secondaryports.repository.ApplicationCatalogRepository;
 import co.edu.uco.application.secondaryports.repository.EnvironmentCatalogRepository;
 import co.edu.uco.application.secondaryports.repository.FunctionalityCatalogRepository;
@@ -12,11 +13,13 @@ import co.edu.uco.application.usecase.handling.HandlingFindCatalogPort;
 import co.edu.uco.application.usecase.validator.session.SessionApplicationAccessCompositeValidator;
 import co.edu.uco.application.usecase.validator.session.SessionApplicationValidationContext;
 import co.edu.uco.application.usecase.validator.specification.impl.ValidUuidSpecification;
+import co.edu.uco.application.usecase.validator.specification.impl.ActiveFunctionalitySpecification;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static co.edu.uco.crosscutting.helpers.UtilUUID.getUUIDFromString;
+import static co.edu.uco.crosscutting.helpers.UtilUUID.DEFAULT_UUID;
 
 public final class FindCatalogUseCase implements HandlingFindCatalogPort {
 
@@ -78,7 +81,10 @@ public final class FindCatalogUseCase implements HandlingFindCatalogPort {
                                                                   final List<CatalogItemDTO> sessionApplications) {
         accessValidator.validate(new SessionApplicationValidationContext(sessionApplications, applicationId, null));
         return functionalityCatalogRepository.findAllByApplicationId(applicationId).stream()
-                .map(func -> CatalogItemDTO.create(func.getId().toString(), func.getName()))
+                .<CatalogItemDTO>map(func -> new FunctionalityCatalogItemDTO(
+                        func.getId().toString(), func.getName(),
+                        DEFAULT_UUID.equals(func.getStateId()) ? null : func.getStateId().toString(),
+                        func.getState(), new ActiveFunctionalitySpecification().isSatisfiedBy(func)))
                 .toList();
     }
 

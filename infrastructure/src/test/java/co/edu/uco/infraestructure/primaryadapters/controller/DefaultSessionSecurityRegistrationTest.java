@@ -1,12 +1,12 @@
 package co.edu.uco.infraestructure.primaryadapters.controller;
 
 import co.edu.uco.application.primaryports.facade.session.SessionApplicationUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.workspace.PersonalWorkspaceUseCaseFacade;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.infraestructure.primaryadapters.interceptors.SessionApplicationInterceptor;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.support.ResourcePropertySource;
 
 import java.io.IOException;
@@ -27,6 +27,7 @@ class DefaultSessionSecurityRegistrationTest {
                 }
             })
             .withBean(SessionApplicationUseCaseFacade.class, () -> mock(SessionApplicationUseCaseFacade.class))
+            .withBean(PersonalWorkspaceUseCaseFacade.class, () -> mock(PersonalWorkspaceUseCaseFacade.class))
             .withBean(PresenterPort.class, () -> mock(PresenterPort.class))
             .withUserConfiguration(SessionApplicationInterceptor.class, SessionApplicationControllerImpl.class);
 

@@ -90,12 +90,14 @@ final class MessagesControllerImpl implements MessagesController {
     public Mono<Void> findByEnvironmentAndMessage(String page, String size, String sort, String columnSort,
                                                    String filterCode, String filterTitle, String filterCategory,
                                                    String filterFunctionality, String filterType, String filterStatus,
-                                                   String filterEnvironments, ServerWebExchange exchange) {
+                                                   String filterEnvironments, String filterStatusId,
+                                                   String filterFunctionalityId, ServerWebExchange exchange) {
         var request = PageRequestDTO.builder()
                 .page(page).size(size).sort(sort).columnSort(columnSort)
                 .filterCode(filterCode).filterTitle(filterTitle).filterCategory(filterCategory)
                 .filterFunctionality(filterFunctionality).filterType(filterType).filterStatus(filterStatus)
                 .filterEnvironments(filterEnvironments)
+                .filterStatusId(filterStatusId).filterFunctionalityId(filterFunctionalityId)
                 .build();
         return ReactiveHttpResponse.blocking(() -> findPage.execute(context(exchange), request))
                 .flatMap(value -> ReactiveHttpResponse.present(pagePresenter, List.of(value), exchange));

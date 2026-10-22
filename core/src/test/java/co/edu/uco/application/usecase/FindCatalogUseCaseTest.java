@@ -1,6 +1,7 @@
 package co.edu.uco.application.usecase;
 
 import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
+import co.edu.uco.application.primaryports.dto.catalog.FunctionalityCatalogItemDTO;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.entity.ApplicationData;
 import co.edu.uco.application.secondaryports.entity.EnvironmentData;
@@ -137,14 +138,24 @@ class FindCatalogUseCaseTest {
     @Test
     void findFunctionalitiesByApplication_mapsIdentifierAndNameForAssignedRegisteredApplication() {
         UUID functionalityId = UUID.randomUUID();
+        UUID stateId = UUID.randomUUID();
         when(applicationRepository.findById(APP_ID)).thenReturn(Optional.of(
                 ApplicationData.build(UUID.fromString(APP_ID), "Assigned app")));
-        when(functionalityCatalogRepository.findAllByApplicationId(APP_ID)).thenReturn(List.of(
-                new FunctionalityData(functionalityId, "Search", ApplicationData.build())));
+        FunctionalityData active = new FunctionalityData(functionalityId, "Search", ApplicationData.build());
+        active.setStateId(stateId);
+        active.setState("Active");
+        FunctionalityData inactive = new FunctionalityData(UUID.randomUUID(), "Legacy", ApplicationData.build());
+        inactive.setStateId(UUID.randomUUID());
+        inactive.setState("Inactive");
+        when(functionalityCatalogRepository.findAllByApplicationId(APP_ID)).thenReturn(List.of(active, inactive));
 
-        assertThat(useCase.findFunctionalitiesByApplication(APP_ID, SESSION))
-                .extracting(CatalogItemDTO::getId, CatalogItemDTO::getName)
-                .containsExactly(org.assertj.core.groups.Tuple.tuple(functionalityId.toString(), "Search"));
+        List<CatalogItemDTO> result = useCase.findFunctionalitiesByApplication(APP_ID, SESSION);
+
+        assertThat(result).containsExactly(
+                new FunctionalityCatalogItemDTO(functionalityId.toString(), "Search", stateId.toString(), "Active", true),
+                new FunctionalityCatalogItemDTO(inactive.getId().toString(), "Legacy",
+                        inactive.getStateId().toString(), "Inactive", false));
+        assertThat(result).allSatisfy(item -> assertThat(item).isInstanceOf(FunctionalityCatalogItemDTO.class));
     }
 
     @Test

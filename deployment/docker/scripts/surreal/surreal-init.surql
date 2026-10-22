@@ -102,7 +102,17 @@ UPSERT application_state:`2a0ddacd-2dcc-47e2-b56f-03db5207c443` CONTENT {
 -- ORGANIZATION
 -- =============================================================
 
+DEFINE TABLE IF NOT EXISTS app_user SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS identity_source ON app_user TYPE string;
+DEFINE FIELD IF NOT EXISTS tenant_id ON app_user TYPE string;
+DEFINE FIELD IF NOT EXISTS subject ON app_user TYPE string;
+DEFINE FIELD IF NOT EXISTS email ON app_user TYPE string;
+DEFINE FIELD IF NOT EXISTS name ON app_user TYPE string;
+DEFINE INDEX IF NOT EXISTS app_user_identity_idx ON app_user FIELDS identity_source, tenant_id, subject UNIQUE;
+
 DEFINE TABLE IF NOT EXISTS organization SCHEMAFULL CHANGEFEED 7d;
+
+DEFINE FIELD IF NOT EXISTS owner_user_id ON organization TYPE option<record<app_user>>;
 
 DEFINE FIELD IF NOT EXISTS name
 ON organization TYPE string;
@@ -113,8 +123,10 @@ ON organization TYPE datetime DEFAULT time::now() READONLY;
 DEFINE FIELD IF NOT EXISTS updated_at
 ON organization TYPE datetime VALUE time::now();
 
-DEFINE INDEX IF NOT EXISTS organization_name_idx
-ON organization FIELDS name UNIQUE;
+REMOVE INDEX IF EXISTS organization_name_idx ON organization;
+DEFINE INDEX IF NOT EXISTS organization_owner_name_idx
+ON organization FIELDS owner_user_id, name UNIQUE;
+DEFINE INDEX IF NOT EXISTS organization_owner_idx ON organization FIELDS owner_user_id;
 
 -- =============================================================
 -- APPLICATION
@@ -145,6 +157,9 @@ ON application FIELDS name;
 
 DEFINE INDEX IF NOT EXISTS application_organization_idx
 ON application FIELDS organization_id;
+
+DEFINE INDEX IF NOT EXISTS application_organization_name_idx
+ON application FIELDS organization_id, name UNIQUE;
 
 DEFINE INDEX IF NOT EXISTS application_language_state_idx
 ON application FIELDS language_id, state_id;

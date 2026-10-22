@@ -5,7 +5,8 @@ info:
     Contrato de la API de MessageUcoLab bajo el enfoque Contract First.
     Define las operaciones, parametros, modelos de entrada y salida, respuestas
     y autenticacion mediante el componente externo de seguridad. El frontend usa
-    su sesion BFF, obligatoria para resolver las aplicaciones asignadas por seguridad.
+    su sesion BFF para identificar al usuario. MessageUcoLab administra organizaciones
+    personales y aplicaciones propias, independientes de las aplicaciones de seguridad.
     MessageUcoLab no emite tokens propios ni acepta el header Token.
   version: 1.0.0
 
@@ -20,13 +21,104 @@ tags:
   - name: Mensajes
     description: Consulta y traduccion de mensajes.
   - name: Sesion
-    description: Aplicaciones asignadas al usuario de la sesion BFF.
+    description: Identidad validada del usuario y sus aplicaciones de negocio propias.
   - name: Catalogos
     description: Catalogos con identificadores UUID persistentes.
   - name: Administracion
-    description: Creacion de aplicaciones y funcionalidades.
+    description: Organizaciones personales, aplicaciones y funcionalidades.
 
 paths:
+  /messageucolab/v1/session/user:
+    get:
+      tags: [Sesion]
+      summary: Consultar usuario autenticado
+      description: Referencia local obtenida del BFF. El correo es informativo, no una clave de autorizacion.
+      operationId: findWorkspaceUser
+      responses:
+        '200':
+          description: Usuario autenticado, dentro del arreglo data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceUserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          description: BFF o persistencia del espacio de trabajo no disponibles. No se permite acceso por defecto.
+
+  /messageucolab/v1/organizations:
+    get:
+      tags: [Administracion]
+      summary: Listar mis organizaciones
+      operationId: findPersonalOrganizations
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          description: Identidad o espacio de trabajo no disponibles.
+    post:
+      tags: [Administracion]
+      summary: Crear organizacion personal
+      description: El servidor asigna el propietario desde la sesion. No acepta un propietario en el cuerpo.
+      operationId: createPersonalOrganization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrganizationRequest'
+      responses:
+        '200':
+          description: Organizacion creada. data contiene un elemento con id y name.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          description: Identidad o espacio de trabajo no disponibles.
+
+  /messageucolab/v1/organizations/{organizationId}/applications:
+    get:
+      tags: [Administracion]
+      summary: Listar aplicaciones de una organizacion propia
+      operationId: findPersonalOrganizationApplications
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          $ref: '#/components/responses/CatalogFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Falta permiso PEP, o la organizacion no existe o no pertenece al usuario (FUN_215).
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '503':
+          description: Identidad o espacio de trabajo no disponibles.
+
   /messageucolab/v1/application:
     post:
       tags: [Administracion]
@@ -34,9 +126,9 @@ paths:
       description: |
         Crea una aplicacion asociada a una organizacion y aprovisiona atomicamente
         sus ambientes Develop, Testing y Production en estado Active.
-        El id debe coincidir con una aplicacion asignada al usuario de la sesion BFF.
-        organizationId debe referenciar una organizacion de negocio existente.
-        El PEP exige el permiso de la ruta; no hay permisos ni roles locales.
+        El servidor genera un UUID propio; un id enviado por compatibilidad se ignora.
+        organizationId debe referenciar una organizacion propiedad del usuario autenticado.
+        El PEP exige el permiso de la ruta y el dominio comprueba la propiedad de los datos.
       operationId: createApplication
       security:
         - sessionCookie: []
@@ -87,7 +179,7 @@ paths:
       summary: Crear funcionalidad
       description: |
         Crea una funcionalidad para una aplicacion. No recibe fechas de inicio o fin.
-        applicationId debe estar registrado y asignado al usuario de la sesion BFF.
+        applicationId debe pertenecer a una organizacion propia del usuario de la sesion BFF.
         El PEP exige el permiso de la ruta; no hay permisos ni roles locales.
       operationId: createFunctionality
       security:
@@ -137,7 +229,11 @@ paths:
     post:
       tags: [Mensajes]
       summary: Crear mensaje
-      description: Crea un mensaje en los environmentIds indicados. Deben pertenecer a la aplicacion de X-Application-Id, validada contra la sesion BFF.
+      description: |
+        Crea un mensaje en los environmentIds indicados. Deben pertenecer a la aplicacion
+        de X-Application-Id, validada contra la sesion BFF. La funcionalidad debe pertenecer
+        a esa aplicacion y estar activa; una funcionalidad inactiva o de estado no resoluble
+        produce 422 con el mensaje de catalogo FUN_217, aunque se envie su UUID directamente.
       operationId: createMessage
       security:
         - sessionCookie: []
@@ -191,8 +287,12 @@ paths:
         de paginacion no se usan. Sin code retorna data como una lista con un objeto
         de pagina, cuyo campo data contiene los mensajes.
         Los mensajes pertenecen a la aplicacion del contexto (en modo sesion, X-Application-Id
-        validado contra el componente de seguridad). Cada mensaje informa en environments los
+        validado contra las organizaciones propias del usuario). Cada mensaje informa en environments los
         ambientes donde existe; filterEnvironments limita el listado a esos ambientes.
+        La consulta y el listado incluyen status, statusId, functionalityId, createdAt y updatedAt.
+        updatedAt es la fecha persistida de ultima escritura del mensaje, no la fecha de consulta.
+        Los filtros del listado se combinan con AND antes de calcular la pagina y sus totales.
+        Con code se consulta un mensaje concreto y no se aplican los filtros del listado.
       operationId: findMessages
       security:
         - sessionCookie: []
@@ -236,6 +336,34 @@ paths:
           schema:
             type: string
           example: 7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82,de1b8223-1e9c-4807-beec-b2c1cff44e73
+        - name: filterCode
+          in: query
+          description: Coincidencia parcial por codigo, sin distinguir mayusculas, en el listado sin code.
+          schema:
+            type: string
+          example: MSG_WELCOME
+        - name: filterStatusId
+          in: query
+          description: UUID del estado del mensaje. Coincidencia exacta; no confunde Active con Inactive.
+          schema:
+            type: string
+            format: uuid
+        - name: filterFunctionalityId
+          in: query
+          description: UUID de la funcionalidad. Coincidencia exacta dentro de la aplicacion autorizada.
+          schema:
+            type: string
+            format: uuid
+        - name: filterStatus
+          in: query
+          description: Filtro legado de texto parcial por nombre de estado. Para selectores usar filterStatusId.
+          schema:
+            type: string
+        - name: filterFunctionality
+          in: query
+          description: Filtro legado de texto parcial por nombre de funcionalidad. Para selectores usar filterFunctionalityId.
+          schema:
+            type: string
       responses:
         '200':
           $ref: '#/components/responses/MessagesFound'
@@ -292,7 +420,7 @@ paths:
     get:
       tags: [Sesion]
       summary: Listar aplicaciones de la sesion
-      description: Retorna las aplicaciones asignadas por seguridad y su estado de registro en MessageUcoLab. Requiere el permiso de negocio correspondiente en el PEP.
+      description: Retorna las aplicaciones de las organizaciones personales del usuario. registered siempre es true. Requiere el permiso de negocio correspondiente en el PEP; no consulta las aplicaciones asignadas en seguridad.
       operationId: findSessionApplications
       security:
         - sessionCookie: []
@@ -317,8 +445,8 @@ paths:
       tags: [Catalogos]
       summary: Listar aplicaciones
       description: |
-        Lista solo las aplicaciones de negocio registradas y asignadas al usuario
-        de la sesion BFF. Sin asignaciones no se devuelve ninguna aplicacion.
+        Lista solo las aplicaciones de las organizaciones propias del usuario
+        de la sesion BFF. Sin organizaciones propias se devuelve una lista vacia.
       operationId: findApplications
       security:
         - sessionCookie: []
@@ -337,7 +465,7 @@ paths:
       tags: [Catalogos]
       summary: Listar ambientes de una aplicacion
       description: |
-        La aplicacion debe estar registrada y asignada al usuario de la sesion BFF.
+        La aplicacion debe pertenecer a una organizacion propia del usuario de la sesion BFF.
         Retorna sus ambientes, sin consultar contextos ni permisos locales.
       operationId: findEnvironmentsByApplication
       security:
@@ -363,8 +491,12 @@ paths:
       tags: [Catalogos]
       summary: Listar funcionalidades de una aplicacion
       description: |
-        La aplicacion debe estar registrada y asignada al usuario de la sesion BFF.
+        La aplicacion debe pertenecer a una organizacion propia del usuario de la sesion BFF.
         Retorna sus funcionalidades, sin consultar contextos ni permisos locales.
+        Conserva id y name y agrega stateId, state y active. Incluye activas e inactivas
+        para administracion y consulta historica. Crear mensaje solo debe ofrecer elementos
+        con active=true; el backend tambien rechaza una funcionalidad inactiva al crear.
+        Si el estado no puede resolverse, state queda vacio y active=false, nunca activo por defecto.
       operationId: findFunctionalitiesByApplication
       security:
         - sessionCookie: []
@@ -372,7 +504,23 @@ paths:
         - $ref: '#/components/parameters/ApplicationId'
       responses:
         '200':
-          $ref: '#/components/responses/CatalogFound'
+          description: Funcionalidades de la aplicacion propia, incluyendo su estado real.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FunctionalityCatalogResponse'
+            application/yaml:
+              schema:
+                $ref: '#/components/schemas/FunctionalityCatalogResponse'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/FunctionalityCatalogResponse'
+            text/plain:
+              schema:
+                type: string
+            text/html:
+              schema:
+                type: string
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -490,8 +638,15 @@ components:
                     content: Bienvenido a nuestra aplicacion
                     type: Informacion
                     category: General
-                    application: Aplicacion de ejemplo
                     functionality: Inicio
+                    functionalityId: 123e4567-e89b-12d3-a456-426614174070
+                    status: Active
+                    statusId: 123e4567-e89b-12d3-a456-426614174060
+                    createdAt: '2026-10-22T12:00:00Z'
+                    updatedAt: '2026-10-22T14:30:00Z'
+                    environments:
+                      - id: 7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82
+                        name: Develop
                 errors: []
             paginated:
               summary: Consulta sin code
@@ -503,8 +658,15 @@ components:
                         content: Bienvenido a nuestra aplicacion
                         type: Informacion
                         category: General
-                        application: Aplicacion de ejemplo
                         functionality: Inicio
+                        functionalityId: 123e4567-e89b-12d3-a456-426614174070
+                        status: Active
+                        statusId: 123e4567-e89b-12d3-a456-426614174060
+                        createdAt: '2026-10-22T12:00:00Z'
+                        updatedAt: '2026-10-22T14:30:00Z'
+                        environments:
+                          - id: 7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82
+                            name: Develop
                     page: 1
                     size: 50
                     totalItems: 1
@@ -784,9 +946,8 @@ components:
             $ref: '#/components/schemas/ErrorDetail'
     CreateApplicationRequest:
       type: object
-      required: [id, name, organizationId, languageId, stateId]
+      required: [name, organizationId, languageId, stateId]
       example:
-        id: 123e4567-e89b-12d3-a456-426614174000
         name: Aplicacion de ejemplo
         organizationId: 123e4567-e89b-12d3-a456-426614174010
         languageId: 123e4567-e89b-12d3-a456-426614174020
@@ -795,7 +956,8 @@ components:
         id:
           type: string
           format: uuid
-          description: UUID de la aplicacion asignada por seguridad a la sesion BFF.
+          deprecated: true
+          description: Ignorado por compatibilidad. El servidor genera su propio UUID.
         name:
           type: string
           minLength: 1
@@ -897,7 +1059,7 @@ components:
           example: en
     Message:
       type: object
-      required: [code, title, content, type, category, application, functionality]
+      required: [code, title, content, type, category, functionality, status, environments]
       properties:
         code:
           type: string
@@ -909,11 +1071,33 @@ components:
           type: string
         category:
           type: string
-        application:
-          type: string
-          description: Nombre de la aplicacion derivado por el servidor a partir de applicationId.
         functionality:
           type: string
+        functionalityId:
+          type: string
+          format: uuid
+          nullable: true
+        status:
+          type: string
+          description: Nombre del estado del mensaje (message_state), no del estado de su relacion con un ambiente.
+          example: Active
+        statusId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Ultima escritura persistida en UTC. Puede ser null en documentos historicos sin ese dato; no se inventa una fecha.
+        environments:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogItem'
     MessageResponse:
       type: object
       required: [data, errors]
@@ -922,6 +1106,40 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Message'
+        errors:
+          type: array
+          maxItems: 0
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+    CreateOrganizationRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+      example:
+        name: Mi organizacion
+    WorkspaceUserResponse:
+      type: object
+      required: [data, errors]
+      properties:
+        data:
+          type: array
+          minItems: 1
+          maxItems: 1
+          items:
+            type: object
+            required: [id, email, name]
+            properties:
+              id:
+                type: string
+                format: uuid
+              email:
+                type: string
+              name:
+                type: string
         errors:
           type: array
           maxItems: 0
@@ -938,6 +1156,7 @@ components:
           type: string
         registered:
           type: boolean
+          description: Siempre true en el flujo personal; se conserva por compatibilidad.
         organization:
           nullable: true
           allOf:
@@ -951,6 +1170,42 @@ components:
           format: uuid
         name:
           type: string
+    FunctionalityCatalogItem:
+      allOf:
+        - $ref: '#/components/schemas/CatalogItem'
+        - type: object
+          required: [state, active]
+          properties:
+            stateId:
+              type: string
+              format: uuid
+              nullable: true
+            state:
+              type: string
+              description: Nombre persistido en functionality_state. Vacio si falta la referencia o el estado.
+              example: Active
+            active:
+              type: boolean
+              description: true solo si hay un estado valido de funcionalidad cuyo nombre es Active.
+      example:
+        id: 123e4567-e89b-12d3-a456-426614174070
+        name: Autenticacion
+        stateId: 407de974-c8aa-43e2-a5cf-22dc7c44054b
+        state: Active
+        active: true
+    FunctionalityCatalogResponse:
+      type: object
+      required: [data, errors]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/FunctionalityCatalogItem'
+        errors:
+          type: array
+          maxItems: 0
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
     CatalogResponse:
       type: object
       required: [data, errors]
