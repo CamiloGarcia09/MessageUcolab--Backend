@@ -6,6 +6,7 @@ import co.edu.uco.application.primaryports.dto.message.TranslateMessageDTO;
 import co.edu.uco.application.primaryports.dto.message.TranslatedMessageDTO;
 import co.edu.uco.application.primaryports.dto.page.PageRequestDTO;
 import co.edu.uco.application.primaryports.facade.catalog.FindCatalogUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.catalog.impl.FindCatalogUseCaseFacadeImpl;
 import co.edu.uco.application.primaryports.facade.message.FindMessageByCodeAndEnvironmentUseCaseFacade;
 import co.edu.uco.application.primaryports.facade.message.FindMessagesByEnvironmentUsecaseFacade;
 import co.edu.uco.application.primaryports.facade.message.TranslateMessageByCodeAndEnvironmentUseCaseFacade;
@@ -15,7 +16,16 @@ import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.secondaryports.presenter.RenderedResponse;
 import co.edu.uco.application.secondaryports.repository.SimplePage;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
+import co.edu.uco.application.secondaryports.repository.ApplicationCatalogRepository;
+import co.edu.uco.application.secondaryports.repository.ApplicationRepository;
+import co.edu.uco.application.secondaryports.repository.EnvironmentCatalogRepository;
+import co.edu.uco.application.secondaryports.repository.FunctionalityCatalogRepository;
+import co.edu.uco.application.secondaryports.repository.MessageCategoryCatalogRepository;
+import co.edu.uco.application.secondaryports.repository.MessageEnvironmentStateCatalogRepository;
+import co.edu.uco.application.secondaryports.repository.MessageStateCatalogRepository;
+import co.edu.uco.application.secondaryports.repository.MessageTypeCatalogRepository;
+import co.edu.uco.application.usecase.FindCatalogUseCase;
+import co.edu.uco.application.usecase.validator.session.SessionApplicationAccessCompositeValidator;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
 import co.edu.uco.crosscutting.exceptions.UnauthorizedException;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,15 +41,15 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 import reactor.test.StepVerifier;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.SubmissionPublisher;
 
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.APPLICATION_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
-import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.SESSION_APPLICATIONS_ATTRIBUTE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -49,12 +59,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("MessagesControllerImpl")
 class MessagesControllerImplTest {
 
-    private static final ExternalIdentity IDENTITY = new ExternalIdentity("issuer", "subject", "user@uco.edu.co", Instant.MAX);
 
     @Mock
     private FindMessagesByEnvironmentUsecaseFacade findPage;
@@ -74,6 +84,14 @@ class MessagesControllerImplTest {
     private FindCatalogUseCaseFacade catalogFacade;
     @Mock
     private CatalogPort catalog;
+    @Mock private ApplicationCatalogRepository applicationCatalogRepository;
+    @Mock private ApplicationRepository applicationRepository;
+    @Mock private EnvironmentCatalogRepository environmentCatalogRepository;
+    @Mock private FunctionalityCatalogRepository functionalityCatalogRepository;
+    @Mock private MessageTypeCatalogRepository messageTypeCatalogRepository;
+    @Mock private MessageCategoryCatalogRepository messageCategoryCatalogRepository;
+    @Mock private MessageStateCatalogRepository messageStateCatalogRepository;
+    @Mock private MessageEnvironmentStateCatalogRepository messageEnvironmentStateCatalogRepository;
 
     private MessagesControllerImpl controller;
 
@@ -87,6 +105,7 @@ class MessagesControllerImplTest {
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/messageucolab/v1/messages").build());
         exchange.getAttributes().put(ENVIRONMENT_ID_ATTRIBUTE, "env-1");
+        exchange.getAttributes().put(APPLICATION_ID_ATTRIBUTE, "app-1");
         return exchange;
     }
 
@@ -127,8 +146,7 @@ class MessagesControllerImplTest {
             verify(findPage).execute(contextCaptor.capture(), requestCaptor.capture());
             PageRequestDTO captured = requestCaptor.getValue();
             assertAll(
-                    () -> assertThat(contextCaptor.getValue().workspaceEnvironmentId()).isEqualTo("env-1"),
-                    () -> assertThat(contextCaptor.getValue().externalIdentity()).isNull(),
+                    () -> assertThat(contextCaptor.getValue().applicationId()).isEqualTo("app-1"),
                     () -> assertThat(captured.getPage()).isEqualTo("1"),
                     () -> assertThat(captured.getSize()).isEqualTo("10"),
                     () -> assertThat(captured.getSort()).isEqualTo("asc"),
@@ -153,24 +171,6 @@ class MessagesControllerImplTest {
 
             verify(findOne).execute(eq("CODE"), any(MessageAccessContext.class));
             verify(presenter).presentRestSuccess(List.of(dto), null);
-        }
-
-        @Test
-        @DisplayName("Propaga la identidad externa junto con el ambiente del token")
-        void propagatesExternalIdentityAlongsideEnvironment() {
-            stubMessageRender();
-            MockServerWebExchange exchange = exchange();
-            exchange.getAttributes().put(EXTERNAL_IDENTITY_ATTRIBUTE, IDENTITY);
-            MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "TYPE", "CAT", "FUNC");
-            when(findOne.execute(eq("CODE"), any(MessageAccessContext.class))).thenReturn(dto);
-
-            StepVerifier.create(controller.findByCodeMessageAndEnvironment("CODE", exchange)).verifyComplete();
-
-            ArgumentCaptor<MessageAccessContext> contextCaptor = ArgumentCaptor.forClass(MessageAccessContext.class);
-            verify(findOne).execute(eq("CODE"), contextCaptor.capture());
-            assertThat(contextCaptor.getValue())
-                    .extracting(MessageAccessContext::workspaceEnvironmentId, MessageAccessContext::externalIdentity)
-                    .containsExactly("env-1", IDENTITY);
         }
     }
 
@@ -225,7 +225,7 @@ class MessagesControllerImplTest {
         @DisplayName("Emite el evento del stream como ServerSentEvent")
         void emitsStreamEventAsServerSentEvent() {
             SubmissionPublisher<MessageEvent> publisher = new SubmissionPublisher<>();
-            when(eventStream.subscribe(Set.of("env-1"))).thenReturn(publisher);
+            when(eventStream.subscribe(Set.of())).thenReturn(publisher);
             MessageEvent event = new MessageEvent("id-1", "MessageCreated", "env-1", "CODE");
 
             try {
@@ -245,7 +245,7 @@ class MessagesControllerImplTest {
         @DisplayName("Emite un heartbeat cuando no hay eventos del stream")
         void emitsHeartbeatWhenNoStreamEvent() {
             SubmissionPublisher<MessageEvent> publisher = new SubmissionPublisher<>();
-            when(eventStream.subscribe(Set.of("env-1"))).thenReturn(publisher);
+            when(eventStream.subscribe(Set.of())).thenReturn(publisher);
 
             try {
                 StepVerifier.withVirtualTime(() -> controller.events(exchange()).take(1))
@@ -280,7 +280,9 @@ class MessagesControllerImplTest {
             MockServerWebExchange exchange = MockServerWebExchange.from(
                     MockServerHttpRequest.get("/messageucolab/v1/messages/events").build());
             exchange.getAttributes().put(APPLICATION_ID_ATTRIBUTE, "app-1");
-            when(catalogFacade.findEnvironmentsByApplication("app-1", null)).thenReturn(List.of(
+            List<CatalogItemDTO> sessionApplications = List.of(CatalogItemDTO.create("app-1", "app"));
+            exchange.getAttributes().put(SESSION_APPLICATIONS_ATTRIBUTE, sessionApplications);
+            when(catalogFacade.findEnvironmentsByApplication("app-1", sessionApplications)).thenReturn(List.of(
                     CatalogItemDTO.create("env-dev", "Develop"), CatalogItemDTO.create("env-prod", "Production")));
             SubmissionPublisher<MessageEvent> publisher = new SubmissionPublisher<>();
             when(eventStream.subscribe(Set.of("env-dev", "env-prod"))).thenReturn(publisher);
@@ -294,6 +296,44 @@ class MessagesControllerImplTest {
             } finally {
                 publisher.close();
             }
+        }
+
+        @Test
+        @DisplayName("Deniega la aplicación si faltan las aplicaciones de sesión antes de suscribirse")
+        void rejectsApplicationWhenSessionApplicationsAreMissing() {
+            assertSessionAccessDenied(null);
+        }
+
+        @Test
+        @DisplayName("Deniega la aplicación ajena a sesión antes de suscribirse")
+        void rejectsApplicationWhenNotAssignedToSession() {
+            assertSessionAccessDenied(List.of(CatalogItemDTO.create(
+                    "72436a46-54d7-4cb5-a42c-af14f92d9416", "Other app")));
+        }
+
+        private void assertSessionAccessDenied(List<CatalogItemDTO> sessionApplications) {
+            String applicationId = "c2d9f822-36d3-4580-a838-4f79f3c7cff8";
+            MockServerWebExchange exchange = MockServerWebExchange.from(
+                    MockServerHttpRequest.get("/messageucolab/v1/messages/events").build());
+            exchange.getAttributes().put(APPLICATION_ID_ATTRIBUTE, applicationId);
+            if (sessionApplications != null) {
+                exchange.getAttributes().put(SESSION_APPLICATIONS_ATTRIBUTE, sessionApplications);
+            }
+            when(catalog.getMessage("FUN_153")).thenReturn("Application is not assigned");
+            FindCatalogUseCase realUseCase = new FindCatalogUseCase(applicationCatalogRepository,
+                    environmentCatalogRepository, functionalityCatalogRepository, messageTypeCatalogRepository,
+                    messageCategoryCatalogRepository, messageStateCatalogRepository,
+                    messageEnvironmentStateCatalogRepository,
+                    new SessionApplicationAccessCompositeValidator(catalog, applicationRepository));
+            MessagesControllerImpl securedController = new MessagesControllerImpl(findPage, findOne, translate,
+                    presenter, translationPresenter, pagePresenter, eventStream,
+                    new FindCatalogUseCaseFacadeImpl(realUseCase), catalog);
+
+            assertThatThrownBy(() -> securedController.events(exchange))
+                    .isInstanceOf(co.edu.uco.crosscutting.exceptions.ForbiddenException.class);
+
+            verifyNoInteractions(environmentCatalogRepository, eventStream);
+            verify(applicationRepository, never()).findById(applicationId);
         }
     }
 }

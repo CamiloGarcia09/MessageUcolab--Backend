@@ -3,7 +3,7 @@ package co.edu.uco.infraestructure.primaryadapters.controller;
 import co.edu.uco.application.primaryports.dto.message.ResolvedMessageDTO;
 import co.edu.uco.application.primaryports.facade.message.ResolveMessageUseCaseFacade;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
-import co.edu.uco.application.usecase.domain.security.*;
+import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
 import co.edu.uco.infraestructure.primaryadapters.ResolveMessageController;
 import co.edu.uco.infraestructure.primaryadapters.ReactiveHttpResponse;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,10 +20,10 @@ final class ResolveMessageControllerImpl implements ResolveMessageController {
         this.facade = facade; this.presenter = presenter;
     }
     public Mono<Void> resolve(String code, ServerWebExchange exchange) {
-        var context = new MessageAccessContext((String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE),
-                (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE),
+        var context = new MessageAccessContext(
                 (String) exchange.getAttribute(APPLICATION_ID_ATTRIBUTE));
-        return ReactiveHttpResponse.blocking(() -> facade.execute(code, context))
+        String environmentId = exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE);
+        return ReactiveHttpResponse.blocking(() -> facade.execute(code, environmentId, context))
                 .flatMap(value -> ReactiveHttpResponse.present(presenter, List.of(value), exchange));
     }
 }

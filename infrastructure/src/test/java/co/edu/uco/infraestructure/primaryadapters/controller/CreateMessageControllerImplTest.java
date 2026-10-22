@@ -4,7 +4,6 @@ import co.edu.uco.application.primaryports.dto.message.CreateMessageDTO;
 import co.edu.uco.application.primaryports.facade.message.CreateMessageUseCaseFacade;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.secondaryports.presenter.RenderedResponse;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
 import co.edu.uco.crosscutting.exceptions.ForbiddenException;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,13 +18,11 @@ import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import reactor.test.StepVerifier;
 
-import java.time.Instant;
 import java.util.List;
 
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
-import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.APPLICATION_ID_ATTRIBUTE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -54,6 +51,7 @@ class CreateMessageControllerImplTest {
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.post("/messageucolab/v1/messages").build());
         exchange.getAttributes().put(ENVIRONMENT_ID_ATTRIBUTE, "env-token");
+        exchange.getAttributes().put(APPLICATION_ID_ATTRIBUTE, "app-1");
         return exchange;
     }
 
@@ -76,26 +74,8 @@ class CreateMessageControllerImplTest {
 
             ArgumentCaptor<MessageAccessContext> contextCaptor = ArgumentCaptor.forClass(MessageAccessContext.class);
             verify(facade).execute(eq(dto), contextCaptor.capture());
-            assertAll(
-                    () -> assertThat(contextCaptor.getValue().workspaceEnvironmentId()).isEqualTo("env-token"),
-                    () -> assertThat(contextCaptor.getValue().externalIdentity()).isNull());
+            assertThat(contextCaptor.getValue().applicationId()).isEqualTo("app-1");
             verify(presenter).presentRestSuccess(List.of("Mensaje creado exitosamente"), null);
-        }
-
-        @Test
-        @DisplayName("Incluye la identidad externa en el contexto cuando está presente")
-        void includesExternalIdentityWhenPresent() {
-            stubRender();
-            CreateMessageDTO dto = CreateMessageDTO.builder().code("MSG-002").build();
-            MockServerWebExchange exchange = exchange();
-            ExternalIdentity identity = new ExternalIdentity("issuer", "subject", "user@uco.edu.co", Instant.MAX);
-            exchange.getAttributes().put(EXTERNAL_IDENTITY_ATTRIBUTE, identity);
-
-            StepVerifier.create(controller.createMessage(dto, exchange)).verifyComplete();
-
-            ArgumentCaptor<MessageAccessContext> contextCaptor = ArgumentCaptor.forClass(MessageAccessContext.class);
-            verify(facade).execute(eq(dto), contextCaptor.capture());
-            assertThat(contextCaptor.getValue().externalIdentity()).isSameAs(identity);
         }
 
         @Test

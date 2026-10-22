@@ -10,7 +10,6 @@ import co.edu.uco.application.secondaryports.repository.SimplePage;
 import co.edu.uco.application.secondaryports.repository.SimplePageRequest;
 import co.edu.uco.application.usecase.domain.MessageDomain;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.application.usecase.validator.message.ListMessageValidator;
 import co.edu.uco.application.usecase.validator.page.PageRequestRangeValidator;
@@ -35,7 +34,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class FindMessageByEnvironmentUseCaseTest {
 
-    private static final MessageAccessContext ACCESS_CONTEXT = new MessageAccessContext("env", null);
+    private static final MessageAccessContext ACCESS_CONTEXT = new MessageAccessContext("app-1");
 
     @Mock
     private MessageCatalogStrategy messageCatalogStrategy;
@@ -60,7 +59,7 @@ class FindMessageByEnvironmentUseCaseTest {
         useCase = new FindMessageByEnvironmentUseCase(
                 messageCatalogStrategy, entityMapper, listMessageValidator, rangeValidator,
                 environmentResolver, loggerFactory);
-        when(environmentResolver.resolveApplication(ACCESS_CONTEXT, PermissionCode.MESSAGE_READ)).thenReturn("env");
+        when(environmentResolver.resolveApplication(ACCESS_CONTEXT)).thenReturn("env");
     }
 
     @Test

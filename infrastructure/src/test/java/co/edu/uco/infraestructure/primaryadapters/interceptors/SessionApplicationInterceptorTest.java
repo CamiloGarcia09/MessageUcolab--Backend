@@ -28,7 +28,6 @@ import java.util.function.Supplier;
 
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.APPLICATION_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
-import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.SESSION_APPLICATIONS_ATTRIBUTE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -121,18 +120,6 @@ class SessionApplicationInterceptorTest {
         assertThat((Object) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE)).isNull();
         assertThat((Object) exchange.getAttribute(APPLICATION_ID_ATTRIBUTE)).isNull();
         verify(facade, never()).resolveApplication(any(), any());
-    }
-
-    @Test
-    void filter_neverTrustsAnExternalIdentityAttribute() {
-        when(facade.findCurrentUserApplications(SESSION)).thenReturn(APPLICATIONS);
-        MockServerWebExchange exchange = exchange(MockServerHttpRequest.get("/messageucolab/v1/catalog/applications")
-                .cookie(new HttpCookie("SECURITY_BASELINE_SESSION", SESSION)));
-        exchange.getAttributes().put(EXTERNAL_IDENTITY_ATTRIBUTE, new Object());
-
-        interceptor.filter(exchange, chain).block();
-
-        assertThat((Object) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE)).isNull();
     }
 
     @Test

@@ -5,7 +5,7 @@ info:
     Contrato de la API de MessageUcoLab bajo el enfoque Contract First.
     Define las operaciones, parametros, modelos de entrada y salida, respuestas
     y autenticacion mediante el componente externo de seguridad. El frontend usa
-    su sesion BFF; los clientes Bearer deben seguir el contrato del proveedor.
+    su sesion BFF, obligatoria para resolver las aplicaciones asignadas por seguridad.
     MessageUcoLab no emite tokens propios ni acepta el header Token.
   version: 1.0.0
 
@@ -14,62 +14,19 @@ servers:
     description: Servidor local
 
 security:
-  - bearerAuth: []
+  - sessionCookie: []
 
 tags:
   - name: Mensajes
     description: Consulta y traduccion de mensajes.
-  - name: Contexto
-    description: Consulta y seleccion del contexto activo de la identidad autenticada.
+  - name: Sesion
+    description: Aplicaciones asignadas al usuario de la sesion BFF.
   - name: Catalogos
     description: Catalogos con identificadores UUID persistentes.
   - name: Administracion
     description: Creacion de aplicaciones y funcionalidades.
 
 paths:
-  /messageucolab/v1/workspace/local:
-    get:
-      tags: [Contexto]
-      summary: Obtener el destino fijo del desarrollo local
-      description: |
-        Disponible únicamente con el perfil local-workspace. No modifica contextos
-        de usuario. Requiere sesion autenticada y permiso en el PEP externo.
-        Los IDs proceden de la configuración del backend y deben corresponder al
-        mismo workspace persistido. Nunca activar este perfil en producción.
-      operationId: getLocalWorkspace
-      responses:
-        '200':
-          description: Configuración del workspace local fijo.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    minItems: 1
-                    maxItems: 1
-                    items:
-                      type: object
-                      required: [organizationId, organizationName, applicationId, applicationName, environmentId, environmentName]
-                      properties:
-                        organizationId:
-                          type: string
-                          format: uuid
-                        organizationName:
-                          type: string
-                        applicationId:
-                          type: string
-                          format: uuid
-                        applicationName:
-                          type: string
-                        environmentId:
-                          type: string
-                          format: uuid
-                        environmentName:
-                          type: string
-
   /messageucolab/v1/application:
     post:
       tags: [Administracion]
@@ -77,11 +34,12 @@ paths:
       description: |
         Crea una aplicacion asociada a una organizacion y aprovisiona atomicamente
         sus ambientes Develop, Testing y Production en estado Active.
-        organizationId
-        debe coincidir con la organizacion del contexto activo y se requiere APPLICATION_CREATE.
+        El id debe coincidir con una aplicacion asignada al usuario de la sesion BFF.
+        organizationId debe referenciar una organizacion de negocio existente.
+        El PEP exige el permiso de la ruta; no hay permisos ni roles locales.
       operationId: createApplication
       security:
-        - bearerAuth: []
+        - sessionCookie: []
       requestBody:
         required: true
         content:
@@ -129,11 +87,11 @@ paths:
       summary: Crear funcionalidad
       description: |
         Crea una funcionalidad para una aplicacion. No recibe fechas de inicio o fin.
-        applicationId
-        debe coincidir con la aplicacion del contexto activo y se requiere FUNCTIONALITY_CREATE.
+        applicationId debe estar registrado y asignado al usuario de la sesion BFF.
+        El PEP exige el permiso de la ruta; no hay permisos ni roles locales.
       operationId: createFunctionality
       security:
-        - bearerAuth: []
+        - sessionCookie: []
       requestBody:
         required: true
         content:
@@ -179,10 +137,10 @@ paths:
     post:
       tags: [Mensajes]
       summary: Crear mensaje
-      description: Crea un mensaje en el ambiente autorizado. La aplicacion y el ambiente se derivan del contexto activo de la identidad autenticada con Bearer.
+      description: Crea un mensaje en los environmentIds indicados. Deben pertenecer a la aplicacion de X-Application-Id, validada contra la sesion BFF.
       operationId: createMessage
       security:
-        - bearerAuth: []
+        - sessionCookie: []
       requestBody:
         required: true
         content:
@@ -237,7 +195,7 @@ paths:
         ambientes donde existe; filterEnvironments limita el listado a esos ambientes.
       operationId: findMessages
       security:
-        - bearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: code
           in: query
@@ -300,10 +258,10 @@ paths:
     post:
       tags: [Mensajes]
       summary: Traducir mensaje
-      description: Traduce un mensaje del ambiente del contexto activo de la identidad autenticada con Bearer sin guardar la traduccion.
+      description: Traduce un mensaje de la aplicacion autorizada mediante X-Application-Id y la sesion BFF, sin guardar la traduccion.
       operationId: translateMessageByCode
       security:
-        - bearerAuth: []
+        - sessionCookie: []
       parameters:
         - $ref: '#/components/parameters/MessageCode'
       requestBody:
@@ -330,21 +288,21 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /messageucolab/v1/me/contexts:
+  /messageucolab/v1/session/applications:
     get:
-      tags: [Contexto]
-      summary: Listar contextos disponibles
-      description: Retorna los contextos que la identidad autenticada puede seleccionar.
-      operationId: findAvailableContexts
+      tags: [Sesion]
+      summary: Listar aplicaciones de la sesion
+      description: Retorna las aplicaciones asignadas por seguridad y su estado de registro en MessageUcoLab. Requiere el permiso de negocio correspondiente en el PEP.
+      operationId: findSessionApplications
       security:
-        - bearerAuth: []
+        - sessionCookie: []
       responses:
         '200':
-          description: Contextos disponibles obtenidos correctamente.
+          description: Aplicaciones de la sesion obtenidas correctamente.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AvailableContextsResponse'
+                $ref: '#/components/schemas/SessionApplicationsResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -359,11 +317,11 @@ paths:
       tags: [Catalogos]
       summary: Listar aplicaciones
       description: |
-        Lista las aplicaciones autorizadas para la identidad autenticada con
-        Bearer y el permiso CONTEXT_SELECT.
+        Lista solo las aplicaciones de negocio registradas y asignadas al usuario
+        de la sesion BFF. Sin asignaciones no se devuelve ninguna aplicacion.
       operationId: findApplications
       security:
-        - bearerAuth: []
+        - sessionCookie: []
       responses:
         '200':
           $ref: '#/components/responses/CatalogFound'
@@ -379,12 +337,11 @@ paths:
       tags: [Catalogos]
       summary: Listar ambientes de una aplicacion
       description: |
-        La aplicacion debe coincidir con el contexto activo de la identidad
-        autenticada con Bearer y la lista
-        se filtra por los ambientes autorizados con CONTEXT_SELECT.
+        La aplicacion debe estar registrada y asignada al usuario de la sesion BFF.
+        Retorna sus ambientes, sin consultar contextos ni permisos locales.
       operationId: findEnvironmentsByApplication
       security:
-        - bearerAuth: []
+        - sessionCookie: []
       parameters:
         - $ref: '#/components/parameters/ApplicationId'
       responses:
@@ -406,12 +363,11 @@ paths:
       tags: [Catalogos]
       summary: Listar funcionalidades de una aplicacion
       description: |
-        La aplicacion debe coincidir con el contexto activo de la identidad
-        autenticada con Bearer y se
-        requiere CONTEXT_SELECT sobre esa aplicacion.
+        La aplicacion debe estar registrada y asignada al usuario de la sesion BFF.
+        Retorna sus funcionalidades, sin consultar contextos ni permisos locales.
       operationId: findFunctionalitiesByApplication
       security:
-        - bearerAuth: []
+        - sessionCookie: []
       parameters:
         - $ref: '#/components/parameters/ApplicationId'
       responses:
@@ -433,7 +389,6 @@ paths:
       tags: [Catalogos]
       summary: Listar tipos de mensaje
       operationId: findMessageTypes
-      security: []
       responses:
         '200':
           $ref: '#/components/responses/CatalogFound'
@@ -449,7 +404,6 @@ paths:
       tags: [Catalogos]
       summary: Listar categorias de mensaje
       operationId: findMessageCategories
-      security: []
       responses:
         '200':
           $ref: '#/components/responses/CatalogFound'
@@ -465,7 +419,6 @@ paths:
       tags: [Catalogos]
       summary: Listar estados de mensaje
       operationId: findMessageStates
-      security: []
       responses:
         '200':
           $ref: '#/components/responses/CatalogFound'
@@ -481,7 +434,6 @@ paths:
       tags: [Catalogos]
       summary: Listar estados de mensaje por ambiente
       operationId: findMessageEnvironmentStates
-      security: []
       responses:
         '200':
           $ref: '#/components/responses/CatalogFound'
@@ -492,74 +444,13 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /messageucolab/v1/me/context:
-    get:
-      tags: [Contexto]
-      summary: Consultar contexto activo
-      description: Retorna el contexto activo de la identidad autenticada.
-      operationId: findActiveContext
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Contexto activo obtenido correctamente.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ActiveContextResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '406':
-          $ref: '#/components/responses/NotAcceptable'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-    put:
-      tags: [Contexto]
-      summary: Seleccionar contexto activo
-      description: Valida y guarda el contexto activo de la identidad autenticada.
-      operationId: selectActiveContext
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SelectActiveContextRequest'
-      responses:
-        '200':
-          description: Contexto activo seleccionado correctamente.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ActiveContextResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '406':
-          $ref: '#/components/responses/NotAcceptable'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
 components:
   securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      description: Token Bearer de la identidad externa.
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: SECURITY_BASELINE_SESSION
+      description: Sesion BFF externa. El PEP conserva la autorizacion por ruta.
 
   parameters:
     ApplicationId:
@@ -683,7 +574,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
-      description: Credencial ausente o invalida. Tambien aplica a Bearer invalido enviado a una operacion publica.
+      description: Sesion BFF ausente o invalida.
       content:
         application/json:
           schema:
@@ -893,13 +784,18 @@ components:
             $ref: '#/components/schemas/ErrorDetail'
     CreateApplicationRequest:
       type: object
-      required: [name, organizationId, languageId, stateId]
+      required: [id, name, organizationId, languageId, stateId]
       example:
+        id: 123e4567-e89b-12d3-a456-426614174000
         name: Aplicacion de ejemplo
         organizationId: 123e4567-e89b-12d3-a456-426614174010
         languageId: 123e4567-e89b-12d3-a456-426614174020
         stateId: 123e4567-e89b-12d3-a456-426614174030
       properties:
+        id:
+          type: string
+          format: uuid
+          description: UUID de la aplicacion asignada por seguridad a la sesion BFF.
         name:
           type: string
           minLength: 1
@@ -1031,42 +927,21 @@ components:
           maxItems: 0
           items:
             $ref: '#/components/schemas/ErrorDetail'
-    SelectActiveContextRequest:
+    SessionApplication:
       type: object
-      required: [organizationId, applicationId, environmentId]
-      example:
-        organizationId: 123e4567-e89b-12d3-a456-426614174010
-        applicationId: 123e4567-e89b-12d3-a456-426614174000
-        environmentId: 123e4567-e89b-12d3-a456-426614174080
+      required: [id, name, registered]
       properties:
-        organizationId:
+        id:
           type: string
           format: uuid
-        applicationId:
+        name:
           type: string
-          format: uuid
-        environmentId:
-          type: string
-          format: uuid
-    ActiveContext:
-      allOf:
-        - $ref: '#/components/schemas/SelectActiveContextRequest'
-        - type: object
-          required: [updatedAt]
-          properties:
-            updatedAt:
-              type: string
-              format: date-time
-    AvailableContext:
-      type: object
-      required: [organization, application, environment]
-      properties:
+        registered:
+          type: boolean
         organization:
-          $ref: '#/components/schemas/CatalogItem'
-        application:
-          $ref: '#/components/schemas/CatalogItem'
-        environment:
-          $ref: '#/components/schemas/CatalogItem'
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/CatalogItem'
     CatalogItem:
       type: object
       required: [id, name]
@@ -1089,14 +964,14 @@ components:
           maxItems: 0
           items:
             $ref: '#/components/schemas/ErrorDetail'
-    AvailableContextsResponse:
+    SessionApplicationsResponse:
       type: object
       required: [data, errors]
       properties:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/AvailableContext'
+            $ref: '#/components/schemas/SessionApplication'
         errors:
           type: array
           maxItems: 0
@@ -1104,33 +979,10 @@ components:
             $ref: '#/components/schemas/ErrorDetail'
       example:
         data:
-          - organization:
+          - id: 123e4567-e89b-12d3-a456-426614174000
+            name: Aplicacion de ejemplo
+            registered: true
+            organization:
               id: 123e4567-e89b-12d3-a456-426614174010
               name: Organizacion de ejemplo
-            application:
-              id: 123e4567-e89b-12d3-a456-426614174000
-              name: Aplicacion de ejemplo
-            environment:
-              id: 123e4567-e89b-12d3-a456-426614174080
-              name: Develop
-        errors: []
-    ActiveContextResponse:
-      type: object
-      required: [data, errors]
-      properties:
-        data:
-          type: array
-          items:
-            $ref: '#/components/schemas/ActiveContext'
-        errors:
-          type: array
-          maxItems: 0
-          items:
-            $ref: '#/components/schemas/ErrorDetail'
-      example:
-        data:
-          - organizationId: 123e4567-e89b-12d3-a456-426614174010
-            applicationId: 123e4567-e89b-12d3-a456-426614174000
-            environmentId: 123e4567-e89b-12d3-a456-426614174080
-            updatedAt: '2026-10-06T12:00:00Z'
         errors: []

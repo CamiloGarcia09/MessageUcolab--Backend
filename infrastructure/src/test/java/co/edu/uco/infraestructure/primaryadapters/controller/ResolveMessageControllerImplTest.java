@@ -4,7 +4,6 @@ import co.edu.uco.application.primaryports.dto.message.ResolvedMessageDTO;
 import co.edu.uco.application.primaryports.facade.message.ResolveMessageUseCaseFacade;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.secondaryports.presenter.RenderedResponse;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
 import co.edu.uco.crosscutting.exceptions.NotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,7 +21,7 @@ import reactor.test.StepVerifier;
 import java.util.List;
 
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
-import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.APPLICATION_ID_ATTRIBUTE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
@@ -57,6 +56,7 @@ class ResolveMessageControllerImplTest {
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/messageucolab/v1/messages/resolve").build());
         exchange.getAttributes().put(ENVIRONMENT_ID_ATTRIBUTE, environmentId);
+        exchange.getAttributes().put(APPLICATION_ID_ATTRIBUTE, "app-1");
         return exchange;
     }
 
@@ -69,38 +69,35 @@ class ResolveMessageControllerImplTest {
         void delegatesAndPresentsResolvedMessage() {
             stubRender();
             var expected = new ResolvedMessageDTO("CODE", "Title", "Content");
-            when(facade.execute(eq("CODE"), any(MessageAccessContext.class))).thenReturn(expected);
+            when(facade.execute(eq("CODE"), eq("env-1"), any(MessageAccessContext.class))).thenReturn(expected);
 
             StepVerifier.create(controller.resolve("CODE", exchange("env-1"))).verifyComplete();
 
-            verify(facade).execute(eq("CODE"), any(MessageAccessContext.class));
+            verify(facade).execute(eq("CODE"), eq("env-1"), any(MessageAccessContext.class));
             verify(presenter).presentRestSuccess(List.of(expected), null);
         }
 
         @Test
-        @DisplayName("Construye el contexto con el ambiente del token y la identidad externa")
-        void buildsContextWithEnvironmentAndExternalIdentity() {
+        @DisplayName("Construye el contexto con la aplicación validada de la sesión")
+        void buildsContextWithSessionApplication() {
             stubRender();
-            ExternalIdentity identity = new ExternalIdentity("issuer", "subject", "user@uco.edu.co", null);
             MockServerWebExchange exchange = exchange("env-1");
-            exchange.getAttributes().put(EXTERNAL_IDENTITY_ATTRIBUTE, identity);
             var expected = new ResolvedMessageDTO("CODE", "Title", "Content");
-            when(facade.execute(eq("CODE"), any(MessageAccessContext.class))).thenReturn(expected);
+            when(facade.execute(eq("CODE"), eq("env-1"), any(MessageAccessContext.class))).thenReturn(expected);
 
             StepVerifier.create(controller.resolve("CODE", exchange)).verifyComplete();
 
             ArgumentCaptor<MessageAccessContext> contextCaptor = ArgumentCaptor.forClass(MessageAccessContext.class);
-            verify(facade).execute(eq("CODE"), contextCaptor.capture());
+            verify(facade).execute(eq("CODE"), eq("env-1"), contextCaptor.capture());
             assertAll(
-                    () -> assertThat(contextCaptor.getValue().workspaceEnvironmentId()).isEqualTo("env-1"),
-                    () -> assertThat(contextCaptor.getValue().externalIdentity()).isSameAs(identity));
+                    () -> assertThat(contextCaptor.getValue().applicationId()).isEqualTo("app-1"));
         }
 
         @Test
         @DisplayName("Propaga el error del caso de uso sin presentar")
         void propagatesFacadeFailure() {
             NotFoundException failure = NotFoundException.buildUserException("mensaje inexistente");
-            when(facade.execute(eq("CODE"), any(MessageAccessContext.class))).thenThrow(failure);
+            when(facade.execute(eq("CODE"), eq("env-1"), any(MessageAccessContext.class))).thenThrow(failure);
 
             StepVerifier.create(controller.resolve("CODE", exchange("env-1")))
                     .expectErrorSatisfies(error -> assertThat(error).isSameAs(failure))

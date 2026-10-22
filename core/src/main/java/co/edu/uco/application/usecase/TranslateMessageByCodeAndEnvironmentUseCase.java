@@ -13,7 +13,6 @@ import co.edu.uco.application.usecase.handling.HandlingTranslateMessageByCodeAnd
 import co.edu.uco.application.usecase.validator.message.FindMessageCodeValidator;
 import co.edu.uco.application.usecase.validator.message.TargetLanguageValidator;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
@@ -65,7 +64,7 @@ public final class TranslateMessageByCodeAndEnvironmentUseCase
             findMessageCodeValidator.validate(messageCode);
             targetLanguageValidator.validate(targetLanguage);
             // El contenido es el mismo en todos los ambientes: la traduccion se resuelve por aplicacion.
-            var applicationId = environmentResolver.resolveApplication(context, PermissionCode.MESSAGE_TRANSLATE);
+            var applicationId = environmentResolver.resolveApplication(context);
 
             var normalizedSourceLanguage = isEmptyOrNull(sourceLanguage)
                     ? DEFAULT_SOURCE_LANGUAGE

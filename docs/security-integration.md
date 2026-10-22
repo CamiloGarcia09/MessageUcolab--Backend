@@ -4,6 +4,46 @@ Esta configuración pertenece únicamente a MessageUcoLab. No modifica ni arranc
 el stack `security-baseline`, sus repositorios o su frontend. El equipo responsable
 de seguridad debe mantener disponibles los servicios y permisos requeridos.
 
+## Retiro de contextos y autorización local (22 de octubre de 2026)
+
+Se eliminan `external_identity`, `active_context`, `membership`, `permission`,
+`role`, `role_permission` y `role_assignment` del seed SurrealDB y del código que
+las consultaba: entidades, puertos, casos de uso, validadores, adaptadores,
+caché y endpoints `/me/context` y `/me/contexts`. OpenAPI usa la cookie BFF y
+documenta `/session/applications` en lugar del mecanismo retirado.
+
+`MessageAccessContext` contiene solo la aplicación validada contra la sesión.
+Los catálogos filtran las aplicaciones registradas y asignadas; ambientes y
+funcionalidades requieren pertenencia a la sesión antes de consultar sus datos.
+Crear una aplicación exige su UUID asignado, y crear funcionalidades exige una
+aplicación asignada y registrada. No se omite la autorización por una lista de
+sesión ausente. El SSE conserva el aislamiento por aplicación. El PEP mantiene
+los permisos por ruta; no se alteró el componente externo de seguridad.
+
+Validación: `unit-test-agent`, con GPT-6 Luna Fast, restauró los escenarios de
+negocio vigentes, auditó con `unit-test-validator` y completó
+`mvnw.cmd clean verify` en primer plano con **BUILD SUCCESS**. Los controles
+JaCoCo configurados de los tres módulos pasaron; líneas/ramas: `utils`
+96,32 % / 96,97 %, `core` 97,73 % / 93,75 % e `infrastructure`
+91,16 % / 83,97 %. Surefire informó cero fallos, errores y omitidas. Los conteos
+de `utils` y `core` coinciden entre consola y XML: 208 y 1.083; en infraestructura
+hay una discrepancia de contador pendiente de explicación (503 en consola y 499
+en los XML por clase). No se presenta un total agregado como reconciliado.
+Esta verificación no equivale a una ejecución del Quality Gate remoto de SonarCloud.
+
+Después de la verificación se borraron **exactamente las siete tablas** de la
+base local configurada mediante Doppler `messageucolab/dev`, en una sola
+transacción. Se comprobó su ausencia con una consulta independiente: el esquema
+pasó de 28 a 21 tablas. Las otras 21 tablas conservaron sus nombres y sus conteos
+de registros; se verificaron también dentro de la transacción. No se ejecutó el
+seed completo, no se vació Redis ni se alteraron secretos, imágenes o volúmenes.
+Docker no respondía a las consultas del CLI; la operación se realizó directamente
+en SurrealDB por su puerto local 8005, sin reiniciar servicios.
+
+Los cambios están sin commit. No se reconstruyó ni desplegó la imagen del backend
+ni se reprodujo un login en navegador tras esta limpieza. El siguiente build debe
+usar el seed actualizado para no recrear el esquema retirado.
+
 ## Proyectos que se usan conjuntamente
 
 Las rutas completas y los puertos están en la sección de coordinación de
@@ -125,11 +165,13 @@ local con credenciales propias no demuestra que el pipeline ya tenga acceso.
 - `GITHUB_PACKAGES_TOKEN` sirve solo para descargar dependencias Maven durante el
   build. Compose lo entrega como secreto de BuildKit; no es un `ARG`, no se copia
   al contexto ni se incorpora a la imagen final.
-- El archivo Maven existente se monta como secreto de BuildKit. Por defecto se
-  busca en `${HOME}/.m2/settings.xml` o `${USERPROFILE}/.m2/settings.xml` en Windows.
+- El archivo Maven se monta como secreto de BuildKit. Por defecto Compose usa
+  `.mvn/settings.xml` del repositorio, con la ruta `../../.mvn/settings.xml`
+  relativa a `deployment/docker/docker-compose.yml`, sin depender de `~/.m2`.
   `MAVEN_SETTINGS_FILE` permite elegir otro archivo sin copiar sus credenciales.
-- El usuario Maven puede seguir siendo el literal no secreto del archivo existente
-  o usar `GITHUB_PACKAGES_USER`, pasado como argumento de build no secreto.
+- La plantilla del repositorio toma `GITHUB_PACKAGES_USER` y
+  `GITHUB_PACKAGES_TOKEN` del entorno del build; el usuario se pasa como argumento
+  de build no secreto y el token como secreto de BuildKit.
 - Ni los secretos ni `settings.xml` se montan en el contenedor de runtime.
 
 Mantener el token GitHub en el entorno local o gestor de secretos; no copiarlo a
@@ -156,13 +198,41 @@ No ejecutar un `up` general, inicializadores de datos ni operaciones sobre segur
 El Dockerfile ejecuta pruebas con `clean verify`: pedir autorización para
 `unit-test-agent` antes de construir o validar, siempre en primer plano. Una vez
 autorizado, desde `deployment/docker`, el agente puede reconstruir y recrear solo
-MessageUcoLab con `--no-deps`, preservando el overlay local si corresponde. El
-perfil `local-workspace` selecciona el contexto de negocio, no reemplaza el PEP.
+MessageUcoLab con `--no-deps` usando el único `docker-compose.yml`. La sesión BFF
+y la selección de aplicaciones funcionan por defecto, sin perfiles. El PEP sigue activo.
 
 No dar la integración por validada únicamente por compilar: comprobar salud,
 rechazo sin sesión (401), denegación sin permiso (403), acceso permitido y carga de
 Security UI. Si seguridad está detenida, reportar el bloqueo sin arrancarla ni
 alterarla para provocar o resolver fallos. No exponer credenciales en las evidencias.
+
+### Arranque predeterminado con sesión BFF y un único Compose
+
+El usuario confirmó el acceso mediante la sesión BFF. Ese flujo ahora se registra
+normalmente en la aplicación: no requiere perfiles de Spring, un overlay ni una
+bandera de frontend. Desde `deployment/docker`, reconstruir solo MessageUcoLab con:
+
+```powershell
+doppler run --project messageucolab --config dev -- docker compose up -d --build --no-deps messageucolab
+```
+
+- El Compose principal configura el PDP accesible
+  desde el contenedor mediante `SECURITY_PDP_URL`, inyectada por Doppler. En este
+  entorno Docker debe apuntar a `http://host.docker.internal:18080`; Java en el
+  host conserva `http://localhost:18080` por defecto.
+- No se necesita un segundo archivo ni opciones `-f` desde `deployment/docker`.
+  La integración de sesión se registra sin condiciones de perfil.
+- `doppler run --` presupone el scope local correcto. Si no está configurado,
+  usar `doppler run --project messageucolab --config dev --` con el mismo comando.
+- `--no-deps` limita la operación a MessageUcoLab, sin volver a ejecutar los
+  inicializadores ni operar el despliegue externo de seguridad. `--build` ejecuta
+  `clean verify` dentro del Dockerfile: cualquier repetición por el agente sigue
+  requiriendo la autorización y delegación de pruebas descritas en `AGENTS.md`.
+- La confirmación funcional previa procede del usuario; no certifica un nuevo
+  despliegue tras consolidar Compose. Los rechazos `401` y el timeout `503`
+  investigados antes de esta confirmación son antecedentes, no un bloqueo actual
+  demostrado. No atribuir a este comando cambios de datos o credenciales de
+  seguridad ni afirmar que certifica todas las operaciones de negocio.
 
 ### Evidencia de la migración a Boot 4
 
@@ -173,7 +243,7 @@ convivencia de los mappers Jackson 2/3, sin simular el filtro.
 
 La imagen migrada se desplegó solo en MessageUcoLab. Con seguridad disponible,
 los endpoints de salud del backend, gateway, PDP y PEP respondieron 200. Las rutas
-de mensajes, workspace local y catálogo respondieron 401 sin sesión tanto por
+de mensajes, del destino fijo de desarrollo entonces existente y de catálogo respondieron 401 sin sesión tanto por
 8085 como por el gateway 8000; desaparecieron el `NoSuchMethodError` y los 502.
 Los preflights CORS conservaron origen exacto y credenciales habilitadas.
 
@@ -189,10 +259,10 @@ seguridad para obtener esos resultados.
   cargaron el contexto y el menú de MessageUcoLab. No interpretar la indisponibilidad
   de la comprobación inicial como el estado permanente de esos proyectos.
 - MessageUcoLab condiciona la navegación a la autenticación y a `activeContext`
-  (`MessageUcolab--Frontend/src/App.vue`). Si
-  `GET /messageucolab/v1/workspace/local` devuelve 403, no se carga ese contexto y
-  puede desaparecer todo el menú. El overlay `local-workspace` fija
-  UCO / Arquisoft / Develop, pero no evita el control de permisos del PEP.
+  (`MessageUcolab--Frontend/src/App.vue`). En la versión de esa comprobación,
+  el destino fijo de desarrollo también requería permiso para cargar el menú.
+  Ese mecanismo y su endpoint ya fueron retirados; el flujo actual consulta las
+  aplicaciones de la sesión mediante `/messageucolab/v1/session/applications`.
 - El 403 que inicialmente afectaba al listado de mensajes quedó **resuelto**:
   el usuario confirmó que, tras agregar las rutas y sus permisos, todo funciona.
   La captura posterior muestra el listado cargado correctamente. No mantener
@@ -223,17 +293,80 @@ esa sesión no amplían el alcance permitido para futuras intervenciones.
   no un segundo secreto de escritura de la aplicación.
 - El frontend conserva `credentials: 'include'` y la sesión BFF. Se eliminan los
   parámetros de token sin uso y el respaldo versionado del cliente anterior.
-- `local-workspace` conserva el contexto fijo validado por el PEP. Su ambiente
-  se transporta en `MessageAccessContext.workspaceEnvironmentId`, no como legado.
-- Fuera de ese perfil, `ActiveContextInterceptor` exige identidad externa y no
-  interpreta credenciales propietarias. El adaptador real del proveedor hacia
-  `ExternalIdentity` no forma parte de este retiro: una sesión PEP no debe
-  confundirse con la existencia de ese puente. Sin él, el modo por usuario sigue
-  cerrado (`401`), no se habilita un acceso alternativo.
+- El modo de destino fijo y su campo de ambiente fueron retirados posteriormente.
+  `MessageAccessContext` conserva solo la aplicación validada contra la sesión BFF.
+  La resolución recibe y valida el ambiente como argumento explícito.
+- El flujo alternativo de identidad externa simulada se retiró posteriormente del
+  arranque HTTP. La sesión BFF y la consulta al PDP son el camino predeterminado;
+  no hay un perfil que pueda sustituirlas por autenticación simulada.
 - El seed nuevo no define las tablas ni eventos exclusivos de tokens. No se
   borraron volúmenes, registros persistidos, entradas Redis ni secretos remotos.
   Su eventual limpieza requiere una operación independiente y delimitada.
 - No se modifica ni se opera el componente externo de seguridad.
+
+## Retiro del destino fijo de desarrollo
+
+Se eliminan el endpoint del destino fijo, su controlador, interceptor, propiedades,
+configuración Spring y overlay Docker. El frontend retira el cliente, las ramas
+de carga y los indicadores exclusivos de ese modo. OpenAPI y las guías dejan de
+ofrecerlo como alternativa de acceso.
+
+El contexto de acceso de mensajes ya no contiene ambiente ni constructores de
+compatibilidad del destino fijo. La aplicación se obtiene de la sesión validada
+contra las aplicaciones asignadas por seguridad. Para resolver un mensaje,
+el ambiente llega explícitamente desde `X-Environment-Id`: se comprueban
+su UUID, existencia y pertenencia a la aplicación antes de consultar el mensaje.
+Crear, editar, eliminar, traducir y listar siguen operando por aplicación; los
+ambientes de cada mensaje permanecen como datos de negocio.
+
+Este retiro no borra datos, seeds, secretos ni permisos externos. No modifica ni
+reinicia el despliegue de seguridad. El modo sesión conserva el arranque con un
+único archivo Compose, con la sesión predeterminada, y la autenticación y
+autorización del PEP.
+
+Validación anterior al retiro del selector de perfiles: `unit-test-agent` ejecutó `mvnw.cmd clean verify` en
+primer plano con Java 25 y terminó con `BUILD SUCCESS`: 208 pruebas en `utils`,
+1.254 en `core` y 594 en `infrastructure` (2.056 en total), sin fallos, errores ni
+omitidas. JaCoCo aprobó los checks configurados; cobertura de líneas/ramas:
+`utils` 96,32 % / 96,97 %, `core` 98,37 % / 93,91 % e `infrastructure`
+91,37 % / 83,57 %. El agente auditó las pruebas afectadas con
+`unit-test-validator`. En esa versión se verificó la separación de perfiles,
+además del rechazo de ambientes inválidos, inexistentes o ajenos. Es evidencia
+histórica, no la validación del arranque predeterminado posterior.
+El frontend completó build con Vite y ESLint sobre los archivos afectados; no
+tiene suite automatizada de frontend configurada. No se reconstruyó ni desplegó
+la imagen Docker, no se reprodujo un login en navegador ni se ejecutaron pruebas
+contra los servicios compartidos de seguridad.
+
+## Sesión BFF predeterminada, sin selector de perfiles
+
+`SessionApplicationInterceptor` y `SessionApplicationControllerImpl` ya no usan
+`@Profile`. Las propiedades de sesión están en `application.properties`, y el
+Compose local no fija perfiles. El frontend siempre usa el selector de aplicaciones
+y revalida la selección guardada contra la sesión al arrancar, sin bandera de modo.
+
+Se retiraron los interceptores del flujo alternativo de contexto/identidad externa,
+su helper, la configuración vacía del simulador y su adaptador de infraestructura.
+También se retiraron las variables de simulación del Compose local y el selector
+de contexto y formularios exclusivos del flujo anterior en el frontend. No se
+modifican las cookies BFF, las rutas de negocio vigentes, el PEP, los permisos ni
+los servicios externos. El perfil `azure` se conserva exclusivamente para logging
+e identidad administrada de nube; no controla el acceso por sesión.
+
+Validación del arranque predeterminado: `unit-test-agent`, con GPT-6 Luna Fast y
+Java 25, completó `mvnw.cmd clean verify` en primer plano con `BUILD SUCCESS`:
+208 pruebas en `utils`, 1.254 en `core` y 569 en `infrastructure` (2.031 en total),
+sin fallos, errores ni omitidas. Los checks JaCoCo pasaron: líneas/ramas de
+`utils` 96,32 % / 96,97 %, `core` 98,37 % / 93,91 % e `infrastructure`
+91,42 % / 83,04 %. Se auditó con `unit-test-validator` el registro normal de los
+componentes de sesión, la carga de la propiedad del PDP sin perfil y los rechazos
+de autenticación/autorización, sin invocar servicios de seguridad reales.
+
+El frontend completó build y ESLint de los archivos afectados. Compose pasó
+`config --quiet` con Doppler; esa validación advirtió que `GITHUB_PACKAGES_USER`
+no estaba definido, dato que debe configurarse antes de construir con la plantilla
+Maven del repositorio. Estas comprobaciones no reconstruyeron imágenes ni
+recrearon contenedores, ni reproducen un login autenticado en navegador.
 
 ## Recuperación de acceso del frontend (20 de octubre de 2026)
 
@@ -251,6 +384,14 @@ La adaptación se limita al frontend MessageUcoLab:
   sin redirigir ni reautenticar automáticamente. Solo el botón **Volver a Conectar**
   abre el endpoint público `/oauth2/authorization/keycloak`, conservando `return_to`.
   No cierra la sesión global ni llama al canal interno de intercambio de tokens.
+- El retorno de login conserva origen, ruta y query, pero excluye el fragmento
+  `#...`: la política pública `OidcReturnTargetPolicy` de Security Baseline lo
+  rechaza con `400` aunque el origen esté permitido. El frontend guarda el
+  fragmento en `sessionStorage` y, tras recuperar una sesión válida, lo restaura
+  con `history.replaceState` solo en la URL de retorno exacta, antes de montar la
+  aplicación. Sin almacenamiento disponible, vuelve a la ruta sin fragmento.
+  Esto no cambia la lista de orígenes autorizados ni confirma por sí solo el
+  acceso protegido; tampoco restaura formularios ni reenvía escrituras.
 - `src/api.js` detecta `401` incluso cuando el BFF reconoce la sesión; las consultas
   usan `cache: 'no-store'`. El estado de recuperación se confirma mediante una
   lectura protegida exitosa, nunca por el `200` del BFF ni por una escritura.

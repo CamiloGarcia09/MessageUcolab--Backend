@@ -3,7 +3,6 @@ package co.edu.uco.infraestructure.primaryadapters.controller;
 import co.edu.uco.application.primaryports.facade.message.DeleteMessageUseCaseFacade;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
 import co.edu.uco.infraestructure.primaryadapters.DeleteMessageController;
 import co.edu.uco.infraestructure.primaryadapters.ReactiveHttpResponse;
@@ -15,8 +14,6 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.APPLICATION_ID_ATTRIBUTE;
-import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
-import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
 
 @RestController
 final class DeleteMessageControllerImpl implements DeleteMessageController {
@@ -43,8 +40,6 @@ final class DeleteMessageControllerImpl implements DeleteMessageController {
 
     private MessageAccessContext context(ServerWebExchange exchange) {
         return new MessageAccessContext(
-                (String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE),
-                (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE),
                 (String) exchange.getAttribute(APPLICATION_ID_ATTRIBUTE));
     }
 }

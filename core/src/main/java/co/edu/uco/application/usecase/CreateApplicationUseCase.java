@@ -10,18 +10,11 @@ import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.ApplicationRepository;
 import co.edu.uco.application.secondaryports.repository.EnvironmentReferenceCatalogRepository;
 import co.edu.uco.application.usecase.domain.aggregate.entities.OrganizationEntity;
-import co.edu.uco.application.usecase.domain.security.AuthorizationScopeType;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
-import co.edu.uco.application.usecase.handling.HandlingActiveContextPort;
 import co.edu.uco.application.usecase.handling.HandlingCreateApplicationPort;
-import co.edu.uco.application.usecase.validator.authorization.AuthorizationCompositeValidator;
 import co.edu.uco.application.usecase.validator.application.CreateApplicationCompositeValidator;
-import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
-import co.edu.uco.crosscutting.exceptions.ForbiddenException;
 import co.edu.uco.crosscutting.exceptions.enumeration.ExceptionLocation;
 import co.edu.uco.crosscutting.helpers.UtilUUID;
 
@@ -34,7 +27,6 @@ import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_177;
 import static co.edu.uco.crosscutting.helpers.UtilObject.isNullObject;
 import static co.edu.uco.crosscutting.helpers.UtilText.isEmptyOrNull;
 import static co.edu.uco.crosscutting.helpers.UtilUUID.getUUIDFromString;
-import static co.edu.uco.crosscutting.helpers.UtilUUID.isEqual;
 
 public final class CreateApplicationUseCase implements HandlingCreateApplicationPort {
 
@@ -43,30 +35,23 @@ public final class CreateApplicationUseCase implements HandlingCreateApplication
     private final ApplicationRepository applicationRepository;
     private final EnvironmentReferenceCatalogRepository environmentReferenceCatalogRepository;
     private final CreateApplicationCompositeValidator validator;
-    private final HandlingActiveContextPort activeContextPort;
-    private final AuthorizationCompositeValidator authorizationRule;
     private final CatalogPort catalogPort;
     private final LoggingPort log;
 
     public CreateApplicationUseCase(ApplicationRepository applicationRepository,
                                     EnvironmentReferenceCatalogRepository environmentReferenceCatalogRepository,
                                     CreateApplicationCompositeValidator validator,
-                                    HandlingActiveContextPort activeContextPort,
-                                    AuthorizationCompositeValidator authorizationRule,
                                     CatalogPort catalogPort,
                                     LoggingPortFactory loggerFactory) {
         this.applicationRepository = applicationRepository;
         this.environmentReferenceCatalogRepository = environmentReferenceCatalogRepository;
         this.validator = validator;
-        this.activeContextPort = activeContextPort;
-        this.authorizationRule = authorizationRule;
         this.catalogPort = catalogPort;
         this.log = loggerFactory.getLogger(CreateApplicationUseCase.class);
     }
 
     @Override
-    public void createApplication(CreateApplicationDTO dto, ExternalIdentity identity) {
-        authorizeAgainstActiveContext(identity, dto.getOrganizationId());
+    public void createApplication(CreateApplicationDTO dto) {
         validator.validate(dto);
 
         try {
@@ -122,24 +107,4 @@ public final class CreateApplicationUseCase implements HandlingCreateApplication
         return BusinessRuleException.buildUserException(catalogPort.getMessage(FUN_175.getCode()));
     }
 
-    private void authorizeAgainstActiveContext(final ExternalIdentity identity, final String requestedOrganizationId) {
-        if (identity == null) {
-            return;
-        }
-        var activeContext = activeContextPort.findActiveContext(identity);
-        if (activeContext == null) {
-            throw forbidden();
-        }
-        var contextOrganizationId = getUUIDFromString(activeContext.getOrganizationId());
-        if (!isEqual(contextOrganizationId, getUUIDFromString(requestedOrganizationId))) {
-            throw forbidden();
-        }
-        authorizationRule.validate(identity, PermissionCode.APPLICATION_CREATE,
-                AuthorizationScopeType.ORGANIZATION, contextOrganizationId);
-    }
-
-    private ForbiddenException forbidden() {
-        return ForbiddenException.buildUserException(
-                catalogPort.getMessage(MessageCatalogCodeEnum.FUN_153.getCode()));
-    }
 }

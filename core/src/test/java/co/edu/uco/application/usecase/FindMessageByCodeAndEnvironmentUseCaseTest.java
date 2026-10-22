@@ -8,7 +8,6 @@ import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.usecase.domain.MessageDomain;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.application.usecase.validator.message.FindMessageCodeValidator;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
@@ -31,7 +30,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class FindMessageByCodeAndEnvironmentUseCaseTest {
 
-    private static final MessageAccessContext ACCESS_CONTEXT = new MessageAccessContext("env", null);
+    private static final MessageAccessContext ACCESS_CONTEXT = new MessageAccessContext("app-1");
 
     @Mock
     private MessageCatalogStrategy messageCatalogStrategy;
@@ -53,7 +52,7 @@ class FindMessageByCodeAndEnvironmentUseCaseTest {
         when(loggerFactory.getLogger(FindMessageByCodeAndEnvironmentUseCase.class)).thenReturn(log);
         useCase = new FindMessageByCodeAndEnvironmentUseCase(
                 messageCatalogStrategy, findMessageCodeValidator, entityMapper, environmentResolver, loggerFactory);
-        when(environmentResolver.resolveApplication(ACCESS_CONTEXT, PermissionCode.MESSAGE_READ)).thenReturn("env");
+        when(environmentResolver.resolveApplication(ACCESS_CONTEXT)).thenReturn("env");
     }
 
     @Test

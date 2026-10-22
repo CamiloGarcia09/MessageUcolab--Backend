@@ -32,7 +32,7 @@ class FindMessagesByEnvironmentUsecaseFacadeImplTest {
     void execute_buildsPageRequestAndDelegates() {
         PageRequestDTO pageDTO = new PageRequestDTO();
         SimplePageRequest request = new SimplePageRequest();
-        MessageAccessContext context = new MessageAccessContext("env", null);
+        MessageAccessContext context = new MessageAccessContext("app-1");
         when(simplePageFacadeImpl.execute(pageDTO)).thenReturn(request);
 
         SimplePage<MessageDTO> page = SimplePage.of(java.util.List.of(), 1, 10, 0, 0);

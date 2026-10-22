@@ -94,12 +94,11 @@ class SurrealInitScriptContractTest {
     private static final String INIT_NOW_VALUE = "$init_now";
 
     private static final Set<String> TABLES_WITH_IMMUTABLE_CREATED_AT = Set.of(
-            "domain_events", "organization", "external_identity", "application", "environment",
-            "membership", "role", "role_assignment", "functionality", "message", "message_environment");
+            "domain_events", "organization", "application", "environment", "functionality", "message",
+            "message_environment");
 
     private static final Set<String> TABLES_WITH_MUTABLE_UPDATED_AT = Set.of(
-            "organization", "external_identity", "application", "environment", "active_context",
-            "functionality", "message", "message_environment");
+            "organization", "application", "environment", "functionality", "message", "message_environment");
 
     private String script;
 
@@ -117,7 +116,7 @@ class SurrealInitScriptContractTest {
     }
 
     @Nested
-    @DisplayName("created_at es inmutable en las once tablas que lo declara")
+        @DisplayName("created_at es inmutable en las tablas que lo declaran")
     class ImmutableCreatedAt {
 
         @BeforeEach
@@ -137,7 +136,7 @@ class SurrealInitScriptContractTest {
         }
 
         @Test
-        @DisplayName("Los ocho updated_at declarados siguen usando VALUE time::now() para recalcularse")
+        @DisplayName("Los updated_at declarados siguen usando VALUE time::now() para recalcularse")
         void updatedAtDefinitions_eightTables_keepValueTimeNow() {
             assertThat(tablesDefining(script, UPDATED_AT_DEFINITION))
                     .containsExactlyInAnyOrderElementsOf(TABLES_WITH_MUTABLE_UPDATED_AT);
@@ -221,13 +220,13 @@ class SurrealInitScriptContractTest {
         }
 
         @Test
-        @DisplayName("La semilla recrea los veintitrés registros deterministas sin repetir ninguno")
+        @DisplayName("La semilla recrea diez registros deterministas sin repetir ninguno")
         void seedRecords_keepTwentyOneDeterministicTargets() {
             List<String> targets = seedUpsertTargets(script);
 
             assertAll(
                     () -> assertThat(targets).doesNotHaveDuplicates(),
-                    () -> assertThat(targets).hasSize(23),
+                    () -> assertThat(targets).hasSize(10),
                     () -> assertThat(targets).contains("organization:`8f2d3a10-6b47-4c91-a5e8-2d7f9b3c1a40`",
                             "environment:`7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82`",
                             "environment:`ebe114e4-01d4-427b-9773-b63325ddd55c`",

@@ -10,7 +10,7 @@ import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.secondaryports.event.MessageEvent;
 import co.edu.uco.application.secondaryports.event.MessageEventStreamPort;
 import co.edu.uco.application.secondaryports.repository.SimplePage;
-import co.edu.uco.application.usecase.domain.security.*;
+import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
 import co.edu.uco.infraestructure.primaryadapters.MessagesController;
 import co.edu.uco.infraestructure.primaryadapters.ReactiveHttpResponse;
 import org.springframework.web.bind.annotation.RestController;
@@ -55,17 +55,13 @@ final class MessagesControllerImpl implements MessagesController {
     }
     public Flux<ServerSentEvent<MessageEvent>> events(ServerWebExchange exchange) {
         String application = (String) exchange.getAttribute(APPLICATION_ID_ATTRIBUTE);
-        String environment = (String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE);
-        String scope = application == null || application.isBlank() ? environment : application;
-        if (scope == null || scope.isBlank()) {
+        if (application == null || application.isBlank()) {
             return Flux.error(UnauthorizedException.buildUserException(
                     catalog.getMessage(MessageCatalogCodeEnum.FUN_152.getCode())));
         }
-        // En modo sesion se reciben los eventos de todos los ambientes de la aplicacion.
-        Set<String> environments = application == null || application.isBlank()
-                ? Set.of(environment)
-                : catalogFacade.findEnvironmentsByApplication(application,
-                        (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE)).stream()
+        // Se reciben los eventos de todos los ambientes de la aplicacion autorizada.
+        Set<String> environments = catalogFacade.findEnvironmentsByApplication(application,
+                        sessionApplications(exchange)).stream()
                         .map(CatalogItemDTO::getId)
                         .collect(Collectors.toSet());
         exchange.getResponse().getHeaders().setContentType(MediaType.TEXT_EVENT_STREAM);
@@ -86,7 +82,7 @@ final class MessagesControllerImpl implements MessagesController {
         Flux<ServerSentEvent<MessageEvent>> heartbeat = Flux.interval(Duration.ofSeconds(15))
                 .map(value -> {
                     MessageEvent event = new MessageEvent(UUID.randomUUID().toString(), "heartbeat",
-                            scope, "");
+                            application, "");
                     return ServerSentEvent.<MessageEvent>builder(event).id(event.id()).event(event.type()).build();
                 });
         return Flux.merge(events, heartbeat);
@@ -115,8 +111,11 @@ final class MessagesControllerImpl implements MessagesController {
                 .flatMap(value -> ReactiveHttpResponse.present(translationPresenter, List.of(value), exchange));
     }
     private MessageAccessContext context(ServerWebExchange exchange) {
-        return new MessageAccessContext((String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE),
-                (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE),
+        return new MessageAccessContext(
                 (String) exchange.getAttribute(APPLICATION_ID_ATTRIBUTE));
+    }
+
+    private List<CatalogItemDTO> sessionApplications(ServerWebExchange exchange) {
+        return exchange.getAttribute(SESSION_APPLICATIONS_ATTRIBUTE);
     }
 }

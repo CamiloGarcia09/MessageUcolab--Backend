@@ -1,150 +1,83 @@
 package co.edu.uco.infraestructure.config;
 
-import co.edu.uco.application.primaryports.dto.application.CreateApplicationDTO;
-import co.edu.uco.application.primaryports.dto.context.SelectActiveContextDTO;
-import co.edu.uco.application.primaryports.dto.message.CreateMessageDTO;
-import co.edu.uco.application.primaryports.dto.organization.CreateOrganizationDTO;
 import co.edu.uco.application.primaryports.facade.application.CreateApplicationUseCaseFacade;
-import co.edu.uco.application.primaryports.facade.context.ActiveContextUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.functionality.CreateFunctionalityUseCaseFacade;
 import co.edu.uco.application.primaryports.facade.catalog.FindCatalogUseCaseFacade;
 import co.edu.uco.application.primaryports.facade.organization.CreateOrganizationUseCaseFacade;
+import co.edu.uco.application.primaryports.dto.application.CreateApplicationDTO;
+import co.edu.uco.application.primaryports.dto.organization.CreateOrganizationDTO;
+import co.edu.uco.application.primaryports.dto.message.CreateMessageDTO;
+import co.edu.uco.application.primaryports.dto.functionality.CreateFunctionalityDTO;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
-import co.edu.uco.application.secondaryports.cache.ActiveContextCachePort;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
-import co.edu.uco.application.secondaryports.repository.OrganizationRepository;
-import co.edu.uco.application.secondaryports.repository.ActiveContextRepository;
-import co.edu.uco.application.secondaryports.repository.ApplicationRepository;
 import co.edu.uco.application.secondaryports.repository.ApplicationCatalogRepository;
+import co.edu.uco.application.secondaryports.repository.ApplicationRepository;
 import co.edu.uco.application.secondaryports.repository.EnvironmentCatalogRepository;
 import co.edu.uco.application.secondaryports.repository.EnvironmentReferenceCatalogRepository;
 import co.edu.uco.application.secondaryports.repository.EnvironmentRepository;
-import co.edu.uco.application.secondaryports.repository.ExternalIdentityRepository;
 import co.edu.uco.application.secondaryports.repository.FunctionalityCatalogRepository;
+import co.edu.uco.application.secondaryports.repository.FunctionalityRepository;
 import co.edu.uco.application.secondaryports.repository.MessageCategoryCatalogRepository;
-import co.edu.uco.application.secondaryports.repository.MessageCodeQueryPort;
 import co.edu.uco.application.secondaryports.repository.MessageEnvironmentStateCatalogRepository;
 import co.edu.uco.application.secondaryports.repository.MessageStateCatalogRepository;
 import co.edu.uco.application.secondaryports.repository.MessageTypeCatalogRepository;
+import co.edu.uco.application.secondaryports.repository.OrganizationRepository;
 import co.edu.uco.application.secondaryports.repository.RecordExistsCatalogPort;
-import co.edu.uco.application.secondaryports.repository.ReferenceCatalog;
-import co.edu.uco.application.secondaryports.security.AuthorizationQueryPort;
-import co.edu.uco.application.secondaryports.entity.ApplicationData;
-import co.edu.uco.application.secondaryports.entity.EnvironmentData;
-import co.edu.uco.application.secondaryports.entity.EnvironmentTypeData;
-import co.edu.uco.application.usecase.domain.aggregate.entities.OrganizationEntity;
-import co.edu.uco.application.usecase.domain.security.AuthorizationScopeType;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
-import co.edu.uco.application.usecase.handling.HandlingCreateOrganizationPort;
-import co.edu.uco.application.usecase.handling.HandlingActiveContextPort;
+import co.edu.uco.application.secondaryports.repository.MessageCodeQueryPort;
+import co.edu.uco.application.usecase.CreateApplicationUseCase;
+import co.edu.uco.application.usecase.CreateFunctionalityUseCase;
+import co.edu.uco.application.usecase.CreateOrganizationUseCase;
+import co.edu.uco.application.usecase.FindCatalogUseCase;
 import co.edu.uco.application.usecase.handling.HandlingCreateApplicationPort;
-import co.edu.uco.application.usecase.handling.HandlingFindCatalogPort;
+import co.edu.uco.application.usecase.handling.HandlingCreateFunctionalityPort;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolverImpl;
-import co.edu.uco.application.usecase.FindCatalogUseCase;
-import co.edu.uco.application.usecase.validator.authorization.AuthorizationCompositeValidator;
-import co.edu.uco.application.usecase.validator.authorization.rule.ExternalIdentityRequiredRule;
 import co.edu.uco.application.usecase.validator.application.CreateApplicationCompositeValidator;
-import co.edu.uco.application.usecase.validator.context.SelectActiveContextCompositeValidator;
+import co.edu.uco.application.usecase.validator.functionality.CreateFunctionalityCompositeValidator;
 import co.edu.uco.application.usecase.validator.message.CreateMessageCompositeValidator;
 import co.edu.uco.application.usecase.validator.organization.CreateOrganizationCompositeValidator;
-import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
-import co.edu.uco.crosscutting.exceptions.UnauthorizedException;
+import co.edu.uco.application.usecase.validator.message.environment.MessageEnvironmentSelectionCompositeValidator;
+import co.edu.uco.application.usecase.validator.session.SessionApplicationAccessCompositeValidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-import java.time.Clock;
-import java.time.Instant;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.List;
 
-import static co.edu.uco.application.CrosswordsConstant.STATE_ACTIVE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
-
-import java.util.UUID;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class UseCaseRuleConfigTest {
-
-    private static final String LANGUAGE_ID = "123e4567-e89b-12d3-a456-426614175601";
-    private static final String STATE_ID = "123e4567-e89b-12d3-a456-426614175602";
-
-    @Mock
-    private CatalogPort catalogPort;
-    @Mock
-    private OrganizationRepository organizationRepository;
-    @Mock
-    private CreateOrganizationCompositeValidator validator;
-    @Mock
-    private LoggingPortFactory loggerFactory;
-    @Mock
-    private LoggingPort log;
-    @Mock
-    private HandlingCreateOrganizationPort handlingPort;
-    @Mock
-    private ApplicationRepository applicationRepository;
-    @Mock
-    private RecordExistsCatalogPort recordExistsCatalogPort;
-    @Mock
-    private CreateApplicationCompositeValidator applicationValidator;
-    @Mock
-    private HandlingCreateApplicationPort handlingApplicationPort;
-    @Mock
-    private AuthorizationQueryPort authorizationQueryPort;
-    @Mock
-    private AuthorizationCompositeValidator authorizationCompositeValidator;
-    @Mock
-    private ApplicationCatalogRepository applicationCatalogRepository;
-    @Mock
-    private EnvironmentCatalogRepository environmentCatalogRepository;
-    @Mock
-    private FunctionalityCatalogRepository functionalityCatalogRepository;
-    @Mock
-    private MessageCodeQueryPort messageCodeQueryPort;
-    @Mock
-    private MessageTypeCatalogRepository messageTypeCatalogRepository;
-    @Mock
-    private MessageCategoryCatalogRepository messageCategoryCatalogRepository;
-    @Mock
-    private MessageStateCatalogRepository messageStateCatalogRepository;
-    @Mock
-    private MessageEnvironmentStateCatalogRepository messageEnvironmentStateCatalogRepository;
-    @Mock
-    private HandlingFindCatalogPort handlingFindCatalogPort;
-    @Mock
-    private ActiveContextRepository activeContextRepository;
-    @Mock
-    private ActiveContextCachePort activeContextCachePort;
-    @Mock
-    private ExternalIdentityRepository externalIdentityRepository;
-    @Mock
-    private EnvironmentRepository environmentRepository;
-    @Mock
-    private EnvironmentReferenceCatalogRepository environmentReferenceCatalogRepository;
-    @Mock
-    private ExternalIdentityRequiredRule externalIdentityRequiredRule;
-    @Mock
-    private SelectActiveContextCompositeValidator activeContextValidator;
-    @Mock
-    private HandlingActiveContextPort handlingActiveContextPort;
-    @Mock
-    private Clock clock;
+    @Mock private CatalogPort catalog;
+    @Mock private OrganizationRepository organizationRepository;
+    @Mock private RecordExistsCatalogPort recordExistsCatalogPort;
+    @Mock private MessageCodeQueryPort messageCodeQueryPort;
+    @Mock private ApplicationRepository applicationRepository;
+    @Mock private EnvironmentRepository environmentRepository;
+    @Mock private CreateApplicationCompositeValidator applicationValidator;
+    @Mock private EnvironmentReferenceCatalogRepository environmentReferenceCatalogRepository;
+    @Mock private LoggingPortFactory loggerFactory;
+    @Mock private FunctionalityRepository functionalityRepository;
+    @Mock private CreateFunctionalityCompositeValidator functionalityValidator;
+    @Mock private ApplicationCatalogRepository applicationCatalogRepository;
+    @Mock private EnvironmentCatalogRepository environmentCatalogRepository;
+    @Mock private FunctionalityCatalogRepository functionalityCatalogRepository;
+    @Mock private MessageTypeCatalogRepository messageTypeCatalogRepository;
+    @Mock private MessageCategoryCatalogRepository messageCategoryCatalogRepository;
+    @Mock private MessageStateCatalogRepository messageStateCatalogRepository;
+    @Mock private MessageEnvironmentStateCatalogRepository messageEnvironmentStateCatalogRepository;
 
     private UseCaseRuleConfig config;
 
@@ -154,297 +87,129 @@ class UseCaseRuleConfigTest {
     }
 
     @Test
-    void createOrganizationCompositeValidator_rejectsBlankNameUsingCatalogMessage() {
-        when(catalogPort.getMessage("FUN_147")).thenReturn("Nombre requerido");
-        CreateOrganizationCompositeValidator composite =
-                config.createOrganizationCompositeValidator(catalogPort, organizationRepository);
-        CreateOrganizationDTO dto = CreateOrganizationDTO.builder().name("").build();
-
-        assertThatThrownBy(() -> composite.validate(dto))
-                .isInstanceOf(BusinessRuleException.class)
-                .extracting("userMessage")
-                .isEqualTo("Nombre requerido");
-        verify(catalogPort).getMessage("FUN_147");
-    }
-
-    @Test
-    void createOrganizationCompositeValidator_rejectsDuplicatedNameThroughRepository() {
-        when(catalogPort.getMessage("FUN_149")).thenReturn("Nombre duplicado");
-        when(organizationRepository.findByName("UCO")).thenReturn(Optional.of(new OrganizationEntity()));
-        CreateOrganizationCompositeValidator composite =
-                config.createOrganizationCompositeValidator(catalogPort, organizationRepository);
-        CreateOrganizationDTO dto = CreateOrganizationDTO.builder().name("UCO").build();
-
-        assertThatThrownBy(() -> composite.validate(dto))
-                .isInstanceOf(BusinessRuleException.class)
-                .extracting("userMessage")
-                .isEqualTo("Nombre duplicado");
-        verify(organizationRepository).findByName("UCO");
-    }
-
-    @Test
-    void handlingCreateOrganizationPort_connectsValidatorRepositoryAndLogger() {
-        when(loggerFactory.getLogger(any())).thenReturn(log);
-        CreateOrganizationDTO dto = CreateOrganizationDTO.builder().name("UCO").build();
-        HandlingCreateOrganizationPort port = config.handlingCreateOrganizationPort(
-                organizationRepository, validator, loggerFactory);
-
-        port.createOrganization(dto);
-
-        verify(validator).validate(dto);
-        verify(organizationRepository).create(any(OrganizationEntity.class));
-        verify(log).info("Organization created successfully");
-    }
-
-    @Test
-    void createOrganizationUseCaseFacade_connectsHandlingPort() {
-        CreateOrganizationDTO dto = CreateOrganizationDTO.builder().name("UCO").build();
-        CreateOrganizationUseCaseFacade facade = config.createOrganizationUseCaseFacade(handlingPort);
+    void createApplicationBeansUseCurrentSessionIndependentUseCaseContracts() {
+        when(loggerFactory.getLogger(CreateApplicationUseCase.class)).thenReturn(mock(LoggingPort.class));
+        when(environmentReferenceCatalogRepository.findAllTypes()).thenReturn(List.of(
+                new co.edu.uco.application.secondaryports.entity.EnvironmentTypeData(
+                        java.util.UUID.randomUUID(), "Develop"),
+                new co.edu.uco.application.secondaryports.entity.EnvironmentTypeData(
+                        java.util.UUID.randomUUID(), "Testing"),
+                new co.edu.uco.application.secondaryports.entity.EnvironmentTypeData(
+                        java.util.UUID.randomUUID(), "Production")));
+        when(environmentReferenceCatalogRepository.findStateIdByName(co.edu.uco.application.CrosswordsConstant.STATE_ACTIVE))
+                .thenReturn(java.util.Optional.of(java.util.UUID.randomUUID()));
+        HandlingCreateApplicationPort port = config.handlingCreateApplicationPort(applicationRepository,
+                environmentReferenceCatalogRepository, applicationValidator, catalog, loggerFactory);
+        CreateApplicationUseCaseFacade facade = config.createApplicationUseCaseFacade(port);
+        CreateApplicationDTO dto = CreateApplicationDTO.builder().name("Messages")
+                .organizationId("123e4567-e89b-12d3-a456-426614174000").languageId("lang").stateId("state").build();
 
         facade.execute(dto);
 
-        verify(handlingPort).createOrganization(dto);
-    }
-
-    @Test
-    void createApplicationCompositeValidator_connectsOrganizationAndExistingRules() {
-        UUID organizationId = UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
-        when(organizationRepository.findById(organizationId))
-                .thenReturn(Optional.of(new OrganizationEntity()));
-        when(recordExistsCatalogPort.exists(any(), any())).thenReturn(true);
-        when(applicationRepository.findByName("Messages")).thenReturn(Optional.empty());
-        CreateApplicationCompositeValidator composite = config.createApplicationCompositeValidator(
-                catalogPort, recordExistsCatalogPort, applicationRepository,
-                organizationRepository);
-        CreateApplicationDTO dto = validApplicationDto();
-
-        composite.validate(dto);
-
-        verify(organizationRepository).findById(organizationId);
-        verify(recordExistsCatalogPort).exists(ReferenceCatalog.LANGUAGE_BASE, LANGUAGE_ID);
-        verify(recordExistsCatalogPort).exists(ReferenceCatalog.APPLICATION_STATE, STATE_ID);
-        verify(applicationRepository).findByName("Messages");
-    }
-
-    @Test
-    void handlingCreateApplicationPort_connectsValidatorReferenceCatalogAndLogger() {
-        when(loggerFactory.getLogger(any())).thenReturn(log);
-        when(environmentReferenceCatalogRepository.findAllTypes()).thenReturn(List.of(
-                new EnvironmentTypeData(UUID.fromString("423e4567-e89b-12d3-a456-426614174000"), "Develop"),
-                new EnvironmentTypeData(UUID.fromString("423e4567-e89b-12d3-a456-426614174001"), "Testing"),
-                new EnvironmentTypeData(UUID.fromString("423e4567-e89b-12d3-a456-426614174002"), "Production")));
-        when(environmentReferenceCatalogRepository.findStateIdByName(STATE_ACTIVE))
-                .thenReturn(Optional.of(UUID.fromString("523e4567-e89b-12d3-a456-426614174000")));
-        CreateApplicationDTO dto = validApplicationDto();
-        HandlingCreateApplicationPort port = config.handlingCreateApplicationPort(
-                applicationRepository, environmentReferenceCatalogRepository, applicationValidator,
-                handlingActiveContextPort, authorizationCompositeValidator, catalogPort, loggerFactory);
-
-        port.createApplication(dto, null);
-
+        assertThat(port).isInstanceOf(CreateApplicationUseCase.class);
         verify(applicationValidator).validate(dto);
-        verify(applicationRepository).createWithEnvironments(any(ApplicationData.class),
-                eq(LANGUAGE_ID), eq(STATE_ID),
-                argThat((List<EnvironmentData> environments) -> environments.size() == 3
-                        && environments.stream()
-                        .map(environment -> environment.getType().getName())
-                        .toList()
-                        .equals(List.of("Develop", "Testing", "Production"))),
-                eq("523e4567-e89b-12d3-a456-426614174000"));
-        verify(log).info("Application created successfully with name: {}", "Messages");
-        verifyNoInteractions(handlingActiveContextPort, authorizationCompositeValidator);
+        verify(applicationRepository).createWithEnvironments(any(), any(), any(), any(), any());
+        assertThat(Arrays.stream(HandlingCreateApplicationPort.class.getMethods())
+                .map(Method::getName)).containsExactly("createApplication");
     }
 
     @Test
-    void useCaseRuleConfig_declaresNoBeanForTheRemovedManualEnvironmentCreationFlow() {
-        List<String> manualEnvironmentCreationBeans = Arrays.stream(UseCaseRuleConfig.class.getDeclaredMethods())
-                .map(Method::getName)
-                .filter(name -> name.toLowerCase(Locale.ROOT).contains("environment"))
-                .filter(name -> name.toLowerCase(Locale.ROOT).contains("create"))
-                .toList();
+    void functionalityBeansRegisterUseCaseAndFacade() {
+        when(loggerFactory.getLogger(CreateFunctionalityUseCase.class)).thenReturn(mock(LoggingPort.class));
+        HandlingCreateFunctionalityPort port = config.handlingCreateFunctionalityPort(
+                functionalityRepository, functionalityValidator, loggerFactory);
+        CreateFunctionalityUseCaseFacade facade = config.createFunctionalityUseCaseFacade(port);
+        CreateFunctionalityDTO dto = CreateFunctionalityDTO.builder().name("Search")
+                .applicationId("123e4567-e89b-12d3-a456-426614175000").stateId("state").build();
 
-        assertThat(manualEnvironmentCreationBeans).isEmpty();
+        facade.execute(dto);
+
+        assertThat(port).isInstanceOf(CreateFunctionalityUseCase.class);
+        verify(functionalityValidator).validate(dto);
+        verify(functionalityRepository).create(any(), any());
     }
 
     @Test
-    void createApplicationUseCaseFacade_connectsHandlingPort() {
-        CreateApplicationDTO dto = validApplicationDto();
-        CreateApplicationUseCaseFacade facade = config.createApplicationUseCaseFacade(handlingApplicationPort);
+    void catalogUseCaseBeanReceivesSessionAccessValidator() {
+        SessionApplicationAccessCompositeValidator accessValidator =
+                config.sessionApplicationAccessCompositeValidator(catalog, applicationRepository);
+        FindCatalogUseCaseFacade facade = config.findCatalogUseCaseFacade(config.handlingFindCatalogPort(
+                applicationCatalogRepository, environmentCatalogRepository, functionalityCatalogRepository,
+                messageTypeCatalogRepository, messageCategoryCatalogRepository, messageStateCatalogRepository,
+                messageEnvironmentStateCatalogRepository, accessValidator));
 
-        facade.execute(dto, null);
-
-        verify(handlingApplicationPort).createApplication(dto, null);
+        assertThat(facade).isNotNull();
+        assertThat(config.handlingFindCatalogPort(applicationCatalogRepository, environmentCatalogRepository,
+                functionalityCatalogRepository, messageTypeCatalogRepository, messageCategoryCatalogRepository,
+                messageStateCatalogRepository, messageEnvironmentStateCatalogRepository, accessValidator))
+                .isInstanceOf(FindCatalogUseCase.class);
     }
 
     @Test
-    void authorizationCompositeValidator_delegatesToPermissionRule_whenPermissionIsGranted() {
-        ExternalIdentity identity = identity();
-        AuthorizationCompositeValidator composite =
-                config.authorizationCompositeValidator(authorizationQueryPort, catalogPort);
-        when(authorizationQueryPort.hasPermission(identity, PermissionCode.CONTEXT_SELECT,
-                AuthorizationScopeType.APPLICATION, null)).thenReturn(true);
+    void messageEnvironmentResolverUsesSelectionValidatorAndCatalog() {
+        MessageEnvironmentSelectionCompositeValidator environmentValidator =
+                config.messageEnvironmentSelectionCompositeValidator(catalog, environmentRepository);
 
-        assertThat(composite).isExactlyInstanceOf(AuthorizationCompositeValidator.class);
-        assertThatCode(() -> composite.validate(identity, PermissionCode.CONTEXT_SELECT,
-                AuthorizationScopeType.APPLICATION, null)).doesNotThrowAnyException();
-        verify(authorizationQueryPort).hasPermission(identity, PermissionCode.CONTEXT_SELECT,
-                AuthorizationScopeType.APPLICATION, null);
-    }
-
-    @Test
-    void authorizationCompositeValidator_throwsUnauthorizedUsingFun152_whenExternalIdentityIsNull() {
-        when(catalogPort.getMessage("FUN_152")).thenReturn("Autenticacion requerida");
-        AuthorizationCompositeValidator composite =
-                config.authorizationCompositeValidator(authorizationQueryPort, catalogPort);
-
-        assertThatThrownBy(() -> composite.validate(null, PermissionCode.CONTEXT_SELECT,
-                AuthorizationScopeType.APPLICATION, null))
-                .isInstanceOf(UnauthorizedException.class)
-                .extracting("userMessage")
-                .isEqualTo("Autenticacion requerida");
-
-        verifyNoInteractions(authorizationQueryPort);
-    }
-
-    @Test
-    void externalIdentityRequiredRule_usesAuthenticationCatalogMessage() {
-        when(catalogPort.getMessage("FUN_152")).thenReturn("Authentication required");
-        ExternalIdentityRequiredRule rule = config.externalIdentityRequiredRule(catalogPort);
-
-        assertThat(rule).isExactlyInstanceOf(ExternalIdentityRequiredRule.class);
-        assertThatThrownBy(() -> rule.validate(null))
-                .isInstanceOf(UnauthorizedException.class)
-                .extracting("userMessage")
-                .isEqualTo("Authentication required");
-    }
-
-    @Test
-    void selectActiveContextCompositeValidator_rejectsMissingIdentifiersUsingCatalogMessage() {
-        when(catalogPort.getMessage("FUN_155")).thenReturn("Identificadores requeridos");
-        SelectActiveContextCompositeValidator composite = config.selectActiveContextCompositeValidator(
-                catalogPort, organizationRepository, applicationRepository, environmentRepository);
-        SelectActiveContextDTO context = new SelectActiveContextDTO();
-
-        assertThatThrownBy(() -> composite.validate(context))
-                .isInstanceOf(BusinessRuleException.class)
-                .extracting("userMessage")
-                .isEqualTo("Identificadores requeridos");
-
-        verifyNoInteractions(organizationRepository, applicationRepository, environmentRepository);
-    }
-
-    @Test
-    void selectActiveContextCompositeValidator_delegatesToHierarchyRepositories() {
-        UUID organizationId = UUID.fromString("123e4567-e89b-12d3-a456-426614174000");
-        UUID applicationId = UUID.fromString("223e4567-e89b-12d3-a456-426614174000");
-        OrganizationEntity organization = new OrganizationEntity();
-        organization.setId(organizationId);
-        ApplicationData application = ApplicationData.build(applicationId, "App", organization);
-        co.edu.uco.application.secondaryports.entity.EnvironmentData environment =
-                new co.edu.uco.application.secondaryports.entity.EnvironmentData(
-                        UUID.fromString("323e4567-e89b-12d3-a456-426614174000"), application,
-                        new co.edu.uco.application.secondaryports.entity.EnvironmentTypeData(
-                                UUID.fromString("423e4567-e89b-12d3-a456-426614174000"), "Dev"));
-        when(organizationRepository.findById(organizationId)).thenReturn(Optional.of(organization));
-        when(applicationRepository.findById(applicationId.toString())).thenReturn(Optional.of(application));
-        when(environmentRepository.findById(environment.getId().toString())).thenReturn(Optional.of(environment));
-        SelectActiveContextCompositeValidator composite = config.selectActiveContextCompositeValidator(
-                catalogPort, organizationRepository, applicationRepository, environmentRepository);
-
-        assertThatCode(() -> composite.validate(contextSelection())).doesNotThrowAnyException();
-
-        verify(organizationRepository).findById(organizationId);
-        verify(applicationRepository, atLeastOnce()).findById(applicationId.toString());
-        verify(environmentRepository, atLeastOnce()).findById(environment.getId().toString());
-    }
-
-    @Test
-    void handlingActiveContextPort_wiresAllUseCaseDependencies() {
-        HandlingActiveContextPort port = config.handlingActiveContextPort(
-                activeContextRepository, activeContextCachePort, externalIdentityRepository,
-                applicationCatalogRepository, environmentCatalogRepository, authorizationQueryPort,
-                authorizationCompositeValidator, externalIdentityRequiredRule, activeContextValidator, catalogPort, clock);
-
-        assertThat(port).isInstanceOf(co.edu.uco.application.usecase.ActiveContextUseCase.class);
-    }
-
-    @Test
-    void activeContextUseCaseFacade_connectsHandlingPort() {
-        ActiveContextUseCaseFacade facade = config.activeContextUseCaseFacade(handlingActiveContextPort);
-
-        facade.findAvailableContexts(null);
-
-        verify(handlingActiveContextPort).findAvailableContexts(null);
-    }
-
-    @Test
-    void messageEnvironmentResolver_connectsActiveContextAndAuthorization() {
-        MessageEnvironmentResolver resolver = config.messageEnvironmentResolver(
-                handlingActiveContextPort, authorizationCompositeValidator, environmentRepository, catalogPort);
+        MessageEnvironmentResolver resolver = config.messageEnvironmentResolver(environmentValidator, catalog);
 
         assertThat(resolver).isInstanceOf(MessageEnvironmentResolverImpl.class);
     }
 
     @Test
-    void handlingFindCatalogPort_wiresCatalogRepositoriesAndAuthorization() {
-        HandlingFindCatalogPort port = config.handlingFindCatalogPort(
-                applicationCatalogRepository,
-                environmentCatalogRepository,
-                functionalityCatalogRepository,
-                messageTypeCatalogRepository,
-                messageCategoryCatalogRepository,
-                messageStateCatalogRepository,
-                messageEnvironmentStateCatalogRepository,
-                authorizationQueryPort,
-                authorizationCompositeValidator,
-                handlingActiveContextPort,
-                catalogPort);
+    void organizationValidatorRejectsBlankNameAndUsesCatalogMessage() {
+        when(catalog.getMessage("FUN_147")).thenReturn("Organization name is required");
+        CreateOrganizationCompositeValidator validator =
+                config.createOrganizationCompositeValidator(catalog, organizationRepository);
 
-        assertThat(port).isInstanceOf(FindCatalogUseCase.class);
+        assertThatThrownBy(() -> validator.validate(CreateOrganizationDTO.builder().name(" ").build()))
+                .isInstanceOf(co.edu.uco.crosscutting.exceptions.BusinessRuleException.class)
+                .satisfies(error -> assertThat(((co.edu.uco.crosscutting.exceptions.BusinessRuleException) error)
+                        .getUserMessage()).isEqualTo("Organization name is required"));
+        verify(organizationRepository, never()).findByName(any());
     }
 
     @Test
-    void findCatalogUseCaseFacade_connectsHandlingPort() {
-        FindCatalogUseCaseFacade facade = config.findCatalogUseCaseFacade(handlingFindCatalogPort);
+    void organizationUseCaseAndFacadeAreWiredToRepositoryAndValidator() {
+        when(loggerFactory.getLogger(CreateOrganizationUseCase.class)).thenReturn(mock(LoggingPort.class));
+        CreateOrganizationCompositeValidator validator = mock(CreateOrganizationCompositeValidator.class);
+        var port = config.handlingCreateOrganizationPort(organizationRepository, validator, loggerFactory);
+        CreateOrganizationUseCaseFacade facade = config.createOrganizationUseCaseFacade(port);
+        CreateOrganizationDTO dto = CreateOrganizationDTO.builder().name("UCO").build();
 
-        facade.findApplications(null);
+        facade.execute(dto);
 
-        verify(handlingFindCatalogPort).findApplications(null);
+        verify(validator).validate(dto);
+        org.mockito.ArgumentCaptor<co.edu.uco.application.usecase.domain.aggregate.entities.OrganizationEntity> captor =
+                org.mockito.ArgumentCaptor.forClass(
+                        co.edu.uco.application.usecase.domain.aggregate.entities.OrganizationEntity.class);
+        verify(organizationRepository).create(captor.capture());
+        assertThat(captor.getValue().getName()).isEqualTo("UCO");
     }
 
     @Test
-    void createMessageCompositeValidator_rejectsNullDtoUsingCatalogMessage() {
-        when(catalogPort.getMessage("FUN_010")).thenReturn("Datos invalidos");
-        CreateMessageCompositeValidator composite = config.createMessageCompositeValidator(
-                catalogPort, recordExistsCatalogPort, functionalityCatalogRepository, messageCodeQueryPort,
-                config.messageEnvironmentSelectionCompositeValidator(catalogPort, environmentRepository));
+    void createMessageValidatorUsesConfiguredRulesAndRejectsNullRequest() {
+        when(catalog.getMessage("FUN_010")).thenReturn("Invalid message data");
+        CreateMessageCompositeValidator validator = config.createMessageCompositeValidator(catalog,
+                recordExistsCatalogPort, functionalityCatalogRepository, messageCodeQueryPort,
+                config.messageEnvironmentSelectionCompositeValidator(catalog, environmentRepository));
 
-        assertThatThrownBy(() -> composite.validate((CreateMessageDTO) null, LANGUAGE_ID))
-                .isInstanceOf(BusinessRuleException.class)
-                .extracting("userMessage")
-                .isEqualTo("Datos invalidos");
-
+        assertThatThrownBy(() -> validator.validate((CreateMessageDTO) null, "language-id"))
+                .isInstanceOf(co.edu.uco.crosscutting.exceptions.BusinessRuleException.class)
+                .satisfies(error -> assertThat(((co.edu.uco.crosscutting.exceptions.BusinessRuleException) error)
+                        .getUserMessage()).isEqualTo("Invalid message data"));
         verifyNoInteractions(recordExistsCatalogPort, functionalityCatalogRepository, messageCodeQueryPort);
     }
 
-    private CreateApplicationDTO validApplicationDto() {
-        return CreateApplicationDTO.builder()
-                .name("Messages")
-                .organizationId("123e4567-e89b-12d3-a456-426614174000")
-                .languageId(LANGUAGE_ID)
-                .stateId(STATE_ID)
-                .build();
-    }
+    @Test
+    void createApplicationValidatorUsesConfiguredRulesAndCatalogMessage() {
+        when(catalog.getMessage("FUN_161")).thenReturn("Application name required");
+        var validator = config.createApplicationCompositeValidator(catalog, recordExistsCatalogPort,
+                applicationRepository, organizationRepository);
 
-    private SelectActiveContextDTO contextSelection() {
-        return SelectActiveContextDTO.builder()
-                .organizationId("123e4567-e89b-12d3-a456-426614174000")
-                .applicationId("223e4567-e89b-12d3-a456-426614174000")
-                .environmentId("323e4567-e89b-12d3-a456-426614174000")
-                .build();
-    }
-
-    private static ExternalIdentity identity() {
-        return new ExternalIdentity("issuer", "subject", null, Instant.MAX);
+        assertThatThrownBy(() -> validator.validate(CreateApplicationDTO.builder().name(" ").build()))
+                .isInstanceOf(co.edu.uco.crosscutting.exceptions.BusinessRuleException.class)
+                .satisfies(error -> assertThat(((co.edu.uco.crosscutting.exceptions.BusinessRuleException) error)
+                        .getUserMessage()).isEqualTo("Application name required"));
+        verifyNoInteractions(recordExistsCatalogPort, organizationRepository);
     }
 }

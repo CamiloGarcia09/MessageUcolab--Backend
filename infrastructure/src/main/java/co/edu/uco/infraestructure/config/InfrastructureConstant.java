@@ -16,7 +16,6 @@ public final class InfrastructureConstant {
     public static final String FIELD_APPLICATION_ID = "application_id";
     public static final String ENVIRONMENT_ID_ATTRIBUTE = "environmentId";
     public static final String APPLICATION_ID_ATTRIBUTE = "applicationId";
-    public static final String EXTERNAL_IDENTITY_ATTRIBUTE = "externalIdentity";
 
     public static final String PACKAGE_BASE = "co.edu.uco";
     public static final String PACKAGE_REPOSITORY_ADAPTER = "co.edu.uco.infraestructure.secondaryadapters.repository";
@@ -67,7 +66,6 @@ public final class InfrastructureConstant {
     public static final String WEB_CONFIG_API_APPLICATION = "/messageucolab/v1/application/**/message/*";
     public static final String WEB_CONFIG_API_MESSAGES = "/messageucolab/v1/messages/**";
     public static final String WEB_CONFIG_API_CATALOG = "/messageucolab/v1/catalog/**";
-    public static final String LOCAL_WORKSPACE_PATH = "/messageucolab/v1/workspace/local";
     public static final String SESSION_APPLICATIONS_PATH = "/messageucolab/v1/session/applications";
     public static final String SESSION_APPLICATIONS_ATTRIBUTE = "sessionApplications";
     public static final String SECURITY_SESSION_COOKIE = "SECURITY_BASELINE_SESSION";

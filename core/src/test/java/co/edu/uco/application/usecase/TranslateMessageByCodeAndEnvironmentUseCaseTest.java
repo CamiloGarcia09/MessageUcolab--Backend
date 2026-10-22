@@ -15,7 +15,6 @@ import co.edu.uco.application.secondaryports.translation.MessageTranslationPort;
 import co.edu.uco.application.usecase.validator.message.FindMessageCodeValidator;
 import co.edu.uco.application.usecase.validator.message.TargetLanguageValidator;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
@@ -43,7 +42,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class TranslateMessageByCodeAndEnvironmentUseCaseTest {
 
-    private static final MessageAccessContext ACCESS_CONTEXT = new MessageAccessContext("env", null);
+    private static final MessageAccessContext ACCESS_CONTEXT = new MessageAccessContext("app-1");
 
     @Mock
     private MessageCatalogStrategy messageCatalogStrategy;
@@ -70,7 +69,7 @@ class TranslateMessageByCodeAndEnvironmentUseCaseTest {
         useCase = new TranslateMessageByCodeAndEnvironmentUseCase(
                 messageCatalogStrategy, messageTranslationPort, messageTranslationCachePort,
                 findMessageCodeValidator, targetLanguageValidator, environmentResolver, loggerFactory);
-        lenient().when(environmentResolver.resolveApplication(ACCESS_CONTEXT, PermissionCode.MESSAGE_TRANSLATE)).thenReturn("env");
+        lenient().when(environmentResolver.resolveApplication(ACCESS_CONTEXT)).thenReturn("env");
     }
 
     private MessageData messageWithData() {

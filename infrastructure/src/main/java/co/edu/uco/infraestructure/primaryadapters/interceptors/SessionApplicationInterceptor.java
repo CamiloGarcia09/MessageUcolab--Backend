@@ -7,7 +7,6 @@ import co.edu.uco.crosscutting.exceptions.CrossWordsException;
 import co.edu.uco.crosscutting.exceptions.ForbiddenException;
 import co.edu.uco.crosscutting.exceptions.NotFoundException;
 import co.edu.uco.crosscutting.exceptions.UnauthorizedException;
-import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpCookie;
 import org.springframework.http.HttpStatus;
@@ -22,20 +21,18 @@ import java.util.Optional;
 
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.APPLICATION_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
-import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.REQUEST_HEADER_APPLICATION_ID;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.REQUEST_HEADER_ENVIRONMENT_ID;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.SECURITY_SESSION_COOKIE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.SESSION_APPLICATIONS_ATTRIBUTE;
 
 /**
- * Modo sesion: el componente de seguridad informa las aplicaciones del usuario y el
+ * El componente de seguridad informa las aplicaciones del usuario y el
  * cliente elige una de ellas. El servidor valida esa eleccion antes de fijar la aplicacion
  * de negocio; nunca acepta una aplicacion fuera de la sesion. El ambiente es un dato de
  * cada mensaje y solo se valida cuando la peticion lo envia explicitamente.
  */
 @Component
-@Profile("security-session")
 @Order(0)
 public final class SessionApplicationInterceptor implements WebFilter {
 
@@ -52,7 +49,6 @@ public final class SessionApplicationInterceptor implements WebFilter {
         if (!path.startsWith(API_PREFIX)) {
             return chain.filter(exchange);
         }
-        exchange.getAttributes().remove(EXTERNAL_IDENTITY_ATTRIBUTE);
         HttpCookie cookie = exchange.getRequest().getCookies().getFirst(SECURITY_SESSION_COOKIE);
         String session = cookie == null ? null : cookie.getValue();
         var headers = exchange.getRequest().getHeaders();

@@ -13,7 +13,6 @@ import co.edu.uco.application.usecase.handling.HandlingFindMessageEnvironmentPor
 import co.edu.uco.application.usecase.validator.message.ListMessageValidator;
 import co.edu.uco.application.usecase.validator.page.PageRequestRangeValidator;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
@@ -45,7 +44,7 @@ public final class FindMessageByEnvironmentUseCase implements HandlingFindMessag
         try {
             listMessageValidator.validate(pageRequest);
             // Mensajes de la aplicacion; el filtro de ambientes viene en la peticion.
-            var applicationId = environmentResolver.resolveApplication(context, PermissionCode.MESSAGE_READ);
+            var applicationId = environmentResolver.resolveApplication(context);
             var page = messageCatalogStrategy.getMessagesWithApplication(applicationId, pageRequest);
             // Una aplicacion o un filtro sin mensajes devuelve una pagina vacia, no un error.
             if (page.getTotalItems() > 0) {
