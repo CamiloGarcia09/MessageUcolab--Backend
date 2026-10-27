@@ -1,6 +1,7 @@
 package co.edu.uco.application.usecase;
 
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
+import co.edu.uco.application.common.catalog.strategy.MessageCatalogStrategy;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.DataBaseMessageRepository;
@@ -10,13 +11,11 @@ import co.edu.uco.application.usecase.handling.HandlingDeleteMessagePort;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
-import org.springframework.stereotype.Component;
 
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_206;
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_208;
 import static co.edu.uco.crosscutting.helpers.UtilText.trim;
 
-@Component
 public final class DeleteMessageUseCase implements HandlingDeleteMessagePort {
 
     private final DeleteMessageRepository deleteMessageRepository;
@@ -24,18 +23,21 @@ public final class DeleteMessageUseCase implements HandlingDeleteMessagePort {
     private final MessageEnvironmentResolver environmentResolver;
     private final CatalogPort catalogPort;
     private final LoggingPort log;
+    private final MessageCatalogStrategy messageCatalogStrategy;
 
     public DeleteMessageUseCase(
             DeleteMessageRepository deleteMessageRepository,
             DataBaseMessageRepository messageRepository,
             MessageEnvironmentResolver environmentResolver,
             CatalogPort catalogPort,
-            LoggingPortFactory loggerFactory) {
+            LoggingPortFactory loggerFactory,
+            MessageCatalogStrategy messageCatalogStrategy) {
         this.deleteMessageRepository = deleteMessageRepository;
         this.messageRepository = messageRepository;
         this.environmentResolver = environmentResolver;
         this.catalogPort = catalogPort;
         this.log = loggerFactory.getLogger(DeleteMessageUseCase.class);
+        this.messageCatalogStrategy = messageCatalogStrategy;
     }
 
     @Override
@@ -53,6 +55,7 @@ public final class DeleteMessageUseCase implements HandlingDeleteMessagePort {
 
         try {
             deleteMessageRepository.deleteMessage(existing.getId().toString());
+            messageCatalogStrategy.evictMessage(existing.getCode());
             log.info("Message deleted successfully with id: {}", sanitizedId);
         } catch (CrossWordsException ex) {
             throw ex;

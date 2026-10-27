@@ -42,13 +42,41 @@ class ResolveMessageSurrealRepositoryAdapterTest {
     }
 
     private Response oneRow(String code, String title, String content) {
+        return oneRow(code, title, content, null, null);
+    }
+
+    private Response oneRow(String code, String title, String content, Value createdAt, Value updatedAt) {
         Object row = mock(Object.class);
         Value codeValue = stringValue(code);
         Value titleValue = stringValue(title);
         Value contentValue = stringValue(content);
+        Value typeValue = stringValue("type");
+        Value categoryValue = stringValue("category");
+        Value functionalityValue = stringValue("functionality");
+        Value applicationValue = stringValue("123e4567-e89b-12d3-a456-426614175030");
+        Value idValue = stringValue("message_data_collection:123e4567-e89b-12d3-a456-426614175030");
         when(row.get("code")).thenReturn(codeValue);
         when(row.get("title")).thenReturn(titleValue);
         when(row.get("content")).thenReturn(contentValue);
+        when(row.get("id")).thenReturn(idValue);
+        when(row.get("type")).thenReturn(typeValue);
+        when(row.get("category")).thenReturn(categoryValue);
+        when(row.get("functionality")).thenReturn(functionalityValue);
+        when(row.get("application_id")).thenReturn(applicationValue);
+        when(row.get("created_at")).thenReturn(createdAt);
+        when(row.get("updated_at")).thenReturn(updatedAt);
+        return response(row);
+    }
+
+    private Response availabilityRow(Value updatedAt) {
+        Object row = mock(Object.class);
+        Value idValue = stringValue("message_data_collection:123e4567-e89b-12d3-a456-426614175030");
+        when(row.get("id")).thenReturn(idValue);
+        when(row.get("updated_at")).thenReturn(updatedAt);
+        return response(row);
+    }
+
+    private Response response(Object row) {
         Value item = mock(Value.class);
         when(item.isObject()).thenReturn(true);
         when(item.getObject()).thenReturn(row);
@@ -66,28 +94,102 @@ class ResolveMessageSurrealRepositoryAdapterTest {
 
     private Value stringValue(String text) {
         Value value = mock(Value.class);
-        when(value.isNull()).thenReturn(false);
-        when(value.isNone()).thenReturn(false);
         when(value.isString()).thenReturn(true);
         when(value.getString()).thenReturn(text);
         return value;
     }
 
     @Test
-    void findAvailableByCodeAndEnvironment_mapsMinimalProjectionAndFiltersActiveEnvironmentAndApplication() {
+    void findAvailableByCodeAndEnvironment_mapsFullProjectionAndFiltersActiveEnvironmentAndApplication() {
         doReturn(oneRow("CODE", "Title", "Body")).when(surreal).query(anyString());
 
         var result = adapter.findAvailableByCodeAndEnvironment("CODE", "environment-uuid");
 
         assertThat(result).hasValueSatisfying(message -> assertThat(message)
-                .extracting("code", "title", "content").containsExactly("CODE", "Title", "Body"));
+                .extracting("id", "application", "code", "title", "content", "type.name", "category.name",
+                        "functionality.name", "createdAt", "updatedAt")
+                .containsExactly(java.util.UUID.fromString("123e4567-e89b-12d3-a456-426614175030"),
+                        "123e4567-e89b-12d3-a456-426614175030", "CODE", "Title", "Body", "type", "category",
+                        "functionality", null, null));
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
         verify(surreal).query(sql.capture());
         assertThat(sql.getValue()).contains("environment:`environment-uuid`", "message_id.code = 'CODE'",
                 "message_id.application_id = environment_id.application_id",
                 "message_id.status_id.name = 'Active'", "state_data_id.name = 'Active'")
-                .startsWith("SELECT message_id.code AS code, message_id.title AS title, message_id.content AS content")
-                .doesNotContain("created_at", "application AS");
+                .startsWith("SELECT message_id AS id, message_id.code AS code, message_id.title AS title, message_id.content AS content")
+                .contains("message_id.type_id.name AS type", "message_id.category_id.name AS category",
+                        "message_id.functionality_id.name AS functionality", "message_id.created_at AS created_at",
+                        "message_id.updated_at AS updated_at");
+    }
+
+    @Test
+    void findAvailableByCodeAndEnvironment_mapsDateTimeAndIsoStringDates() {
+        java.time.Instant created = java.time.Instant.parse("2025-01-02T03:04:05Z");
+        java.time.Instant updated = java.time.Instant.parse("2025-02-03T04:05:06Z");
+        Value createdValue = mock(Value.class);
+        when(createdValue.isDateTime()).thenReturn(true);
+        when(createdValue.getDateTime()).thenReturn(java.time.ZonedDateTime.ofInstant(created, java.time.ZoneOffset.UTC));
+        Value updatedValue = mock(Value.class);
+        when(updatedValue.getString()).thenReturn(updated.toString());
+        doReturn(oneRow("CODE", "Title", "Body", createdValue, updatedValue)).when(surreal).query(anyString());
+
+        var result = adapter.findAvailableByCodeAndEnvironment("CODE", "environment-uuid");
+
+        assertThat(result).hasValueSatisfying(message -> assertThat(message)
+                .extracting("createdAt", "updatedAt").containsExactly(created, updated));
+    }
+
+    @Test
+    void findAvailableByCodeAndEnvironment_treatsNullAndNoneDatesAsNull() {
+        Value nullValue = mock(Value.class);
+        when(nullValue.isNull()).thenReturn(true);
+        Value noneValue = mock(Value.class);
+        when(noneValue.isNone()).thenReturn(true);
+        doReturn(oneRow("CODE", "Title", "Body", nullValue, noneValue)).when(surreal).query(anyString());
+
+        var result = adapter.findAvailableByCodeAndEnvironment("CODE", "environment-uuid");
+
+        assertThat(result).hasValueSatisfying(message -> assertThat(message)
+                .extracting("createdAt", "updatedAt").containsExactly(null, null));
+    }
+
+    @Test
+    void findAvailabilityByCodeAndEnvironment_usesMinimalSelectAndMapsIdAndUpdatedAt() {
+        java.time.Instant updated = java.time.Instant.parse("2025-03-04T05:06:07Z");
+        Value date = mock(Value.class);
+        when(date.getString()).thenReturn(updated.toString());
+        doReturn(availabilityRow(date)).when(surreal).query(anyString());
+
+        var availability = adapter.findAvailabilityByCodeAndEnvironment("CODE", "environment-uuid");
+
+        assertThat(availability).hasValueSatisfying(value -> assertThat(value)
+                .extracting("messageId", "updatedAt")
+                .containsExactly(java.util.UUID.fromString("123e4567-e89b-12d3-a456-426614175030"), updated));
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(surreal).query(sql.capture());
+        assertThat(sql.getValue()).startsWith("SELECT message_id AS id, message_id.updated_at AS updated_at")
+                .contains("message_id.application_id = environment_id.application_id",
+                        "message_id.status_id.name = 'Active'", "state_data_id.name = 'Active'");
+    }
+
+    @Test
+    void findAvailabilityByCodeAndEnvironment_preservesDomainException() {
+        CrossWordsException expected = CrossWordsException.buildInfrastructure("domain failure", "db failure",
+                new IllegalStateException("root"), co.edu.uco.crosscutting.exceptions.enumeration.ExceptionType.TECHNICAL);
+        doThrow(expected).when(surreal).query(anyString());
+
+        assertThatThrownBy(() -> adapter.findAvailabilityByCodeAndEnvironment("CODE", "environment-uuid"))
+                .isSameAs(expected);
+    }
+
+    @Test
+    void findAvailableByCodeAndEnvironment_preservesDomainException() {
+        CrossWordsException expected = CrossWordsException.buildInfrastructure("domain failure", "db failure",
+                new IllegalStateException("root"), co.edu.uco.crosscutting.exceptions.enumeration.ExceptionType.TECHNICAL);
+        doThrow(expected).when(surreal).query(anyString());
+
+        assertThatThrownBy(() -> adapter.findAvailableByCodeAndEnvironment("CODE", "environment-uuid"))
+                .isSameAs(expected);
     }
 
     @Test

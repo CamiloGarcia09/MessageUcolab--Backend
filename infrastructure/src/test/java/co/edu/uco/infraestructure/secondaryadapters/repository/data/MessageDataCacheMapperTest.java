@@ -34,6 +34,7 @@ class MessageDataCacheMapperTest {
             model.setApplication("APP");
             model.setFunctionality("FUNC");
             model.setCreatedAt(Instant.parse("2025-01-02T03:04:05Z"));
+            model.setUpdatedAt(Instant.parse("2025-02-03T04:05:06Z"));
 
             MessageData data = mapper.mapperData(model);
 
@@ -46,7 +47,8 @@ class MessageDataCacheMapperTest {
                     () -> assertThat(data.getCategory().getName()).isEqualTo("CATEGORY"),
                     () -> assertThat(data.getApplication()).isEqualTo("APP"),
                     () -> assertThat(data.getFunctionality().getName()).isEqualTo("FUNC"),
-                    () -> assertThat(data.getCreatedAt()).isEqualTo(Instant.parse("2025-01-02T03:04:05Z")));
+                    () -> assertThat(data.getCreatedAt()).isEqualTo(Instant.parse("2025-01-02T03:04:05Z")),
+                    () -> assertThat(data.getUpdatedAt()).isEqualTo(Instant.parse("2025-02-03T04:05:06Z")));
         }
 
         @Test
@@ -69,6 +71,7 @@ class MessageDataCacheMapperTest {
                     MessageTypeData.build("Functional"), MessageCategoryData.build("Information"),
                     "APP", FunctionalityData.build("FUNC"));
             data.setCreatedAt(Instant.parse("2025-01-02T03:04:05Z"));
+            data.setUpdatedAt(Instant.parse("2025-02-03T04:05:06Z"));
 
             MessageRedis model = mapper.mapperModel(data);
 
@@ -82,7 +85,8 @@ class MessageDataCacheMapperTest {
                     () -> assertThat(model.getApplication()).isEqualTo("APP"),
                     () -> assertThat(model.getFunctionality()).isEqualTo("FUNC"),
                     () -> assertThat(model.getEnvironmentId()).isEmpty(),
-                    () -> assertThat(model.getCreatedAt()).isEqualTo(Instant.parse("2025-01-02T03:04:05Z")));
+                    () -> assertThat(model.getCreatedAt()).isEqualTo(Instant.parse("2025-01-02T03:04:05Z")),
+                    () -> assertThat(model.getUpdatedAt()).isEqualTo(Instant.parse("2025-02-03T04:05:06Z")));
         }
 
         @Test
@@ -105,6 +109,8 @@ class MessageDataCacheMapperTest {
             MessageData original = new MessageData(id, "CODE", "Title", "Content",
                     MessageTypeData.build("Functional"), MessageCategoryData.build("Information"),
                     "APP", FunctionalityData.build("FUNC"));
+            original.setCreatedAt(Instant.parse("2025-01-02T03:04:05Z"));
+            original.setUpdatedAt(Instant.parse("2025-02-03T04:05:06Z"));
 
             MessageRedis cached = mapper.mapperModel(original);
             MessageData recovered = mapper.mapperData(cached);
@@ -120,7 +126,9 @@ class MessageDataCacheMapperTest {
                     () -> assertThat(recovered.getContent()).isEqualTo(original.getContent()),
                     () -> assertThat(recovered.getApplication()).isEqualTo(original.getApplication()),
                     () -> assertThat(recovered.getFunctionality().getName())
-                            .isEqualTo(original.getFunctionality().getName()));
+                            .isEqualTo(original.getFunctionality().getName()),
+                    () -> assertThat(cached.getUpdatedAt()).isEqualTo(original.getUpdatedAt()),
+                    () -> assertThat(recovered.getUpdatedAt()).isEqualTo(original.getUpdatedAt()));
         }
     }
 }

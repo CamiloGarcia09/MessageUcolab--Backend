@@ -28,7 +28,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class FindMessageByCodeAndEnvironmentUseCaseTest {
+class FindMessageByCodeAndApplicationUseCaseTest {
 
     private static final MessageAccessContext ACCESS_CONTEXT = new MessageAccessContext("app-1");
 
@@ -45,12 +45,12 @@ class FindMessageByCodeAndEnvironmentUseCaseTest {
     @Mock
     private LoggingPort log;
 
-    private FindMessageByCodeAndEnvironmentUseCase useCase;
+    private FindMessageByCodeAndApplicationUseCase useCase;
 
     @BeforeEach
     void setUp() {
-        when(loggerFactory.getLogger(FindMessageByCodeAndEnvironmentUseCase.class)).thenReturn(log);
-        useCase = new FindMessageByCodeAndEnvironmentUseCase(
+        when(loggerFactory.getLogger(FindMessageByCodeAndApplicationUseCase.class)).thenReturn(log);
+        useCase = new FindMessageByCodeAndApplicationUseCase(
                 messageCatalogStrategy, findMessageCodeValidator, entityMapper, environmentResolver, loggerFactory);
         when(environmentResolver.resolveApplication(ACCESS_CONTEXT)).thenReturn("env");
     }
@@ -73,12 +73,12 @@ class FindMessageByCodeAndEnvironmentUseCaseTest {
         when(messageCatalogStrategy.getMessageByCodeAndApplication("CODE", "env"))
                 .thenReturn(Optional.empty());
         when(messageCatalogStrategy.getSystemMessageContent(MessageCatalogCodeEnum.FUN_012.getCode()))
-                .thenReturn("Message %s not found in environment %s");
+                .thenReturn("Message %s not found in application %s");
 
         assertThatThrownBy(() -> useCase.execute("CODE", ACCESS_CONTEXT))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getUserMessage())
-                        .isEqualTo("Message CODE not found in environment env"));
+                        .isEqualTo("Message CODE not found in application env"));
     }
 
     @Test
@@ -86,15 +86,15 @@ class FindMessageByCodeAndEnvironmentUseCaseTest {
         when(messageCatalogStrategy.getMessageByCodeAndApplication("CODE", "env"))
                 .thenThrow(new IllegalStateException("boom"));
         when(messageCatalogStrategy.getSystemMessageContent(MessageCatalogCodeEnum.FUN_012.getCode()))
-                .thenReturn("Message %s not found in environment %s");
+                .thenReturn("Message %s not found in application %s");
 
         assertThatThrownBy(() -> useCase.execute("CODE", ACCESS_CONTEXT))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getUserMessage())
-                        .isEqualTo("Message CODE not found in environment env"));
+                        .isEqualTo("Message CODE not found in application env"));
 
         ArgumentCaptor<Exception> exceptionCaptor = ArgumentCaptor.forClass(Exception.class);
-        verify(log).error(eq("Message CODE not found in environment env"), exceptionCaptor.capture());
+        verify(log).error(eq("Message CODE not found in application env"), exceptionCaptor.capture());
         assertThat(exceptionCaptor.getValue()).isInstanceOf(IllegalStateException.class);
     }
 }

@@ -30,6 +30,7 @@ public final class MessageRedis {
     private String application;
     private String functionality;
     private Instant createdAt;
+    private Instant updatedAt;
     @Indexed
     private String environmentId;
     public MessageRedis() {
@@ -89,5 +90,8 @@ public final class MessageRedis {
     }
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
     }
 }

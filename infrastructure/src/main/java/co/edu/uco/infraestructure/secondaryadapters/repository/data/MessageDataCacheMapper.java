@@ -20,6 +20,7 @@ public final class MessageDataCacheMapper implements DataMapper<MessageData, Mes
                 model.getContent(), MessageTypeData.build(model.getType()),
                 MessageCategoryData.build(model.getCategory()), model.getApplication(), FunctionalityData.build(model.getFunctionality()));
         data.setCreatedAt(model.getCreatedAt());
+        data.setUpdatedAt(model.getUpdatedAt());
         return data;
     }
     @Override
@@ -29,6 +30,7 @@ public final class MessageDataCacheMapper implements DataMapper<MessageData, Mes
                 data.getCategory().getName(), data.getStatus().getName(), data.getApplication(),
                 data.getFunctionality().getName(), EMPTY);
         model.setCreatedAt(data.getCreatedAt());
+        model.setUpdatedAt(data.getUpdatedAt());
         return model;
     }
 }

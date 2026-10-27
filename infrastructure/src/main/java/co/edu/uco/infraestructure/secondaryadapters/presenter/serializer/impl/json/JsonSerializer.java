@@ -2,6 +2,8 @@ package co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.impl.j
 
 import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
 import co.edu.uco.application.primaryports.dto.message.MessageDTO;
+import co.edu.uco.application.primaryports.dto.message.ResolvedMessageDTO;
+import co.edu.uco.application.primaryports.dto.message.ConsumerTranslatedMessageDTO;
 import co.edu.uco.application.primaryports.dto.message.TranslatedMessageDTO;
 import co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.AbstractSerializer;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
@@ -28,6 +30,8 @@ public final class JsonSerializer extends AbstractSerializer {
             var mapper = new ObjectMapper();
             mapper.registerModule(new JavaTimeModule());
             mapper.addMixIn(MessageDTO.class, MessageDTOMixIn.class);
+            mapper.addMixIn(ResolvedMessageDTO.class, ResolvedMessageDTOMixIn.class);
+            mapper.addMixIn(ConsumerTranslatedMessageDTO.class, ConsumerTranslatedMessageDTOMixIn.class);
             mapper.addMixIn(TranslatedMessageDTO.class, TranslatedMessageDTOMixIn.class);
             mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
             return mapper.writeValueAsString(data);
@@ -43,6 +47,20 @@ public final class JsonSerializer extends AbstractSerializer {
     private abstract static class MessageDTOMixIn {
         @JsonProperty("created_at")
         public abstract Instant getCreatedAt();
+    }
+
+    @JsonPropertyOrder({"code", "title", "content", "type", "category", "functionality", "created_at", "updated_at"})
+    private abstract static class ResolvedMessageDTOMixIn {
+        @JsonProperty("created_at")
+        public abstract Instant getCreatedAt();
+
+        @JsonProperty("updated_at")
+        public abstract Instant getUpdatedAt();
+    }
+
+    @JsonPropertyOrder({"code", "sourceLanguage", "targetLanguage", "title", "content", "type", "category",
+            "functionality", "created_at", "updated_at"})
+    private abstract static class ConsumerTranslatedMessageDTOMixIn extends ResolvedMessageDTOMixIn {
     }
 
     @JsonPropertyOrder({

@@ -12,7 +12,7 @@ El contrato está definido en OpenAPI 3.0.3 y se puede compartir directamente e 
 - El mismo archivo está publicado en `/openapi.yaml`.
 - La URL base definida en el contrato es `http://localhost:8000`.
 
-Esta documentación cubre **17 operaciones HTTP**. La creación de credenciales está fuera de su alcance.
+Esta documentación cubre **19 operaciones HTTP**. La creación de credenciales está fuera de su alcance.
 Las credenciales para consumir las operaciones protegidas se obtienen del responsable del ambiente.
 
 ## Operaciones incluidas
@@ -30,6 +30,8 @@ Todas las rutas de la tabla llevan el prefijo `/messageucolab/v1`.
 | POST | `/messages` | Crear el mensaje en uno o varios ambientes de la aplicación | Sesión BFF |
 | GET | `/messages` | Buscar por código o listar con paginación y filtro `filterEnvironments` | Sesión BFF |
 | POST | `/messages/{messageCode}/translations` | Traducir sin guardar la traducción | Sesión BFF |
+| GET | `/messages/consumer?code=MSG_WELCOME` | Obtener un mensaje activo para consumo, sin envelope ni IDs | Sesión BFF |
+| POST | `/messages/consumer/translations?code=MSG_WELCOME` | Traducir un mensaje activo y habilitado, con caché y origen desde el idioma base | Sesión BFF |
 | GET | `/session/applications` | Listar aplicaciones de las organizaciones propias | Sesión BFF |
 | GET | `/catalog/applications` | Listar aplicaciones propias | Sesión BFF |
 | GET | `/catalog/applications/{applicationId}/environments` | Listar ambientes | Sesión BFF |

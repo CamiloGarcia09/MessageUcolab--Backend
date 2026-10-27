@@ -30,9 +30,9 @@ import static co.edu.uco.infraestructure.config.InfrastructureConstant.*;
 
 @RestController
 final class MessagesControllerImpl implements MessagesController {
-    private final FindMessagesByEnvironmentUsecaseFacade findPage;
-    private final FindMessageByCodeAndEnvironmentUseCaseFacade findOne;
-    private final TranslateMessageByCodeAndEnvironmentUseCaseFacade translate;
+    private final FindMessagesByApplicationUseCaseFacade findPage;
+    private final FindMessageByCodeAndApplicationUseCaseFacade findOne;
+    private final TranslateMessageByCodeAndApplicationUseCaseFacade translate;
     private final PresenterPort<MessageDTO> presenter;
     private final PresenterPort<TranslatedMessageDTO> translationPresenter;
     private final PresenterPort<SimplePage<MessageDTO>> pagePresenter;
@@ -40,9 +40,9 @@ final class MessagesControllerImpl implements MessagesController {
     private final FindCatalogUseCaseFacade catalogFacade;
     private final CatalogPort catalog;
 
-    MessagesControllerImpl(FindMessagesByEnvironmentUsecaseFacade findPage,
-                            FindMessageByCodeAndEnvironmentUseCaseFacade findOne,
-                            TranslateMessageByCodeAndEnvironmentUseCaseFacade translate,
+    MessagesControllerImpl(FindMessagesByApplicationUseCaseFacade findPage,
+                            FindMessageByCodeAndApplicationUseCaseFacade findOne,
+                            TranslateMessageByCodeAndApplicationUseCaseFacade translate,
                             PresenterPort<MessageDTO> presenter,
                             PresenterPort<TranslatedMessageDTO> translationPresenter,
                             PresenterPort<SimplePage<MessageDTO>> pagePresenter,
@@ -81,13 +81,14 @@ final class MessagesControllerImpl implements MessagesController {
         }));
         Flux<ServerSentEvent<MessageEvent>> heartbeat = Flux.interval(Duration.ofSeconds(15))
                 .map(value -> {
+                    // El heartbeat mantiene el canal de la aplicacion; no representa un ambiente concreto.
                     MessageEvent event = new MessageEvent(UUID.randomUUID().toString(), "heartbeat",
-                            application, "");
+                            "", "");
                     return ServerSentEvent.<MessageEvent>builder(event).id(event.id()).event(event.type()).build();
                 });
         return Flux.merge(events, heartbeat);
     }
-    public Mono<Void> findByEnvironmentAndMessage(String page, String size, String sort, String columnSort,
+    public Mono<Void> findMessagesByApplication(String page, String size, String sort, String columnSort,
                                                    String filterCode, String filterTitle, String filterCategory,
                                                    String filterFunctionality, String filterType, String filterStatus,
                                                    String filterEnvironments, String filterStatusId,
@@ -102,11 +103,11 @@ final class MessagesControllerImpl implements MessagesController {
         return ReactiveHttpResponse.blocking(() -> findPage.execute(context(exchange), request))
                 .flatMap(value -> ReactiveHttpResponse.present(pagePresenter, List.of(value), exchange));
     }
-    public Mono<Void> findByCodeMessageAndEnvironment(String code, ServerWebExchange exchange) {
+    public Mono<Void> findMessageByCodeAndApplication(String code, ServerWebExchange exchange) {
         return ReactiveHttpResponse.blocking(() -> findOne.execute(code, context(exchange)))
                 .flatMap(value -> ReactiveHttpResponse.present(presenter, List.of(value), exchange));
     }
-    public Mono<Void> translateByCodeMessageAndEnvironment(String code, TranslateMessageDTO dto,
+    public Mono<Void> translateMessageByCodeAndApplication(String code, TranslateMessageDTO dto,
                                                             ServerWebExchange exchange) {
         return ReactiveHttpResponse.blocking(() -> translate.execute(code, context(exchange),
                         dto.getSourceLanguage(), dto.getTargetLanguage()))

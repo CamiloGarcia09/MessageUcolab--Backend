@@ -29,6 +29,7 @@ class DefaultSessionSecurityRegistrationTest {
             .withBean(SessionApplicationUseCaseFacade.class, () -> mock(SessionApplicationUseCaseFacade.class))
             .withBean(PersonalWorkspaceUseCaseFacade.class, () -> mock(PersonalWorkspaceUseCaseFacade.class))
             .withBean(PresenterPort.class, () -> mock(PresenterPort.class))
+            .withPropertyValues("components.security.session.pdp-url=http://localhost:18080")
             .withUserConfiguration(SessionApplicationInterceptor.class, SessionApplicationControllerImpl.class);
 
     @Test

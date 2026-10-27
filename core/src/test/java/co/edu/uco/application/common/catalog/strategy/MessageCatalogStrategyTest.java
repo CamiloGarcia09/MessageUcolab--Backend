@@ -4,15 +4,20 @@ import co.edu.uco.application.common.catalog.strategy.cache.CacheCatalog;
 import co.edu.uco.application.common.catalog.strategy.database.DatabaseCatalog;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.entity.MessageData;
+import co.edu.uco.application.secondaryports.entity.MessageAvailabilityData;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.MessageFilter;
+import co.edu.uco.application.secondaryports.repository.ResolveMessageRepository;
 import co.edu.uco.application.secondaryports.repository.SimplePage;
 import co.edu.uco.application.secondaryports.repository.SimplePageRequest;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import co.edu.uco.crosscutting.exceptions.NotFoundException;
+import co.edu.uco.crosscutting.exceptions.CrossWordsException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -20,6 +25,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,13 +50,14 @@ class MessageCatalogStrategyTest {
     private LoggingPortFactory loggerFactory;
     @Mock
     private LoggingPort log;
+    @Mock private ResolveMessageRepository resolveRepository;
 
     private MessageCatalogStrategy strategy;
 
     @BeforeEach
     void setUp() {
         when(loggerFactory.getLogger(MessageCatalogStrategy.class)).thenReturn(log);
-        strategy = new MessageCatalogStrategy(cacheCatalog, databaseCatalog, catalogPort, loggerFactory);
+        strategy = new MessageCatalogStrategy(cacheCatalog, databaseCatalog, catalogPort, loggerFactory, resolveRepository);
     }
 
     private MessageData message() {
@@ -314,4 +322,116 @@ class MessageCatalogStrategyTest {
                 .isSameAs(found);
         org.mockito.Mockito.verifyNoInteractions(cacheCatalog);
     }
+
+    @Test
+    void getAvailableMessageByCodeAndEnvironment_returnsCache_whenDatabaseVersionMatches() {
+        MessageData cached = message();
+        UUID id = UUID.randomUUID();
+        Instant updatedAt = Instant.parse("2026-01-01T00:00:00Z");
+        cached.setId(id);
+        cached.setApplication("app-1");
+        cached.setUpdatedAt(updatedAt);
+        when(cacheCatalog.getMessageByCodeAndEnvironment("CODE", "env-1")).thenReturn(Optional.of(cached));
+        when(resolveRepository.findAvailabilityByCodeAndEnvironment("CODE", "env-1"))
+                .thenReturn(Optional.of(new MessageAvailabilityData(id, updatedAt)));
+        when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_009.getCode())).thenReturn("cache hit");
+
+        assertThat(strategy.getAvailableMessageByCodeAndEnvironment("CODE", "app-1", "env-1"))
+                .containsSame(cached);
+        verify(resolveRepository).findAvailabilityByCodeAndEnvironment("CODE", "env-1");
+        verify(resolveRepository, never()).findAvailableByCodeAndEnvironment(anyString(), anyString());
+    }
+
+    @Test
+    void getAvailableMessageByCodeAndEnvironment_evictsAndReturnsEmpty_whenAvailabilityIsGone() {
+        when(cacheCatalog.getMessageByCodeAndEnvironment("CODE", "env-1")).thenReturn(Optional.of(message()));
+        when(resolveRepository.findAvailabilityByCodeAndEnvironment("CODE", "env-1"))
+                .thenReturn(Optional.empty());
+
+        assertThat(strategy.getAvailableMessageByCodeAndEnvironment("CODE", "app-1", "env-1")).isEmpty();
+        verify(cacheCatalog).evictMessage("CODE");
+        verify(resolveRepository, never()).findAvailableByCodeAndEnvironment(anyString(), anyString());
+    }
+
+    @Test
+    void getAvailableMessageByCodeAndEnvironment_loadsAuthoritativeMessage_whenCacheMisses() {
+        MessageData found = message();
+        when(cacheCatalog.getMessageByCodeAndEnvironment("CODE", "env-1")).thenReturn(Optional.empty());
+        when(resolveRepository.findAvailableByCodeAndEnvironment("CODE", "env-1"))
+                .thenReturn(Optional.of(found));
+
+        assertThat(strategy.getAvailableMessageByCodeAndEnvironment("CODE", "app-1", "env-1"))
+                .containsSame(found);
+        verify(cacheCatalog).addMessageWithEnvironment(found, "env-1");
+    }
+
+    private enum CachedMismatch { ID, APPLICATION, CODE }
+
+    @ParameterizedTest
+    @EnumSource(CachedMismatch.class)
+    void getAvailableMessageByCodeAndEnvironment_reloads_whenCachedIdentityDiffers(CachedMismatch mismatch) {
+        MessageData cached = message();
+        UUID id = UUID.randomUUID();
+        cached.setId(mismatch == CachedMismatch.ID ? UUID.randomUUID() : id);
+        cached.setCode(mismatch == CachedMismatch.CODE ? "STALE" : "CODE");
+        cached.setApplication(mismatch == CachedMismatch.APPLICATION ? "other-app" : "app-1");
+        Instant updatedAt = Instant.parse("2026-01-01T00:00:00Z");
+        cached.setUpdatedAt(updatedAt);
+        MessageData database = message();
+        when(cacheCatalog.getMessageByCodeAndEnvironment("CODE", "env-1")).thenReturn(Optional.of(cached));
+        when(resolveRepository.findAvailabilityByCodeAndEnvironment("CODE", "env-1"))
+                .thenReturn(Optional.of(new MessageAvailabilityData(id, updatedAt)));
+        when(resolveRepository.findAvailableByCodeAndEnvironment("CODE", "env-1"))
+                .thenReturn(Optional.of(database));
+
+        assertThat(strategy.getAvailableMessageByCodeAndEnvironment("CODE", "app-1", "env-1"))
+                .containsSame(database);
+        verify(cacheCatalog).addMessageWithEnvironment(database, "env-1");
+    }
+
+    private enum CachedTimestamp { NULL, STALE }
+
+    @ParameterizedTest
+    @EnumSource(CachedTimestamp.class)
+    void getAvailableMessageByCodeAndEnvironment_reloads_whenCachedUpdatedAtIsNullOrStale(CachedTimestamp state) {
+        MessageData cached = message();
+        UUID id = UUID.randomUUID();
+        cached.setId(id);
+        cached.setApplication("app-1");
+        cached.setUpdatedAt(state == CachedTimestamp.STALE
+                ? Instant.parse("2026-01-31T23:59:59Z") : null);
+        MessageData authoritative = message();
+        Instant databaseVersion = Instant.parse("2026-02-01T00:00:00Z");
+        when(cacheCatalog.getMessageByCodeAndEnvironment("CODE", "env-1"))
+                .thenReturn(Optional.of(cached));
+        when(resolveRepository.findAvailabilityByCodeAndEnvironment("CODE", "env-1"))
+                .thenReturn(Optional.of(new MessageAvailabilityData(id, databaseVersion)));
+        when(resolveRepository.findAvailableByCodeAndEnvironment("CODE", "env-1"))
+                .thenReturn(Optional.of(authoritative));
+
+        assertThat(strategy.getAvailableMessageByCodeAndEnvironment("CODE", "app-1", "env-1"))
+                .containsSame(authoritative);
+
+        verify(resolveRepository)
+                .findAvailableByCodeAndEnvironment("CODE", "env-1");
+    }
+
+    @Test
+    void getAvailableMessageByCodeAndEnvironment_doesNotServeCache_whenAvailabilityQueryFails() {
+        MessageData cached = message();
+        cached.setId(UUID.randomUUID());
+        cached.setApplication("app-1");
+        cached.setUpdatedAt(Instant.parse("2026-01-01T00:00:00Z"));
+        when(cacheCatalog.getMessageByCodeAndEnvironment("CODE", "env-1")).thenReturn(Optional.of(cached));
+        CrossWordsException failure = CrossWordsException.buildInfrastructure("database unavailable",
+                new IllegalStateException("database unavailable"));
+        when(resolveRepository.findAvailabilityByCodeAndEnvironment("CODE", "env-1")).thenThrow(failure);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                () -> strategy.getAvailableMessageByCodeAndEnvironment("CODE", "app-1", "env-1"))
+                .isSameAs(failure);
+        verify(resolveRepository, never()).findAvailableByCodeAndEnvironment(anyString(), anyString());
+    }
 }
+
+

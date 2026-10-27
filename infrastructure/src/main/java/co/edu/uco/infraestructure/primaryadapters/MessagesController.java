@@ -24,7 +24,7 @@ public interface MessagesController {
             params = "!code",
             produces = {"application/json", "application/yaml", "application/xml", "text/plain", "text/html"}
     )
-    Mono<Void> findByEnvironmentAndMessage(
+    Mono<Void> findMessagesByApplication(
             @RequestParam(value = "page", required = false) String page,
             @RequestParam(value = "size", required = false) String size,
             @RequestParam(value = "sort", required = false) String sort,
@@ -41,11 +41,11 @@ public interface MessagesController {
             ServerWebExchange exchange
     );
 
-    default Mono<Void> findByEnvironmentAndMessage(String page, String size, String sort, String columnSort,
+    default Mono<Void> findMessagesByApplication(String page, String size, String sort, String columnSort,
                                                   String filterCode, String filterTitle, String filterCategory,
                                                   String filterFunctionality, String filterType, String filterStatus,
                                                   String filterEnvironments, ServerWebExchange exchange) {
-        return findByEnvironmentAndMessage(page, size, sort, columnSort, filterCode, filterTitle,
+        return findMessagesByApplication(page, size, sort, columnSort, filterCode, filterTitle,
                 filterCategory, filterFunctionality, filterType, filterStatus, filterEnvironments,
                 null, null, exchange);
     }
@@ -54,7 +54,7 @@ public interface MessagesController {
             params = "code",
             produces = {"application/json", "application/yaml", "application/xml", "text/plain", "text/html"}
     )
-    Mono<Void> findByCodeMessageAndEnvironment(
+    Mono<Void> findMessageByCodeAndApplication(
             @RequestParam("code") String messageCode,
             ServerWebExchange exchange
     );
@@ -64,7 +64,7 @@ public interface MessagesController {
             consumes = "application/json",
             produces = {"application/json", "application/yaml", "application/xml", "text/plain", "text/html"}
     )
-    Mono<Void> translateByCodeMessageAndEnvironment(
+    Mono<Void> translateMessageByCodeAndApplication(
             @PathVariable(MESSAGE_CODE_PARAMETER) String messageCode,
             @RequestBody TranslateMessageDTO translateMessageDTO,
             ServerWebExchange exchange

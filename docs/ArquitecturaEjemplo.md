@@ -204,10 +204,10 @@ Contrato de entrada que usan los controllers. Patrón **interfaz + `impl/`**:
 
 ```text
 UseCaseFacade                                            (marcador/raíz)
-facade/message/  FindMessageByCodeAndEnvironmentUseCaseFacade
-                 FindMessagesByEnvironmentUsecaseFacade
+facade/message/  FindMessageByCodeAndApplicationUseCaseFacade
+                 FindMessagesByApplicationUseCaseFacade
                  CreateMessageUseCaseFacade
-                 TranslateMessageByCodeAndEnvironmentUseCaseFacade
+                 TranslateMessageByCodeAndApplicationUseCaseFacade
 facade/page/     SimplePageFacade
 facade/catalog/  FindCatalogUseCaseFacade
 ```
@@ -273,15 +273,22 @@ facades consumen. Lista real:
 ```text
 usecase/
 |-- CreateMessageUseCase.java                       implements HandlingCreateMessagePort
-|-- FindMessageByEnvironmentUseCase.java            implements HandlingFindMessageEnvironmentPort
-|-- FindMessageByCodeAndEnvironmentUseCase.java     implements HandlingFindMessageByCodeAndEnvironmentPort
-|-- TranslateMessageByCodeAndEnvironmentUseCase.java implements HandlingTranslateMessageByCodeAndEnvironmentPort
+|-- FindMessagesByApplicationUseCase.java           implements HandlingFindMessagesByApplicationPort
+|-- FindMessageByCodeAndApplicationUseCase.java     implements HandlingFindMessageByCodeAndApplicationPort
+|-- TranslateMessageByCodeAndApplicationUseCase.java implements HandlingTranslateMessageByCodeAndApplicationPort
 |-- FindCatalogUseCase.java                         implements HandlingFindCatalogPort
 ```
 
 Ejemplo estructural (`CreateMessageUseCase`): valida con `CreateMessageCompositeValidator`,
 construye un `MessageData` con `UtilUUID.getNewUUID()`, persiste vía `CreateMessageRepository`
 (SurrealDB) y loguea. Errores `CrossWordsException` se re-lanzan; cualquier otro se envuelve.
+
+Las consultas administrativas y la traduccion anteriores operan por aplicacion; los ambientes
+son filtros o asociaciones separados. `MessageAdministrationConfig` registra sus casos de uso
+y facades en infraestructura, sin anotaciones Spring en esas clases del core. Los metodos
+que realmente consultan por ambiente (incluido `/messages/consumer`) conservan ese nombre.
+El `heartbeat` SSE no representa un ambiente concreto: envia `environmentId` y `messageCode`
+vacios, sin colocar el identificador de aplicacion en el campo del ambiente.
 
 ## Dominios y agregados (`usecase/domain`)
 
@@ -567,18 +574,17 @@ soportan respuesta en JSON, YAML, XML, text/plain y text/html según el header `
 Swagger: `http://localhost:8085/swagger-ui.html` · Health: `http://localhost:8085/actuator/health` ·
 Métricas: `http://localhost:8085/actuator/prometheus`.
 
-## Flujo real de una consulta (lectura con caché)
+## Flujo real de una consulta administrativa por codigo
 
 ```text
 1. GET /messageucolab/v1/messages?code={messageCode} con autenticación externa
 2. PEP valida acceso; el backend resuelve el contexto autorizado
-3. MessagesControllerImpl -> FindMessageByCodeAndEnvironmentUseCaseFacade.execute(code, MessageAccessContext)
-4. Facade -> HandlingFindMessageByCodeAndEnvironmentPort -> FindMessageByCodeAndEnvironmentUseCase
-5. UseCase usa MessageCatalogStrategy.getMessageByCodeAndEnvironment:
-     a. cacheCatalog.getMessageByCodeAndEnvironment  -> MessageRedisAdapter (Redis)  [HIT -> responde]
-     b. si miss -> databaseCatalog.getMessageByCodeAndEnvironment -> MessageSurrealRepositoryAdapterImpl
-     c. si se recupera de BD -> rellena caché (cache-aside)
-6. UseCase mapea MessageData -> MessageDTO (MessageDTOMapper) y retorna Optional/throw MessageNotFound
+3. MessagesControllerImpl -> FindMessageByCodeAndApplicationUseCaseFacade.execute(code, MessageAccessContext)
+4. Facade -> HandlingFindMessageByCodeAndApplicationPort -> FindMessageByCodeAndApplicationUseCase
+5. UseCase usa MessageCatalogStrategy.getMessageByCodeAndApplication:
+     databaseCatalog.getMessageByCodeAndApplication -> MessageSurrealRepositoryAdapterImpl
+     La consulta administrativa por aplicacion no utiliza la cache Redis por ambiente.
+6. UseCase mapea MessageData -> MessageDTO (MessageEntityMapper) o lanza una excepcion de dominio
 7. MessagesControllerImpl -> PresenterPort<MessageDTO> (HttpPresenterAdapter)
 8. SerializerRegistry elige serializer según Accept y escribe la respuesta (200)
 ```
@@ -589,10 +595,10 @@ Métricas: `http://localhost:8085/actuator/prometheus`.
 1. POST /messageucolab/v1/messages (body CreateMessageDTO, autenticación externa)
 2. CreateMessageControllerImpl -> CreateMessageUseCaseFacade.execute(dto)
 3. Facade -> HandlingCreateMessagePort -> CreateMessageUseCase
-4. UseCase resuelve el ambiente autenticado y deriva de este el `applicationId`
+4. UseCase obtiene `applicationId` del contexto cuya propiedad se valido contra la sesion BFF
 5. UseCase valida con CreateMessageCompositeValidator, incluida la pertenencia de la funcionalidad
 6. UseCase construye MessageData (id = UtilUUID.getNewUUID(), compone type/category/status/functionality) e invoca
-   CreateMessageRepository.createMessage(messageData, environmentId, activeMessageEnvironmentStateId)
+   CreateMessageRepository.createMessage(messageData, environmentIds, activeMessageEnvironmentStateId)
 7. CreateMessageSurrealAdapter hace UPSERT en SurrealDB (tablas message + message_environment
    con record IDs a message_type/message_category/message_state/application/functionality/environment)
 8. El evento de dominio queda en domain_events; SurrealDomainEventProjectionConsumer (2s) lo

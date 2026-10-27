@@ -7,9 +7,9 @@ import co.edu.uco.application.primaryports.dto.message.TranslatedMessageDTO;
 import co.edu.uco.application.primaryports.dto.page.PageRequestDTO;
 import co.edu.uco.application.primaryports.facade.catalog.FindCatalogUseCaseFacade;
 import co.edu.uco.application.primaryports.facade.catalog.impl.FindCatalogUseCaseFacadeImpl;
-import co.edu.uco.application.primaryports.facade.message.FindMessageByCodeAndEnvironmentUseCaseFacade;
-import co.edu.uco.application.primaryports.facade.message.FindMessagesByEnvironmentUsecaseFacade;
-import co.edu.uco.application.primaryports.facade.message.TranslateMessageByCodeAndEnvironmentUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.message.FindMessageByCodeAndApplicationUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.message.FindMessagesByApplicationUseCaseFacade;
+import co.edu.uco.application.primaryports.facade.message.TranslateMessageByCodeAndApplicationUseCaseFacade;
 import co.edu.uco.application.secondaryports.event.MessageEvent;
 import co.edu.uco.application.secondaryports.event.MessageEventStreamPort;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
@@ -40,10 +40,10 @@ import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import reactor.test.StepVerifier;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.SubmissionPublisher;
+import java.time.Duration;
 
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.APPLICATION_ID_ATTRIBUTE;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.ENVIRONMENT_ID_ATTRIBUTE;
@@ -67,11 +67,11 @@ class MessagesControllerImplTest {
 
 
     @Mock
-    private FindMessagesByEnvironmentUsecaseFacade findPage;
+    private FindMessagesByApplicationUseCaseFacade findPage;
     @Mock
-    private FindMessageByCodeAndEnvironmentUseCaseFacade findOne;
+    private FindMessageByCodeAndApplicationUseCaseFacade findOne;
     @Mock
-    private TranslateMessageByCodeAndEnvironmentUseCaseFacade translate;
+    private TranslateMessageByCodeAndApplicationUseCaseFacade translate;
     @Mock
     private PresenterPort<MessageDTO> presenter;
     @Mock
@@ -125,8 +125,8 @@ class MessagesControllerImplTest {
     }
 
     @Nested
-    @DisplayName("findByEnvironmentAndMessage")
-    class FindByEnvironmentAndMessage {
+    @DisplayName("findMessagesByApplication")
+    class FindMessagesByApplication {
 
         @Test
         @DisplayName("Construye el PageRequest y presenta la página con el ambiente del token")
@@ -135,7 +135,7 @@ class MessagesControllerImplTest {
             SimplePage<MessageDTO> page = SimplePage.of(List.of(), 1, 10, 0, 0);
             when(findPage.execute(any(MessageAccessContext.class), any(PageRequestDTO.class))).thenReturn(page);
 
-            StepVerifier.create(controller.findByEnvironmentAndMessage(
+            StepVerifier.create(controller.findMessagesByApplication(
                             "1", "10", "asc", "code",
                             null, null, null, null, null, null, "env-a,env-b",
                             "7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82",
@@ -163,8 +163,8 @@ class MessagesControllerImplTest {
     }
 
     @Nested
-    @DisplayName("findByCodeMessageAndEnvironment")
-    class FindByCodeMessageAndEnvironment {
+    @DisplayName("findMessageByCodeAndApplication")
+    class FindMessageByCodeAndApplication {
 
         @Test
         @DisplayName("Delega con el código y presenta el mensaje encontrado")
@@ -173,7 +173,7 @@ class MessagesControllerImplTest {
             MessageDTO dto = MessageDTO.create("CODE", "Title", "Content", "TYPE", "CAT", "FUNC");
             when(findOne.execute(eq("CODE"), any(MessageAccessContext.class))).thenReturn(dto);
 
-            StepVerifier.create(controller.findByCodeMessageAndEnvironment("CODE", exchange())).verifyComplete();
+            StepVerifier.create(controller.findMessageByCodeAndApplication("CODE", exchange())).verifyComplete();
 
             verify(findOne).execute(eq("CODE"), any(MessageAccessContext.class));
             verify(presenter).presentRestSuccess(List.of(dto), null);
@@ -181,8 +181,8 @@ class MessagesControllerImplTest {
     }
 
     @Nested
-    @DisplayName("translateByCodeMessageAndEnvironment")
-    class TranslateByCodeMessageAndEnvironment {
+    @DisplayName("translateMessageByCodeAndApplication")
+    class TranslateMessageByCodeAndApplication {
 
         @Test
         @DisplayName("Delega con los idiomas origen y destino y presenta la traducción")
@@ -194,7 +194,7 @@ class MessagesControllerImplTest {
             body.setTargetLanguage("en");
             when(translate.execute(eq("CODE"), any(MessageAccessContext.class), eq("es"), eq("en"))).thenReturn(dto);
 
-            StepVerifier.create(controller.translateByCodeMessageAndEnvironment("CODE", body, exchange()))
+            StepVerifier.create(controller.translateMessageByCodeAndApplication("CODE", body, exchange()))
                     .verifyComplete();
 
             verify(translate).execute(eq("CODE"), any(MessageAccessContext.class), eq("es"), eq("en"));
@@ -210,7 +210,7 @@ class MessagesControllerImplTest {
             body.setTargetLanguage("en");
             when(translate.execute(eq("CODE"), any(MessageAccessContext.class), eq("auto"), eq("en"))).thenReturn(dto);
 
-            StepVerifier.create(controller.translateByCodeMessageAndEnvironment("CODE", body, exchange()))
+            StepVerifier.create(controller.translateMessageByCodeAndApplication("CODE", body, exchange()))
                     .verifyComplete();
 
             verify(translate).execute(eq("CODE"), any(MessageAccessContext.class), eq("auto"), eq("en"));
@@ -258,7 +258,9 @@ class MessagesControllerImplTest {
                         .thenAwait(Duration.ofSeconds(31))
                         .assertNext(serverSentEvent -> assertAll(
                                 () -> assertThat(serverSentEvent.event()).isEqualTo("heartbeat"),
-                                () -> assertThat(serverSentEvent.id()).isNotBlank()))
+                                () -> assertThat(serverSentEvent.data().environmentId()).isEmpty(),
+                                () -> assertThat(serverSentEvent.data().messageCode()).isEmpty(),
+                                () -> assertThat(serverSentEvent.data().id()).isNotBlank()))
                         .verifyComplete();
             } finally {
                 publisher.close();

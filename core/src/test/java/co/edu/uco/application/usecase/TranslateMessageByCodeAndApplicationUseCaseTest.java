@@ -40,7 +40,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class TranslateMessageByCodeAndEnvironmentUseCaseTest {
+class TranslateMessageByCodeAndApplicationUseCaseTest {
 
     private static final MessageAccessContext ACCESS_CONTEXT = new MessageAccessContext("app-1");
 
@@ -61,12 +61,12 @@ class TranslateMessageByCodeAndEnvironmentUseCaseTest {
     @Mock
     private LoggingPort log;
 
-    private TranslateMessageByCodeAndEnvironmentUseCase useCase;
+    private TranslateMessageByCodeAndApplicationUseCase useCase;
 
     @BeforeEach
     void setUp() {
-        when(loggerFactory.getLogger(TranslateMessageByCodeAndEnvironmentUseCase.class)).thenReturn(log);
-        useCase = new TranslateMessageByCodeAndEnvironmentUseCase(
+        when(loggerFactory.getLogger(TranslateMessageByCodeAndApplicationUseCase.class)).thenReturn(log);
+        useCase = new TranslateMessageByCodeAndApplicationUseCase(
                 messageCatalogStrategy, messageTranslationPort, messageTranslationCachePort,
                 findMessageCodeValidator, targetLanguageValidator, environmentResolver, loggerFactory);
         lenient().when(environmentResolver.resolveApplication(ACCESS_CONTEXT)).thenReturn("env");
