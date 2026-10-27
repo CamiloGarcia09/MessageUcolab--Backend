@@ -63,7 +63,7 @@ class BootstrapMessageCatalogEnumTest {
     }
 
     @Test
-    void count_isThirtyFiveAfterRetiringTokenCatalogEntries() {
-        assertThat(BootstrapMessageCatalogEnum.values()).hasSize(35);
+    void count_includesApplicationScopedRepositoryErrorCatalogEntry() {
+        assertThat(BootstrapMessageCatalogEnum.values()).hasSize(36);
     }
 }

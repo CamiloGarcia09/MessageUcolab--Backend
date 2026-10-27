@@ -40,6 +40,7 @@ public enum BootstrapMessageCatalogEnum {
     TCH_060("TCH_060", "Surreal count error", "Error counting records in SurrealDB. Query: %s", "TECHNICAL", "ERROR"),
     TCH_066("TCH_066", "Surreal message persist error", "Error al persistir mensaje en SurrealDB", "TECHNICAL", "ERROR"),
     TCH_067("TCH_067", "Surreal message persist technical error", "Error al persistir el mensaje en la base de datos SurrealDB", "TECHNICAL", "ERROR"),
+    TCH_078("TCH_078", "Surreal messages by application query error", "Error finding messages by application in SurrealDB. Application ID: %s", "TECHNICAL", "ERROR"),
 
     FUN_013("FUN_013", "Cache not connected", "Failed to connect to Redis", "FUNCTIONAL", "ERROR"),
     FUN_014("FUN_014", "Error during cache connection", "Data access exception while connecting to Redis", "FUNCTIONAL", "ERROR"),

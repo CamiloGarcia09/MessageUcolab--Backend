@@ -773,8 +773,16 @@ public enum MessageCatalogCodeEnum {
     FUN_216("FUN_216"),
     /** Solo se pueden crear mensajes asociados a una funcionalidad activa. */
     FUN_217("FUN_217"),
+    /** El mensaje no esta disponible para la aplicacion y el ambiente indicados. */
+    FUN_218("FUN_218"),
+    /** La aplicacion no tiene un codigo de idioma base valido para traducir. */
+    FUN_219("FUN_219"),
+    /** El mensaje o su idioma base cambiaron mientras se obtenia la traduccion. */
+    FUN_220("FUN_220"),
     TCH_076("TCH_076"),
-    TCH_077("TCH_077");
+    TCH_077("TCH_077"),
+    /** Error al consultar mensajes por aplicacion en SurrealDB. */
+    TCH_078("TCH_078");
 
     // =========================================================================
 

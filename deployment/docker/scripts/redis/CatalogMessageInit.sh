@@ -305,5 +305,9 @@ redis_hset "TCH_072" "Error updating message SurrealDB log" "Error updating mess
 redis_hset "TCH_073" "Error updating message SurrealDB user" "Technical error updating the message in the SurrealDB database." "TECHNICAL" "ERROR"
 redis_hset "TCH_074" "Error deleting message SurrealDB log" "Error deleting message in SurrealDB." "TECHNICAL" "ERROR"
 redis_hset "TCH_075" "Error deleting message SurrealDB user" "Technical error deleting the message in the SurrealDB database." "TECHNICAL" "ERROR"
+redis_hset "FUN_218" "Message not available" "Message %s is not available for application %s in environment %s" "FUNCTIONAL" "ERROR"
+redis_hset "FUN_219" "Application base language unavailable" "The application must have a valid base language code before translating messages." "FUNCTIONAL" "ERROR"
+redis_hset "FUN_220" "Message changed during translation" "The message or application base language changed during translation. Retry the request." "FUNCTIONAL" "ERROR"
+redis_hset "TCH_078" "Surreal messages by application query error" "Error finding messages by application in SurrealDB. Application ID: %s" "TECHNICAL" "ERROR"
 
 echo "Message catalog loaded successfully."

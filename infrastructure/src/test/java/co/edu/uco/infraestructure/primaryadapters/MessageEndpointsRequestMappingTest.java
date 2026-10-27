@@ -33,7 +33,7 @@ class MessageEndpointsRequestMappingTest {
 
         @Test
         void listEndpoint_isGetWithoutCodeParameter() throws NoSuchMethodException {
-            Method method = MessagesController.class.getMethod("findByEnvironmentAndMessage",
+            Method method = MessagesController.class.getMethod("findMessagesByApplication",
                     String.class, String.class, String.class, String.class,
                     String.class, String.class, String.class, String.class, String.class, String.class,
                     String.class, String.class, String.class, ServerWebExchange.class);
@@ -55,7 +55,7 @@ class MessageEndpointsRequestMappingTest {
 
         @Test
         void findByCodeEndpoint_isGetBoundToTheCodeQueryParameter() throws NoSuchMethodException {
-            Method method = MessagesController.class.getMethod("findByCodeMessageAndEnvironment",
+            Method method = MessagesController.class.getMethod("findMessageByCodeAndApplication",
                     String.class, ServerWebExchange.class);
             GetMapping mapping = method.getAnnotation(GetMapping.class);
             RequestParam codeParameter = parameterAnnotation(method, 0, RequestParam.class);
@@ -70,7 +70,7 @@ class MessageEndpointsRequestMappingTest {
 
         @Test
         void translateEndpoint_isPostWithTranslateMessageBody() throws NoSuchMethodException {
-            Method method = MessagesController.class.getMethod("translateByCodeMessageAndEnvironment",
+            Method method = MessagesController.class.getMethod("translateMessageByCodeAndApplication",
                     String.class, TranslateMessageDTO.class, ServerWebExchange.class);
             PostMapping mapping = method.getAnnotation(PostMapping.class);
             RequestBody bodyParameter = parameterAnnotation(method, 1, RequestBody.class);

@@ -1,7 +1,7 @@
 package co.edu.uco.application.primaryports.facade.message.impl;
 
 import co.edu.uco.application.primaryports.dto.message.TranslatedMessageDTO;
-import co.edu.uco.application.usecase.handling.HandlingTranslateMessageByCodeAndEnvironmentPort;
+import co.edu.uco.application.usecase.handling.HandlingTranslateMessageByCodeAndApplicationPort;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,13 +14,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class TranslateMessageByCodeAndEnvironmentUseCaseFacadeImplTest {
+class TranslateMessageByCodeAndApplicationUseCaseFacadeImplTest {
 
     @Mock
-    private HandlingTranslateMessageByCodeAndEnvironmentPort handlingPort;
+    private HandlingTranslateMessageByCodeAndApplicationPort handlingPort;
 
     @InjectMocks
-    private TranslateMessageByCodeAndEnvironmentUseCaseFacadeImpl facade;
+    private TranslateMessageByCodeAndApplicationUseCaseFacadeImpl facade;
 
     @Test
     void execute_delegatesToHandlingPortAndReturnsResult() {

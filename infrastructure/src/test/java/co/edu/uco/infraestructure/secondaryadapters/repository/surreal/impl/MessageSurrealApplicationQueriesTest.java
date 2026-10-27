@@ -22,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 import java.util.Map;
@@ -132,6 +133,78 @@ class MessageSurrealApplicationQueriesTest {
         assertThat(page.getData()).isEmpty();
         assertThat(page.getTotalItems()).isZero();
         verify(surreal, never()).query(contains("message_data_collection"));
+    }
+
+    @Test
+    void findMessagesByApplication_ordersByUpdatedAtDescendingBeforePaginationAndScopesCountToTitleAndFilters() {
+        Response total = count(7);
+        when(surreal.query(startsWith("SELECT count() AS count"))).thenReturn(total);
+        Response messages = rows(document("MSG_A"));
+        when(surreal.query(startsWith("SELECT * FROM message_data_collection"))).thenReturn(messages);
+        MessageFilter filter = new MessageFilter();
+        filter.setCode("MSG");
+        filter.setTitle("O'Brien");
+        filter.setStatusId(DEVELOP_ID);
+        filter.setFunctionalityId(PRODUCTION_ID);
+
+        SimplePage<MessageData> page = adapter.findMessagesByApplication(APPLICATION_ID, List.of(),
+                PageRequest.of(1, 2, Sort.by(Sort.Direction.DESC, "updatedAt")), filter);
+
+        assertThat(page.getTotalItems()).isEqualTo(7);
+        assertThat(page.getTotalPages()).isEqualTo(4);
+        assertThat(page.getPage()).isEqualTo(1);
+        assertThat(page.getData()).extracting(MessageData::getCode).containsExactly("MSG_A");
+        ArgumentCaptor<String> queries = ArgumentCaptor.forClass(String.class);
+        verify(surreal, atLeastOnce()).query(queries.capture());
+        assertThat(queries.getAllValues()).anySatisfy(sql -> assertThat(sql)
+                .contains("string::contains(<string> application_id, '" + APPLICATION_ID + "')")
+                .contains("string::contains(string::lowercase(code), 'msg')")
+                .contains("string::contains(string::lowercase(title), 'o\\'brien')")
+                .contains("status.id")
+                .contains("functionality.id")
+                .contains("ORDER BY updated_at DESC, code ASC LIMIT 2 START 2"));
+        assertThat(queries.getAllValues()).anySatisfy(sql -> assertThat(sql)
+                .startsWith("SELECT count() AS count")
+                .contains("string::contains(string::lowercase(title), 'o\\'brien')")
+                .doesNotContain("ORDER BY", "LIMIT", "START"));
+    }
+
+    @Test
+    void findMessagesByApplication_ordersUpdatedAtAscendingAndKeepsCodeDefaultAndDescending() {
+        Response total = count(1);
+        when(surreal.query(startsWith("SELECT count() AS count"))).thenReturn(total);
+        Response messages = rows(document("MSG_A"));
+        when(surreal.query(startsWith("SELECT * FROM message_data_collection")))
+                .thenReturn(messages);
+
+        adapter.findMessagesByApplication(APPLICATION_ID, List.of(),
+                PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "updatedAt")), new MessageFilter());
+        adapter.findMessagesByApplication(APPLICATION_ID, List.of(),
+                PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "code")), new MessageFilter());
+        adapter.findMessagesByApplication(APPLICATION_ID, List.of(), PageRequest.of(0, 20), new MessageFilter());
+
+        ArgumentCaptor<String> queries = ArgumentCaptor.forClass(String.class);
+        verify(surreal, atLeastOnce()).query(queries.capture());
+        assertThat(queries.getAllValues())
+                .anySatisfy(sql -> assertThat(sql).contains("ORDER BY updated_at ASC, code ASC"))
+                .anySatisfy(sql -> assertThat(sql).contains("ORDER BY code DESC"))
+                .anySatisfy(sql -> assertThat(sql).contains("ORDER BY code ASC"));
+    }
+
+    @Test
+    void findMessagesByApplication_logsApplicationScopedCatalogMessage_whenSurrealQueryFails() {
+        RuntimeException failure = new RuntimeException("database unavailable");
+        when(catalogPort.getMessage("TCH_078"))
+                .thenReturn("Error finding messages by application in SurrealDB. Application ID: %s");
+        when(surreal.query(startsWith("SELECT id, type_id.name AS name FROM environment")))
+                .thenThrow(failure);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> adapter.findMessagesByApplication(
+                        APPLICATION_ID, List.of(), PageRequest.of(0, 20), new MessageFilter()))
+                .isSameAs(failure);
+
+        verify(log).error("Error finding messages by application in SurrealDB. Application ID: " + APPLICATION_ID,
+                failure);
     }
 
     @Test

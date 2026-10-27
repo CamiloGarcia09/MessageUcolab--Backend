@@ -50,7 +50,7 @@ URL local por Kong: `http://localhost:8000`; backend directo: `http://localhost:
 Esta petición debe llevar la autenticación acordada con seguridad:
 
 ```http
-GET /messageucolab/v1/messages/resolve?code=MSG_PRODSAVED
+GET /messageucolab/v1/messages/consumer?code=MSG_PRODSAVED
 Accept: application/json
 X-Application-Id: <UUID de una aplicación de una organización propia>
 X-Environment-Id: <UUID de un ambiente de esa aplicación>
@@ -62,7 +62,12 @@ Respuesta exitosa del contrato de consulta simplificada:
 {
   "code": "MSG_PRODSAVED",
   "title": "Producto guardado",
-  "content": "El producto {nombre} se guardó correctamente."
+  "content": "El producto {nombre} se guardó correctamente.",
+  "type": "Functional",
+  "category": "Information",
+  "functionality": "Guardar producto",
+  "created_at": "2026-10-20T14:30:00Z",
+  "updated_at": "2026-10-26T09:15:00Z"
 }
 ```
 
@@ -70,25 +75,46 @@ Consultar [el contrato de consumo](message-consumer-api.md) y
 `infrastructure/src/main/resources/static/openapi.yaml`. La consulta simplificada
 no usa el envelope `data`/`errors` de las consultas administrativas.
 
+`/consumer` reemplaza a `/resolve`, sin alias. Actualizar los clientes y coordinar
+con el responsable de seguridad el registro y permiso de la nueva ruta en el PEP.
+El body no incluye IDs, estado ni ambientes. La consulta reutiliza la estrategia
+Redis/SurrealDB y verifica disponibilidad y versión en BD antes de servir un acierto;
+no se elimina la autorización ni se sirve caché si falla esa comprobación.
+
 El consumidor debe reemplazar los marcadores `{nombre}`; el backend entrega el
 contenido original sin sustitución. La selección de idioma pertenece al consumidor.
 
 ## 4. Traducción
 
-Requiere autorización para traducir en el contexto activo:
+Para aplicaciones consumidoras, requiere sesión BFF y permiso de traducción sobre
+la nueva ruta, además de un mensaje activo y habilitado en el ambiente indicado:
 
 ```http
-POST /messageucolab/v1/messages/MSG_PRODSAVED/translations
+POST /messageucolab/v1/messages/consumer/translations?code=MSG_PRODSAVED
 Content-Type: application/json
 Accept: application/json
+X-Application-Id: <UUID de una aplicación propia>
+X-Environment-Id: <UUID de un ambiente de esa aplicación>
 
-{ "sourceLanguage": "auto", "targetLanguage": "en" }
+{ "targetLanguage": "en" }
 ```
 
-La respuesta administrativa utiliza `data`/`errors` e incluye los campos
-traducidos y metadatos del proveedor. La traducción con IA puede ser lenta:
-preparar y cachear las traducciones en lugar de solicitarlas en cada renderizado.
-Verificar la conservación de marcadores antes de usar el resultado.
+El idioma origen se toma del idioma base de la aplicación. La respuesta es un
+objeto JSON directo con `code`, `sourceLanguage`, `targetLanguage`, `title`,
+`content`, `type`, `category`, `functionality`, `created_at` y `updated_at`,
+sin IDs, estado ni datos del proveedor. Las fechas corresponden al mensaje original.
+
+Se reutilizan la resolución de consumo y la caché Redis de traducciones, aislada
+por aplicación, ambiente, idiomas y huella de la versión. Un mensaje inactivo o
+no habilitado no se traduce ni se entrega desde caché (`404`). La comprobación se
+repite antes de responder; un cambio de contenido o idioma base provoca `409`.
+No se sirven traducciones sin comprobar disponibilidad si SurrealDB falla.
+
+La operación administrativa `POST /messages/{messageCode}/translations` conserva
+su contrato anterior con `sourceLanguage`, envelope y metadatos del proveedor;
+no sustituye la operación de consumo. La IA puede ser lenta: preparar las
+traducciones antes del renderizado y verificar la conservación de marcadores.
+Ver [el contrato de consumo](message-consumer-api.md#traducción-para-consumo).
 
 ## 5. Errores y resiliencia
 
@@ -99,6 +125,7 @@ Verificar la conservación de marcadores antes de usar el resultado.
 | 401 | Falta autenticación válida o identidad resuelta | Revisar la integración con seguridad |
 | 403 | Falta permiso o el contexto está fuera del alcance | Solicitar revisión de recursos y permisos |
 | 404 | Mensaje inexistente, inactivo o ajeno al contexto | Revisar código y ambiente |
+| 409 | Mensaje o idioma base cambiaron durante la traducción | Reintentar sobre la versión actual |
 | 500 / timeout | Fallo técnico o indisponibilidad | Usar el respaldo del consumidor |
 
 Comprobar siempre el estado antes de deserializar. No asumir que los rechazos del

@@ -1,6 +1,7 @@
 package co.edu.uco.application.usecase;
 
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
+import co.edu.uco.application.common.catalog.strategy.MessageCatalogStrategy;
 import co.edu.uco.application.secondaryports.entity.MessageData;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
@@ -54,6 +55,9 @@ class DeleteMessageUseCaseTest {
     @Mock
     private LoggingPort log;
 
+    @Mock
+    private MessageCatalogStrategy messageCatalogStrategy;
+
     private DeleteMessageUseCase useCase;
 
     @BeforeEach
@@ -64,7 +68,8 @@ class DeleteMessageUseCaseTest {
                 messageRepository,
                 environmentResolver,
                 catalogPort,
-                loggerFactory);
+                loggerFactory,
+                messageCatalogStrategy);
     }
 
     private MessageAccessContext workspaceContext() {
@@ -100,10 +105,12 @@ class DeleteMessageUseCaseTest {
 
         useCase.deleteMessage(MESSAGE_CODE, context);
 
-        InOrder order = inOrder(environmentResolver, messageRepository, deleteMessageRepository);
+        InOrder order = inOrder(environmentResolver, messageRepository, deleteMessageRepository,
+                messageCatalogStrategy);
         order.verify(environmentResolver).resolveApplication(context);
         order.verify(messageRepository).findByCodeAndApplication(eq(MESSAGE_CODE), any());
         order.verify(deleteMessageRepository).deleteMessage(MESSAGE_UUID);
+        order.verify(messageCatalogStrategy).evictMessage(MESSAGE_CODE);
         verify(log).info("Message deleted successfully with id: {}", MESSAGE_CODE);
     }
 
@@ -116,6 +123,7 @@ class DeleteMessageUseCaseTest {
         useCase.deleteMessage(MESSAGE_CODE, context);
 
         verify(deleteMessageRepository).deleteMessage(MESSAGE_UUID);
+        verify(messageCatalogStrategy).evictMessage(MESSAGE_CODE);
     }
 
     @Test
@@ -217,3 +225,6 @@ class DeleteMessageUseCaseTest {
         assertThatThrownBy(() -> useCase.deleteMessage(MESSAGE_CODE, context)).isSameAs(domain);
     }
 }
+
+
+

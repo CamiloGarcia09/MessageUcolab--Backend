@@ -5,6 +5,6 @@ import co.edu.uco.application.secondaryports.repository.SimplePage;
 import co.edu.uco.application.secondaryports.repository.SimplePageRequest;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
 
-public interface HandlingFindMessageEnvironmentPort {
+public interface HandlingFindMessagesByApplicationPort {
     SimplePage<MessageDTO> execute(MessageAccessContext context, SimplePageRequest pageRequest);
 }

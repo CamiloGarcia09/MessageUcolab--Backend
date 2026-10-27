@@ -32,7 +32,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class FindMessageByEnvironmentUseCaseTest {
+class FindMessagesByApplicationUseCaseTest {
 
     private static final MessageAccessContext ACCESS_CONTEXT = new MessageAccessContext("app-1");
 
@@ -51,12 +51,12 @@ class FindMessageByEnvironmentUseCaseTest {
     @Mock
     private LoggingPort log;
 
-    private FindMessageByEnvironmentUseCase useCase;
+    private FindMessagesByApplicationUseCase useCase;
 
     @BeforeEach
     void setUp() {
-        when(loggerFactory.getLogger(FindMessageByEnvironmentUseCase.class)).thenReturn(log);
-        useCase = new FindMessageByEnvironmentUseCase(
+        when(loggerFactory.getLogger(FindMessagesByApplicationUseCase.class)).thenReturn(log);
+        useCase = new FindMessagesByApplicationUseCase(
                 messageCatalogStrategy, entityMapper, listMessageValidator, rangeValidator,
                 environmentResolver, loggerFactory);
         when(environmentResolver.resolveApplication(ACCESS_CONTEXT)).thenReturn("env");

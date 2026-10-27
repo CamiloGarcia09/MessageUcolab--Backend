@@ -9,7 +9,7 @@ import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.translation.MessageTranslationCachePort;
 import co.edu.uco.application.secondaryports.translation.MessageTranslationPort;
-import co.edu.uco.application.usecase.handling.HandlingTranslateMessageByCodeAndEnvironmentPort;
+import co.edu.uco.application.usecase.handling.HandlingTranslateMessageByCodeAndApplicationPort;
 import co.edu.uco.application.usecase.validator.message.FindMessageCodeValidator;
 import co.edu.uco.application.usecase.validator.message.TargetLanguageValidator;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
@@ -17,14 +17,12 @@ import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
-import org.springframework.stereotype.Component;
 
 import static co.edu.uco.crosscutting.helpers.UtilText.isEmptyOrNull;
 import static co.edu.uco.crosscutting.helpers.UtilText.trim;
 
-@Component
-public final class TranslateMessageByCodeAndEnvironmentUseCase
-        implements HandlingTranslateMessageByCodeAndEnvironmentPort {
+public final class TranslateMessageByCodeAndApplicationUseCase
+        implements HandlingTranslateMessageByCodeAndApplicationPort {
     private static final String DEFAULT_SOURCE_LANGUAGE = "auto";
 
     private final MessageCatalogStrategy messageCatalogStrategy;
@@ -35,7 +33,7 @@ public final class TranslateMessageByCodeAndEnvironmentUseCase
     private final MessageEnvironmentResolver environmentResolver;
     private final LoggingPort log;
 
-    public TranslateMessageByCodeAndEnvironmentUseCase(
+    public TranslateMessageByCodeAndApplicationUseCase(
             MessageCatalogStrategy messageCatalogStrategy,
             MessageTranslationPort messageTranslationPort,
             MessageTranslationCachePort messageTranslationCachePort,
@@ -50,7 +48,7 @@ public final class TranslateMessageByCodeAndEnvironmentUseCase
         this.findMessageCodeValidator = findMessageCodeValidator;
         this.targetLanguageValidator = targetLanguageValidator;
         this.environmentResolver = environmentResolver;
-        this.log = loggerFactory.getLogger(TranslateMessageByCodeAndEnvironmentUseCase.class);
+        this.log = loggerFactory.getLogger(TranslateMessageByCodeAndApplicationUseCase.class);
     }
 
     @Override

@@ -23,6 +23,7 @@ class ResolvedMessageDTOTest {
     void toString_displaysOnlyTheNormalizedConsumerProperties() {
         var dto = new ResolvedMessageDTO(" CODE ", " Title ", " Body ");
 
-        assertThat(dto).hasToString("ResolvedMessageDTO(code=CODE, title=Title, content=Body)");
+        assertThat(dto).hasToString("ResolvedMessageDTO(code=CODE, title=Title, content=Body, type=, category=, functionality=, createdAt=null, updatedAt=null)");
     }
 }
+

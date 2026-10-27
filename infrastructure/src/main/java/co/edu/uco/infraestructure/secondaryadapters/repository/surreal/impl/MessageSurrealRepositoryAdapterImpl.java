@@ -163,7 +163,7 @@ public class MessageSurrealRepositoryAdapterImpl extends SurrealCatalogSupport i
                     + " WHERE " + whereClause + " GROUP ALL;";
             final String dataSql = "SELECT * FROM " + SURREAL_TABLE_MESSAGE_DOCUMENT
                     + " WHERE " + whereClause
-                    + " ORDER BY code ASC"
+                    + applicationMessageOrderBy(pageable)
                     + " LIMIT " + pageSize + " START " + offset + ";";
 
             final long totalElements = getCount(countSql);
@@ -172,10 +172,20 @@ public class MessageSurrealRepositoryAdapterImpl extends SurrealCatalogSupport i
             final int totalPages = pageSize == 0 ? 0 : (int) Math.ceil((double) totalElements / pageSize);
             return SimplePage.of(messages, pageable.getPageNumber(), pageSize, totalElements, totalPages);
         } catch (final RuntimeException ex) {
-            log.error(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_057.getCode())
+            log.error(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_078.getCode())
                     .formatted(applicationId), ex);
             throw ex;
         }
+    }
+
+    private static String applicationMessageOrderBy(final Pageable pageable) {
+        final var updatedAtOrder = pageable.getSort().getOrderFor("updatedAt");
+        if (updatedAtOrder != null) {
+            // El codigo es unico por aplicacion: estabiliza la paginacion cuando las fechas coinciden.
+            return " ORDER BY updated_at " + (updatedAtOrder.isAscending() ? "ASC" : "DESC") + ", code ASC";
+        }
+        final var codeOrder = pageable.getSort().getOrderFor("code");
+        return " ORDER BY code " + (codeOrder != null && codeOrder.isDescending() ? "DESC" : "ASC");
     }
 
     // Ambientes de la aplicacion desde la tabla fuente, que usa referencias tipadas.

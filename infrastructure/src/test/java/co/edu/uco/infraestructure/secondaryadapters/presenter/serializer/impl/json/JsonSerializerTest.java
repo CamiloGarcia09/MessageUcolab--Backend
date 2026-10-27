@@ -4,6 +4,7 @@ import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
 import co.edu.uco.application.secondaryports.Response;
 import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
 import co.edu.uco.application.primaryports.dto.catalog.FunctionalityCatalogItemDTO;
+import co.edu.uco.application.primaryports.dto.message.ResolvedMessageDTO;
 import co.edu.uco.application.secondaryports.repository.SimplePage;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
@@ -56,6 +57,27 @@ class JsonSerializerTest {
                 .contains("\"hola\"")
                 .startsWith("{")
                 .endsWith("}");
+    }
+
+    @Test
+    void serialize_resolvedConsumerMessage_hasExactEightFieldsAndIsoDatesWithoutEnvelope() throws Exception {
+        var dto = new ResolvedMessageDTO("CODE", "Title", "Body", "TYPE", "CATEGORY", "FUNC",
+                Instant.parse("2025-01-02T03:04:05Z"), Instant.parse("2025-02-03T04:05:06Z"));
+
+        JsonNode json = JSON_PARSER.readTree(serializer.serialize(dto));
+
+        assertAll(
+                () -> assertThat(json.fieldNames()).toIterable().containsExactly("code", "title", "content", "type",
+                        "category", "functionality", "created_at", "updated_at"),
+                () -> assertThat(json.get("code").asText()).isEqualTo("CODE"),
+                () -> assertThat(json.get("title").asText()).isEqualTo("Title"),
+                () -> assertThat(json.get("content").asText()).isEqualTo("Body"),
+                () -> assertThat(json.get("type").asText()).isEqualTo("TYPE"),
+                () -> assertThat(json.get("category").asText()).isEqualTo("CATEGORY"),
+                () -> assertThat(json.get("functionality").asText()).isEqualTo("FUNC"),
+                () -> assertThat(json.get("created_at").asText()).isEqualTo("2025-01-02T03:04:05Z"),
+                () -> assertThat(json.get("updated_at").asText()).isEqualTo("2025-02-03T04:05:06Z"),
+                () -> assertThat(json.has("data")).isFalse());
     }
 
     @Test

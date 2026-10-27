@@ -9,7 +9,7 @@ import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.SimplePage;
 import co.edu.uco.application.secondaryports.repository.SimplePageRequest;
-import co.edu.uco.application.usecase.handling.HandlingFindMessageEnvironmentPort;
+import co.edu.uco.application.usecase.handling.HandlingFindMessagesByApplicationPort;
 import co.edu.uco.application.usecase.validator.message.ListMessageValidator;
 import co.edu.uco.application.usecase.validator.page.PageRequestRangeValidator;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
@@ -17,10 +17,8 @@ import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
-import org.springframework.stereotype.Component;
 
-@Component
-public final class FindMessageByEnvironmentUseCase implements HandlingFindMessageEnvironmentPort {
+public final class FindMessagesByApplicationUseCase implements HandlingFindMessagesByApplicationPort {
     private final MessageCatalogStrategy messageCatalogStrategy;
     private final DataMapper<MessageData, MessageDomain,MessageDTO> entityMapper;
     private final ListMessageValidator listMessageValidator;
@@ -28,7 +26,7 @@ public final class FindMessageByEnvironmentUseCase implements HandlingFindMessag
     private final MessageEnvironmentResolver environmentResolver;
     private final LoggingPort log;
 
-    public FindMessageByEnvironmentUseCase(MessageCatalogStrategy messageCatalogStrategy, DataMapper<MessageData, MessageDomain, MessageDTO> entityMapper,
+    public FindMessagesByApplicationUseCase(MessageCatalogStrategy messageCatalogStrategy, DataMapper<MessageData, MessageDomain, MessageDTO> entityMapper,
                                             ListMessageValidator listMessageValidator, PageRequestRangeValidator rangeValidator,
                                             MessageEnvironmentResolver environmentResolver,
                                             LoggingPortFactory loggerFactory) {
@@ -37,7 +35,7 @@ public final class FindMessageByEnvironmentUseCase implements HandlingFindMessag
         this.listMessageValidator = listMessageValidator;
         this.rangeValidator = rangeValidator;
         this.environmentResolver = environmentResolver;
-        this.log = loggerFactory.getLogger(FindMessageByEnvironmentUseCase.class);
+        this.log = loggerFactory.getLogger(FindMessagesByApplicationUseCase.class);
     }
     @Override
     public SimplePage<MessageDTO> execute(MessageAccessContext context, SimplePageRequest pageRequest) {

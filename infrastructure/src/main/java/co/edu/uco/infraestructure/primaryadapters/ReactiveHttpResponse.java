@@ -1,6 +1,7 @@
 package co.edu.uco.infraestructure.primaryadapters;
 
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
+import co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.SerializerRegistry;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.MediaType;
 import org.springframework.web.server.ServerWebExchange;
@@ -9,7 +10,6 @@ import reactor.core.scheduler.Schedulers;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Map;
 
 public final class ReactiveHttpResponse {
 
@@ -28,11 +28,19 @@ public final class ReactiveHttpResponse {
         return Mono.fromCallable(action).subscribeOn(Schedulers.boundedElastic());
     }
 
+    public static Mono<Void> presentUncachedJson(SerializerRegistry serializers, Object body, ServerWebExchange exchange) {
+        return blocking(() -> serializers.getSerializerForMediaType(MediaType.APPLICATION_JSON_VALUE).serialize(body))
+                .flatMap(json -> {
+                    exchange.getResponse().getHeaders().setCacheControl("no-store");
+                    return write(exchange, json, MediaType.APPLICATION_JSON_VALUE);
+                });
+    }
+
     public static Object attribute(ServerWebExchange exchange, String name) {
         return exchange.getAttributes().get(name);
     }
 
-    private static Mono<Void> write(ServerWebExchange exchange, String body, String contentType) {
+    public static Mono<Void> write(ServerWebExchange exchange, String body, String contentType) {
         exchange.getResponse().setStatusCode(org.springframework.http.HttpStatus.OK);
         exchange.getResponse().getHeaders().setContentType(MediaType.parseMediaType(contentType));
         DataBuffer buffer = exchange.getResponse().bufferFactory()

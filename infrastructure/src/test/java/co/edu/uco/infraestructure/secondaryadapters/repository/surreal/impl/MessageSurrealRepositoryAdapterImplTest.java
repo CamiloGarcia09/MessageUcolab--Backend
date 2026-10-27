@@ -35,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
@@ -403,6 +404,8 @@ class MessageSurrealRepositoryAdapterImplTest {
 
     @Test
     void findMessagesByEnvironment_rethrowsRuntimeException() {
+        when(catalogPort.getMessage("TCH_057"))
+                .thenReturn("Error finding messages by environment in SurrealDB. Environment ID: %s");
         doReturn(emptyResponse()).when(surreal).query(contains("COUNT()"));
         doThrow(new RuntimeException("db down")).when(surreal).query(contains("ORDER BY message.code ASC"));
 
@@ -410,7 +413,8 @@ class MessageSurrealRepositoryAdapterImplTest {
         assertThatThrownBy(() -> adapter.findMessagesByEnvironment("env-1", request, new MessageFilter()))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("db down");
-        verify(log, times(2)).error(anyString(), any(RuntimeException.class));
+        verify(log).error(eq("Error finding messages by environment in SurrealDB. Environment ID: env-1"),
+                any(RuntimeException.class));
     }
 
     @Test
