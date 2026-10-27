@@ -5,7 +5,6 @@ import co.edu.uco.application.primaryports.dto.session.SessionApplicationDTO;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.entity.ApplicationData;
 import co.edu.uco.application.secondaryports.repository.ApplicationRepository;
-import co.edu.uco.application.secondaryports.security.SecurityApplicationPort;
 import co.edu.uco.application.usecase.domain.aggregate.entities.OrganizationEntity;
 import co.edu.uco.application.usecase.validator.session.SessionApplicationAccessCompositeValidator;
 import co.edu.uco.application.usecase.validator.session.SessionApplicationCompositeValidator;
@@ -46,7 +45,7 @@ class SessionApplicationUseCaseTest {
     private static final UUID ORGANIZATION_ID = UUID.fromString("8f2d3a10-6b47-4c91-a5e8-2d7f9b3c1a40");
 
     @Mock
-    private SecurityApplicationPort securityApplicationPort;
+    private PersonalWorkspaceUseCase workspace;
     @Mock
     private ApplicationRepository applicationRepository;
     @Mock
@@ -62,7 +61,8 @@ class SessionApplicationUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        useCase = new SessionApplicationUseCase(securityApplicationPort, applicationRepository, validator,
+        workspace = org.mockito.Mockito.mock(PersonalWorkspaceUseCase.class);
+        useCase = new SessionApplicationUseCase(workspace, applicationRepository, validator,
                 accessValidator, registrationValidator, catalogPort);
     }
 
@@ -87,9 +87,10 @@ class SessionApplicationUseCaseTest {
     }
 
     @Test
-    void findCurrentUserApplications_delegatesSessionToSecurityPort() {
+    void findCurrentUserApplications_delegatesSessionToPersonalWorkspace() {
         List<CatalogItemDTO> applications = List.of(CatalogItemDTO.create(REGISTERED_ID, "MessageUcoLab"));
-        when(securityApplicationPort.findCurrentUserApplications(SESSION)).thenReturn(applications);
+        when(workspace.openSession(SESSION)).thenReturn(new co.edu.uco.application.usecase.domain.security.WorkspaceSession(
+                null, applications));
 
         assertThat(useCase.findCurrentUserApplications(SESSION)).isSameAs(applications);
     }
@@ -105,7 +106,7 @@ class SessionApplicationUseCaseTest {
                 .satisfies(exception -> assertThat(((UnauthorizedException) exception).getUserMessage())
                         .isEqualTo("Authentication required"));
 
-        verifyNoInteractions(securityApplicationPort);
+        verifyNoInteractions(workspace);
     }
 
     @Test

@@ -33,11 +33,16 @@ El frontend administrativo conserva el login del PDP/BFF y envía sus cookies co
 Para servicios no humanos, no asumir que la sesión de un administrador es una
 credencial de servicio ni compartir su contexto activo entre aplicaciones.
 
-En desarrollo, `local-workspace` fija UCO / Arquisoft / Develop, conservando el
-enforcement del PEP. No activar este modo en producción ni en entornos compartidos.
-Fuera de él, se requiere una `ExternalIdentity` resuelta y un contexto activo.
-El puente del proveedor real a esa identidad sigue siendo una dependencia de la
-integración por usuario; sin él se rechaza el acceso, sin fallback propietario.
+De forma predeterminada, `X-Application-Id` identifica una aplicación de una
+organización propia del usuario autenticado en la sesión BFF, no una asignación
+de aplicación del componente de seguridad. La resolución recibe `X-Environment-Id` como dato explícito y
+comprueba que el ambiente pertenece a esa aplicación. No hay un destino fijo de
+desarrollo ni un fallback que deduzca la aplicación desde el ambiente.
+No se requieren perfiles de Spring ni banderas de frontend para activar este
+flujo. No hay un interceptor alternativo de identidad simulada ni fallback propietario.
+El modelo personal no implementa acceso máquina-a-máquina sin sesión BFF. Ese
+contrato queda pendiente; no compartir cookies del propietario como solución.
+Ver [organizaciones personales](personal-workspaces.md).
 
 ## 3. Consultar un mensaje
 
@@ -47,6 +52,8 @@ Esta petición debe llevar la autenticación acordada con seguridad:
 ```http
 GET /messageucolab/v1/messages/resolve?code=MSG_PRODSAVED
 Accept: application/json
+X-Application-Id: <UUID de una aplicación de una organización propia>
+X-Environment-Id: <UUID de un ambiente de esa aplicación>
 ```
 
 Respuesta exitosa del contrato de consulta simplificada:
@@ -109,8 +116,7 @@ configuración `dev`. No hace falta un `.env` ni acceso de escritura a secretos
 desde la aplicación. Doppler CLI inyecta SurrealDB, Redis, Pulsar, IA y las
 credenciales de registro del PEP. No imprimir ni copiar esos valores.
 
-Consultar [integración de seguridad](security-integration.md) y
-[workspace local](local-workspace.md) antes de levantar servicios. Seguridad y
+Consultar [integración de seguridad](security-integration.md) antes de levantar servicios. Seguridad y
 sus frontends los administra su responsable: no iniciarlos, modificarlos ni
 reiniciarlos desde MessageUcoLab.
 
@@ -119,7 +125,7 @@ solo MessageUcoLab sobre la infraestructura ya disponible:
 
 ```powershell
 cd deployment/docker
-doppler run --project messageucolab --config dev -- docker compose -f docker-compose.yml -f docker-compose.local-workspace.yml up -d --no-deps --build messageucolab
+doppler run --project messageucolab --config dev -- docker compose up -d --no-deps --build messageucolab
 ```
 
 No reimportar seeds ni borrar volúmenes para retirar el mecanismo propietario.

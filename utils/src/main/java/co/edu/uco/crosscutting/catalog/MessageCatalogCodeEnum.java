@@ -763,7 +763,18 @@ public enum MessageCatalogCodeEnum {
     TCH_074("TCH_074"),
 
     /** Error técnico al eliminar el mensaje en la base de datos SurrealDB. */
-    TCH_075("TCH_075");
+    TCH_075("TCH_075"),
+
+    /** Identificador de organizacion invalido. */
+    FUN_214("FUN_214"),
+    /** La organizacion no pertenece al usuario autenticado. */
+    FUN_215("FUN_215"),
+    /** Aplicacion personal creada. */
+    FUN_216("FUN_216"),
+    /** Solo se pueden crear mensajes asociados a una funcionalidad activa. */
+    FUN_217("FUN_217"),
+    TCH_076("TCH_076"),
+    TCH_077("TCH_077");
 
     // =========================================================================
 

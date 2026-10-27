@@ -36,8 +36,19 @@ public interface MessagesController {
             @RequestParam(value = "filterType", required = false) String filterType,
             @RequestParam(value = "filterStatus", required = false) String filterStatus,
             @RequestParam(value = "filterEnvironments", required = false) String filterEnvironments,
+            @RequestParam(value = "filterStatusId", required = false) String filterStatusId,
+            @RequestParam(value = "filterFunctionalityId", required = false) String filterFunctionalityId,
             ServerWebExchange exchange
     );
+
+    default Mono<Void> findByEnvironmentAndMessage(String page, String size, String sort, String columnSort,
+                                                  String filterCode, String filterTitle, String filterCategory,
+                                                  String filterFunctionality, String filterType, String filterStatus,
+                                                  String filterEnvironments, ServerWebExchange exchange) {
+        return findByEnvironmentAndMessage(page, size, sort, columnSort, filterCode, filterTitle,
+                filterCategory, filterFunctionality, filterType, filterStatus, filterEnvironments,
+                null, null, exchange);
+    }
 
     @GetMapping(
             params = "code",

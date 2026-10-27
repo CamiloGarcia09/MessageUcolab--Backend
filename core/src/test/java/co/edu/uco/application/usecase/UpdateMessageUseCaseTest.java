@@ -10,9 +10,7 @@ import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.DataBaseMessageRepository;
 import co.edu.uco.application.secondaryports.repository.MessageEnvironmentStateCatalogRepository;
 import co.edu.uco.application.secondaryports.repository.UpdateMessageRepository;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.application.usecase.validator.message.UpdateMessageCompositeValidator;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
@@ -29,7 +27,6 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -61,8 +58,6 @@ class UpdateMessageUseCaseTest {
     private static final String ACTIVE_STATE_UUID = "123e4567-e89b-12d3-a456-426614175013";
     private static final String MESSAGE_UUID = "123e4567-e89b-12d3-a456-426614175030";
     private static final String MESSAGE_CODE = "MSG_WELCOME";
-    private static final ExternalIdentity IDENTITY = new ExternalIdentity(
-            "issuer", "subject", "user@example.com", Instant.MAX);
 
     @Mock
     private UpdateMessageRepository updateMessageRepository;
@@ -111,11 +106,11 @@ class UpdateMessageUseCaseTest {
     }
 
     private MessageAccessContext sessionContext() {
-        return new MessageAccessContext(null, null, APP_UUID);
+        return new MessageAccessContext(APP_UUID);
     }
 
     private MessageAccessContext authenticatedContext() {
-        return new MessageAccessContext(null, IDENTITY);
+        return new MessageAccessContext(APP_UUID);
     }
 
     private MessageData existingMessage() {
@@ -132,7 +127,7 @@ class UpdateMessageUseCaseTest {
     }
 
     private void stubApplicationResolvingTo(String applicationId) {
-        when(environmentResolver.resolveApplication(any(), eq(PermissionCode.MESSAGE_UPDATE)))
+        when(environmentResolver.resolveApplication(any()))
                 .thenReturn(applicationId);
     }
 
@@ -156,7 +151,7 @@ class UpdateMessageUseCaseTest {
         useCase.updateMessage(MESSAGE_CODE, dto, context);
 
         InOrder order = inOrder(environmentResolver, messageRepository, validator, updateMessageRepository);
-        order.verify(environmentResolver).resolveApplication(context, PermissionCode.MESSAGE_UPDATE);
+        order.verify(environmentResolver).resolveApplication(context);
         order.verify(messageRepository).findByCodeAndApplication(MESSAGE_CODE, APP_UUID);
         order.verify(validator).validate(dto, APP_UUID);
         order.verify(updateMessageRepository).updateMessage(any(MessageData.class), isNull(), isNull());
@@ -238,7 +233,7 @@ class UpdateMessageUseCaseTest {
 
         useCase.updateMessage(MESSAGE_CODE, dto, context);
 
-        verify(environmentResolver).resolveApplication(context, PermissionCode.MESSAGE_UPDATE);
+        verify(environmentResolver).resolveApplication(context);
         verify(validator).validate(dto, APP_UUID);
         verify(updateMessageRepository).updateMessage(any(MessageData.class), isNull(), isNull());
     }
@@ -307,7 +302,7 @@ class UpdateMessageUseCaseTest {
         UpdateMessageDTO dto = validDto();
         MessageAccessContext context = authenticatedContext();
         ForbiddenException failure = ForbiddenException.buildUserException("Permission denied");
-        doThrow(failure).when(environmentResolver).resolveApplication(context, PermissionCode.MESSAGE_UPDATE);
+        doThrow(failure).when(environmentResolver).resolveApplication(context);
 
         assertThatThrownBy(() -> useCase.updateMessage(MESSAGE_CODE, dto, context)).isSameAs(failure);
 

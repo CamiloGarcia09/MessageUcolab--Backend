@@ -12,7 +12,7 @@ import static co.edu.uco.crosscutting.helpers.UtilText.trim;
 @AllArgsConstructor
 public final class CreateApplicationDTO {
 
-    // Opcional: en modo sesion es el UUID de la aplicacion en el componente de seguridad.
+    // Compatibilidad de entrada: el servidor siempre genera un UUID propio.
     private String id;
     private String name;
     private String organizationId;

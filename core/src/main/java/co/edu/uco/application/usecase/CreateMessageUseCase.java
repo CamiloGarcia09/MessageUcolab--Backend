@@ -14,7 +14,6 @@ import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.CreateMessageRepository;
 import co.edu.uco.application.secondaryports.repository.MessageEnvironmentStateCatalogRepository;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
 import co.edu.uco.application.usecase.handling.HandlingCreateMessagePort;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.application.usecase.validator.message.CreateMessageCompositeValidator;
@@ -59,7 +58,7 @@ public final class CreateMessageUseCase implements HandlingCreateMessagePort {
 
     @Override
     public void createMessage(CreateMessageDTO dto, MessageAccessContext context) {
-        var applicationId = environmentResolver.resolveApplication(context, PermissionCode.MESSAGE_CREATE);
+        var applicationId = environmentResolver.resolveApplication(context);
         validator.validate(dto, applicationId);
         var environmentIds = dto.getEnvironmentIds().stream()
                 .map(environmentId -> getUUIDFromString(environmentId).toString())

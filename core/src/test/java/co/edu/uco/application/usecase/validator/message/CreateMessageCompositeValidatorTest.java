@@ -39,6 +39,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -134,7 +135,8 @@ class CreateMessageCompositeValidatorTest {
 
         assertDoesNotThrow(() -> validator.validate(validDto(), APPLICATION_ID_TEXT));
 
-        verify(functionalityCatalogRepository).findAllByApplicationId(APPLICATION_ID_TEXT);
+        verify(functionalityCatalogRepository, times(2))
+                .findAllByApplicationId(APPLICATION_ID_TEXT);
     }
 
     @Test
@@ -147,7 +149,8 @@ class CreateMessageCompositeValidatorTest {
 
         assertDoesNotThrow(() -> validator.validate(dto, APPLICATION_ID_TEXT.toUpperCase()));
 
-        verify(functionalityCatalogRepository).findAllByApplicationId(APPLICATION_ID_TEXT);
+        verify(functionalityCatalogRepository, times(2))
+                .findAllByApplicationId(APPLICATION_ID_TEXT);
     }
 
     @Test
@@ -164,7 +167,8 @@ class CreateMessageCompositeValidatorTest {
         order.verify(recordExistsCatalogPort).exists(ReferenceCatalog.MESSAGE_TYPE, TYPE_ID);
         order.verify(recordExistsCatalogPort).exists(ReferenceCatalog.MESSAGE_CATEGORY, CATEGORY_ID);
         order.verify(recordExistsCatalogPort).exists(ReferenceCatalog.MESSAGE_STATE, STATUS_ID);
-        order.verify(functionalityCatalogRepository).findAllByApplicationId(APPLICATION_ID_TEXT);
+        order.verify(functionalityCatalogRepository, times(2))
+                .findAllByApplicationId(APPLICATION_ID_TEXT);
         order.verify(messageCodeQueryPort)
                 .existsByCodeAndApplicationId(NORMALIZED_CODE, APPLICATION_ID_TEXT);
     }
@@ -495,8 +499,11 @@ class CreateMessageCompositeValidatorTest {
     }
 
     private static FunctionalityData functionality(UUID functionalityId, UUID applicationId) {
-        return new FunctionalityData(functionalityId, "Functionality",
+        FunctionalityData functionality = new FunctionalityData(functionalityId, "Functionality",
                 ApplicationData.build(applicationId, "Application"));
+        functionality.setStateId(UUID.fromString("123e4567-e89b-12d3-a456-426614175107"));
+        functionality.setState("Active");
+        return functionality;
     }
 
     @Test

@@ -7,6 +7,8 @@ import co.edu.uco.application.secondaryports.repository.ApplicationRepository;
 import co.edu.uco.application.usecase.domain.aggregate.entities.OrganizationEntity;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.exceptions.enumeration.ExceptionLocation;
+import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
+import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
 import com.surrealdb.Object;
 import com.surrealdb.Surreal;
 import org.springframework.stereotype.Repository;
@@ -42,8 +44,17 @@ public class ApplicationSurrealRepositoryAdapterImpl extends SurrealCatalogSuppo
     }
 
     @Override
+    public boolean existsByNameAndOrganization(final String name, final String organizationId) {
+        final String sql = SELECT_ALL_FROM + SURREAL_TABLE_APPLICATION + " WHERE name = " + quote(name)
+                + " AND organization_id = " + recordIdLiteral(SURREAL_TABLE_ORGANIZATION, organizationId) + LIMIT_ONE;
+        return queryOne(sql, CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_077.getCode()),
+                this::toApplicationData).isPresent();
+    }
+
+    @Override
     public Optional<ApplicationData> findById(final String id) {
-        final String sql = SELECT_ALL_FROM + recordIdLiteral(SURREAL_TABLE_APPLICATION, id) + LIMIT_ONE;
+        final String sql = "SELECT *, organization_id.name AS organization_name FROM "
+                + recordIdLiteral(SURREAL_TABLE_APPLICATION, id) + LIMIT_ONE;
         return queryOne(sql, "Error al consultar aplicación por id en SurrealDB: " + sql, this::toApplicationData);
     }
 
@@ -57,7 +68,7 @@ public class ApplicationSurrealRepositoryAdapterImpl extends SurrealCatalogSuppo
     public void createWithEnvironments(final ApplicationData application, final String languageId, final String stateId,
                                        final List<EnvironmentData> environments,
                                        final String environmentStateId) {
-        final String applicationUpsert = "UPSERT "
+        final String applicationUpsert = "CREATE "
                 + recordIdLiteral(SURREAL_TABLE_APPLICATION, application.getId().toString())
                 + " CONTENT { "
                 + "name: " + quote(application.getName()) + ", "
@@ -99,7 +110,7 @@ public class ApplicationSurrealRepositoryAdapterImpl extends SurrealCatalogSuppo
         data.setName(stringOf(obj.get("name")));
         final OrganizationEntity organization = new OrganizationEntity();
         organization.setId(extractIdAsUUID(obj.get("organization_id")));
-        organization.setName("");
+        organization.setName(stringOf(obj.get("organization_name")));
         data.setOrganization(organization);
         return data;
     }

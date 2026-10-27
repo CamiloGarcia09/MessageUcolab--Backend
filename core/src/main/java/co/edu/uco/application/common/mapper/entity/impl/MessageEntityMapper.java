@@ -8,6 +8,10 @@ import co.edu.uco.application.usecase.domain.MessageDomain;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
+import static co.edu.uco.crosscutting.helpers.UtilUUID.DEFAULT_UUID;
+
 @Component
 public final class MessageEntityMapper implements DataMapper<MessageData, MessageDomain, MessageDTO> {
     private final ModelMapper mapper;
@@ -26,5 +30,10 @@ public final class MessageEntityMapper implements DataMapper<MessageData, Messag
             entity.getCategory().getName(), entity.getFunctionality().getName(),
             entity.getCreatedAt(), entity.getEnvironments().stream()
                     .map(environment -> CatalogItemDTO.create(environment.getId().toString(), environment.getName()))
-                    .toList()); }
+                    .toList(), entity.getStatus().getName(), catalogId(entity.getStatus().getId()),
+            catalogId(entity.getFunctionality().getId()), entity.getUpdatedAt()); }
+
+    private static String catalogId(UUID id) {
+        return id == null || DEFAULT_UUID.equals(id) ? null : id.toString();
+    }
 }

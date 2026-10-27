@@ -3,7 +3,7 @@ package co.edu.uco.infraestructure.primaryadapters.controller;
 import co.edu.uco.application.primaryports.dto.message.CreateMessageDTO;
 import co.edu.uco.application.primaryports.facade.message.CreateMessageUseCaseFacade;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
-import co.edu.uco.application.usecase.domain.security.*;
+import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
 import co.edu.uco.infraestructure.primaryadapters.*;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
@@ -20,8 +20,7 @@ final class CreateMessageControllerImpl implements CreateMessageController {
     }
     public Mono<Void> createMessage(CreateMessageDTO dto, ServerWebExchange exchange) {
         return ReactiveHttpResponse.blocking(() -> {
-            facade.execute(dto, new MessageAccessContext((String) exchange.getAttribute(ENVIRONMENT_ID_ATTRIBUTE),
-                    (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE),
+            facade.execute(dto, new MessageAccessContext(
                     (String) exchange.getAttribute(APPLICATION_ID_ATTRIBUTE)));
             return "Mensaje creado exitosamente";
         }).flatMap(value -> ReactiveHttpResponse.present(presenter, List.of(value), exchange));

@@ -4,7 +4,6 @@ import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
 import co.edu.uco.application.primaryports.facade.catalog.FindCatalogUseCaseFacade;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.application.secondaryports.presenter.RenderedResponse;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -17,10 +16,9 @@ import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import reactor.test.StepVerifier;
 
-import java.time.Instant;
 import java.util.List;
 
-import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.SESSION_APPLICATIONS_ATTRIBUTE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -32,7 +30,8 @@ import static org.mockito.Mockito.when;
 @DisplayName("CatalogControllerImpl")
 class CatalogControllerImplTest {
 
-    private static final ExternalIdentity IDENTITY = new ExternalIdentity("issuer", "subject", null, Instant.MAX);
+    private static final List<CatalogItemDTO> SESSION_APPLICATIONS =
+            List.of(CatalogItemDTO.create("app-1", "Aplicacion"));
 
     @Mock
     private FindCatalogUseCaseFacade facade;
@@ -49,7 +48,7 @@ class CatalogControllerImplTest {
     private MockServerWebExchange exchange() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.get("/messageucolab/v1/catalog/applications").build());
-        exchange.getAttributes().put(EXTERNAL_IDENTITY_ATTRIBUTE, IDENTITY);
+        exchange.getAttributes().put(SESSION_APPLICATIONS_ATTRIBUTE, SESSION_APPLICATIONS);
         return exchange;
     }
 
@@ -63,15 +62,15 @@ class CatalogControllerImplTest {
     class GetApplications {
 
         @Test
-        @DisplayName("Delega con la identidad y presenta la lista de aplicaciones")
-        void delegatesWithIdentityAndPresents() {
+        @DisplayName("Delega con las aplicaciones asignadas en sesión y presenta el resultado")
+        void delegatesWithSessionApplicationsAndPresents() {
             List<CatalogItemDTO> applications = List.of(CatalogItemDTO.create("app-1", "Aplicacion"));
             stubRender();
-            when(facade.findApplications(IDENTITY)).thenReturn(applications);
+            when(facade.findApplications(SESSION_APPLICATIONS)).thenReturn(applications);
 
             StepVerifier.create(controller.getApplications(exchange())).verifyComplete();
 
-            verify(facade).findApplications(IDENTITY);
+            verify(facade).findApplications(SESSION_APPLICATIONS);
             verify(presenter).presentRestSuccess(applications, null);
         }
 
@@ -79,7 +78,7 @@ class CatalogControllerImplTest {
         @DisplayName("Presenta una lista vacia sin fallar")
         void presentsEmptyCatalog() {
             stubRender();
-            when(facade.findApplications(IDENTITY)).thenReturn(List.of());
+            when(facade.findApplications(SESSION_APPLICATIONS)).thenReturn(List.of());
 
             StepVerifier.create(controller.getApplications(exchange())).verifyComplete();
 
@@ -90,7 +89,7 @@ class CatalogControllerImplTest {
         @DisplayName("Propaga el error del caso de uso sin presentar")
         void propagatesFacadeFailure() {
             BusinessException failure = BusinessException.buildUserException("fallo de catalogo");
-            when(facade.findApplications(IDENTITY)).thenThrow(failure);
+            when(facade.findApplications(SESSION_APPLICATIONS)).thenThrow(failure);
 
             StepVerifier.create(controller.getApplications(exchange()))
                     .expectErrorSatisfies(error -> assertThat(error).isSameAs(failure))
@@ -109,11 +108,11 @@ class CatalogControllerImplTest {
         void delegatesWithApplicationIdAndIdentity() {
             List<CatalogItemDTO> environments = List.of(CatalogItemDTO.create("env-1", "Produccion"));
             stubRender();
-            when(facade.findEnvironmentsByApplication("app-1", IDENTITY)).thenReturn(environments);
+            when(facade.findEnvironmentsByApplication("app-1", SESSION_APPLICATIONS)).thenReturn(environments);
 
             StepVerifier.create(controller.getEnvironmentsByApplication("app-1", exchange())).verifyComplete();
 
-            verify(facade).findEnvironmentsByApplication("app-1", IDENTITY);
+            verify(facade).findEnvironmentsByApplication("app-1", SESSION_APPLICATIONS);
             verify(presenter).presentRestSuccess(environments, null);
         }
     }
@@ -127,11 +126,11 @@ class CatalogControllerImplTest {
         void delegatesWithApplicationIdAndIdentity() {
             List<CatalogItemDTO> functionalities = List.of(CatalogItemDTO.create("fun-1", "Envio de correo"));
             stubRender();
-            when(facade.findFunctionalitiesByApplication("app-1", IDENTITY)).thenReturn(functionalities);
+            when(facade.findFunctionalitiesByApplication("app-1", SESSION_APPLICATIONS)).thenReturn(functionalities);
 
             StepVerifier.create(controller.getFunctionalitiesByApplication("app-1", exchange())).verifyComplete();
 
-            verify(facade).findFunctionalitiesByApplication("app-1", IDENTITY);
+            verify(facade).findFunctionalitiesByApplication("app-1", SESSION_APPLICATIONS);
             verify(presenter).presentRestSuccess(functionalities, null);
         }
     }

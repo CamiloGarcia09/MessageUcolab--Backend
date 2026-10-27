@@ -5,7 +5,6 @@ import co.edu.uco.application.primaryports.facade.message.ResolveMessageUseCaseF
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.repository.ResolveMessageRepository;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.application.usecase.validator.message.FindMessageCodeValidator;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
@@ -28,9 +27,9 @@ public final class ResolveMessageUseCase implements ResolveMessageUseCaseFacade 
     }
 
     @Override
-    public ResolvedMessageDTO execute(String code, MessageAccessContext context) {
+    public ResolvedMessageDTO execute(String code, String requestedEnvironmentId, MessageAccessContext context) {
         codeValidator.validate(code);
-        var environmentId = environmentResolver.resolve(context, PermissionCode.MESSAGE_READ);
+        var environmentId = environmentResolver.resolve(context, requestedEnvironmentId);
         var message = repository.findAvailableByCodeAndEnvironment(code, environmentId)
                 .orElseThrow(() -> NotFoundException.buildUserException(
                         catalogPort.getMessage(MessageCatalogCodeEnum.FUN_012.getCode())

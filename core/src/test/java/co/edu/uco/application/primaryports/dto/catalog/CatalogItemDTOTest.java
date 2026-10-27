@@ -55,7 +55,7 @@ class CatalogItemDTOTest {
         }
 
         @Test
-        void classAndDeclaredFields_areFinal_andClassExposesNoSetters() {
+        void classIsSealedAndDeclaredFieldsAreFinal_withoutExposingSetters() {
             List<Field> fields = List.of(CatalogItemDTO.class.getDeclaredFields());
             List<String> setters = Arrays.stream(CatalogItemDTO.class.getMethods())
                     .map(Method::getName)
@@ -63,7 +63,9 @@ class CatalogItemDTOTest {
                     .toList();
 
             assertAll(
-                    () -> assertThat(Modifier.isFinal(CatalogItemDTO.class.getModifiers())).isTrue(),
+                    () -> assertThat(CatalogItemDTO.class.isSealed()).isTrue(),
+                    () -> assertThat(CatalogItemDTO.class.getPermittedSubclasses())
+                            .containsExactly(FunctionalityCatalogItemDTO.class),
                     () -> assertThat(fields)
                             .isNotEmpty()
                             .allSatisfy(field -> assertThat(Modifier.isFinal(field.getModifiers())).isTrue()),

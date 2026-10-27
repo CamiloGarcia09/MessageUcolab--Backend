@@ -105,7 +105,21 @@ public class MessageSurrealRepositoryAdapterImpl extends SurrealCatalogSupport i
         appendContains(sb, prefix + "functionality.name", filter.getFunctionality());
         appendContains(sb, prefix + "type.name", filter.getType());
         appendContains(sb, prefix + "status.name", filter.getStatus());
+        appendCatalogId(sb, prefix + "status.id", "message_state", filter.getStatusId());
+        appendCatalogId(sb, prefix + "functionality.id", "functionality", filter.getFunctionalityId());
         return sb.toString();
+    }
+
+    private static void appendCatalogId(final StringBuilder sb, final String field,
+                                        final String table, final String id) {
+        if (id == null || id.isBlank()) {
+            return;
+        }
+        final String uuid = UUID.fromString(id).toString();
+        // Las proyecciones actuales guardan table:uuid; se admiten tambien referencias tipadas y UUID puros.
+        sb.append(" AND (").append(field).append(" = ").append(quote(table + ":" + uuid))
+                .append(" OR ").append(field).append(" = ").append(quote(uuid))
+                .append(" OR ").append(field).append(" = ").append(recordIdLiteral(table, uuid)).append(")");
     }
 
     @Override
@@ -305,6 +319,7 @@ public class MessageSurrealRepositoryAdapterImpl extends SurrealCatalogSupport i
         data.setTitle(stringOf(message.get("title")));
         data.setContent(stringOf(message.get("content")));
         data.setCreatedAt(instantOf(message.get("created_at")));
+        data.setUpdatedAt(instantOf(message.get("updated_at")));
         data.setApplication(stringOf(message.get("application")));
         data.setType(new MessageTypeData(catalogIdOf(message.get("type")), nameOf(message.get("type"))));
         data.setCategory(new MessageCategoryData(catalogIdOf(message.get("category")), nameOf(message.get("category"))));

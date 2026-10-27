@@ -5,7 +5,6 @@ import co.edu.uco.application.primaryports.dto.session.SessionApplicationDTO;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.entity.ApplicationData;
 import co.edu.uco.application.secondaryports.repository.ApplicationRepository;
-import co.edu.uco.application.secondaryports.security.SecurityApplicationPort;
 import co.edu.uco.application.usecase.handling.HandlingSessionApplicationPort;
 import co.edu.uco.application.usecase.validator.session.SessionApplicationAccessCompositeValidator;
 import co.edu.uco.application.usecase.validator.session.SessionApplicationCompositeValidator;
@@ -22,26 +21,25 @@ import java.util.Optional;
 import static co.edu.uco.crosscutting.helpers.UtilUUID.getUUIDFromString;
 
 /**
- * Resuelve el alcance de negocio a partir de las aplicaciones que el componente de
- * seguridad asigna al usuario de la sesion. La aplicacion de negocio comparte el
- * UUID de la aplicacion de seguridad.
+ * Resuelve el alcance de negocio a partir de las organizaciones personales del
+ * usuario autenticado. No depende de las aplicaciones asignadas en seguridad.
  */
 public final class SessionApplicationUseCase implements HandlingSessionApplicationPort {
 
-    private final SecurityApplicationPort securityApplicationPort;
+    private final PersonalWorkspaceUseCase workspace;
     private final ApplicationRepository applicationRepository;
     private final SessionApplicationCompositeValidator validator;
     private final SessionApplicationAccessCompositeValidator accessValidator;
     private final SessionApplicationRegistrationCompositeValidator registrationValidator;
     private final CatalogPort catalogPort;
 
-    public SessionApplicationUseCase(final SecurityApplicationPort securityApplicationPort,
+    public SessionApplicationUseCase(final PersonalWorkspaceUseCase workspace,
                                      final ApplicationRepository applicationRepository,
                                      final SessionApplicationCompositeValidator validator,
                                      final SessionApplicationAccessCompositeValidator accessValidator,
                                      final SessionApplicationRegistrationCompositeValidator registrationValidator,
                                      final CatalogPort catalogPort) {
-        this.securityApplicationPort = securityApplicationPort;
+        this.workspace = workspace;
         this.applicationRepository = applicationRepository;
         this.validator = validator;
         this.accessValidator = accessValidator;
@@ -55,7 +53,7 @@ public final class SessionApplicationUseCase implements HandlingSessionApplicati
             throw UnauthorizedException.buildUserException(
                     catalogPort.getMessage(MessageCatalogCodeEnum.FUN_152.getCode()));
         }
-        return securityApplicationPort.findCurrentUserApplications(session);
+        return workspace.openSession(session).applications();
     }
 
     @Override

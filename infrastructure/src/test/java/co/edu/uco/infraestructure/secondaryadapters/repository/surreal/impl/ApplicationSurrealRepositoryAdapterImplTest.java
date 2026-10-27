@@ -138,7 +138,7 @@ class ApplicationSurrealRepositoryAdapterImplTest {
     }
 
     private String expectedTransaction(final List<EnvironmentData> environments) {
-        final String applicationUpsert = "UPSERT application:`" + APPLICATION_ID + "` CONTENT { "
+        final String applicationUpsert = "CREATE application:`" + APPLICATION_ID + "` CONTENT { "
                 + "name: 'App', organization_id: organization:`" + ORGANIZATION_ID + "`, "
                 + "language_id: language_base:`" + LANGUAGE_ID + "`, "
                 + "state_id: application_state:`" + STATE_ID + "` };";
@@ -183,7 +183,7 @@ class ApplicationSurrealRepositoryAdapterImplTest {
     void findById_returnsMappedApplicationAndUsesExactRecordQuery() {
         String applicationId = "123e4567-e89b-12d3-a456-426614174000";
         String organizationId = "223e4567-e89b-12d3-a456-426614174000";
-        String query = "SELECT * FROM application:`" + applicationId + "` LIMIT 1;";
+        String query = "SELECT *, organization_id.name AS organization_name FROM application:`" + applicationId + "` LIMIT 1;";
         doReturn(responseWithOne(applicationDocument(applicationId, "App", organizationId)))
                 .when(surreal).query(query);
 
@@ -208,7 +208,7 @@ class ApplicationSurrealRepositoryAdapterImplTest {
     @Test
     void findById_propagatesFailureAndLogsQuery_whenQueryFails() {
         String applicationId = "123e4567-e89b-12d3-a456-426614174000";
-        String query = "SELECT * FROM application:`" + applicationId + "` LIMIT 1;";
+        String query = "SELECT *, organization_id.name AS organization_name FROM application:`" + applicationId + "` LIMIT 1;";
         RuntimeException cause = new RuntimeException("db down");
         doThrow(cause).when(surreal).query(query);
 
@@ -249,7 +249,7 @@ class ApplicationSurrealRepositoryAdapterImplTest {
                 () -> assertThat(query).endsWith("COMMIT TRANSACTION;"),
                 () -> assertThat(countOccurrences(query, "BEGIN TRANSACTION;")).isEqualTo(1),
                 () -> assertThat(countOccurrences(query, "COMMIT TRANSACTION;")).isEqualTo(1),
-                () -> assertThat(countOccurrences(query, "UPSERT application:`")).isEqualTo(1),
+                () -> assertThat(countOccurrences(query, "CREATE application:`")).isEqualTo(1),
                 () -> assertThat(countOccurrences(query, "UPSERT environment:`")).isEqualTo(3),
                 () -> assertThat(countOccurrences(query, ENVIRONMENT_STATE_RECORD)).isEqualTo(3),
                 () -> assertThat(query).contains("language_id: language_base:`" + LANGUAGE_ID + "`"),

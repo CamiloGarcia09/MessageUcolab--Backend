@@ -8,9 +8,7 @@ import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.CreateMessageRepository;
 import co.edu.uco.application.secondaryports.repository.MessageEnvironmentStateCatalogRepository;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.application.usecase.validator.message.CreateMessageCompositeValidator;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
@@ -30,7 +28,6 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -65,8 +62,6 @@ class CreateMessageUseCaseTest {
     private static final String FOREIGN_STATE_UUID = "123e4567-e89b-12d3-a456-426614175014";
     private static final List<String> ENVIRONMENTS = List.of(DEVELOP_UUID, PRODUCTION_UUID);
     private static final String NO_ACTIVE_STATE_MESSAGE = "No existe estado de ambiente de mensaje activo";
-    private static final ExternalIdentity IDENTITY = new ExternalIdentity(
-            "issuer", "subject", "user@example.com", Instant.MAX);
 
     @Mock
     private CreateMessageRepository createMessageRepository;
@@ -107,15 +102,15 @@ class CreateMessageUseCaseTest {
     }
 
     private MessageAccessContext sessionContext() {
-        return new MessageAccessContext(null, null, APP_UUID);
+        return new MessageAccessContext(APP_UUID);
     }
 
     private MessageAccessContext authenticatedContext() {
-        return new MessageAccessContext(null, IDENTITY);
+        return new MessageAccessContext(APP_UUID);
     }
 
     private void stubApplicationResolvingTo(String applicationId) {
-        when(environmentResolver.resolveApplication(any(), eq(PermissionCode.MESSAGE_CREATE)))
+        when(environmentResolver.resolveApplication(any()))
                 .thenReturn(applicationId);
     }
 
@@ -146,7 +141,7 @@ class CreateMessageUseCaseTest {
 
         InOrder order = inOrder(environmentResolver, validator, messageEnvironmentStateRepository,
                 createMessageRepository);
-        order.verify(environmentResolver).resolveApplication(context, PermissionCode.MESSAGE_CREATE);
+        order.verify(environmentResolver).resolveApplication(context);
         order.verify(validator).validate(dto, APP_UUID);
         order.verify(messageEnvironmentStateRepository).findAll();
         order.verify(createMessageRepository)
@@ -198,7 +193,7 @@ class CreateMessageUseCaseTest {
     }
 
     @Test
-    void createMessage_resolvesApplicationFromAuthenticatedContext() {
+    void createMessage_resolvesApplicationFromSessionContext() {
         CreateMessageDTO dto = validDto();
         MessageAccessContext context = authenticatedContext();
         stubApplicationResolvingTo(APP_UUID);
@@ -206,7 +201,7 @@ class CreateMessageUseCaseTest {
 
         useCase.createMessage(dto, context);
 
-        verify(environmentResolver).resolveApplication(context, PermissionCode.MESSAGE_CREATE);
+        verify(environmentResolver).resolveApplication(context);
         verify(validator).validate(dto, APP_UUID);
         verify(createMessageRepository).createMessage(any(), eq(ENVIRONMENTS), eq(ACTIVE_STATE_UUID));
     }
@@ -259,7 +254,7 @@ class CreateMessageUseCaseTest {
         CreateMessageDTO dto = validDto();
         MessageAccessContext context = authenticatedContext();
         ForbiddenException failure = ForbiddenException.buildUserException("Permission denied");
-        doThrow(failure).when(environmentResolver).resolveApplication(context, PermissionCode.MESSAGE_CREATE);
+        doThrow(failure).when(environmentResolver).resolveApplication(context);
 
         assertThatThrownBy(() -> useCase.createMessage(dto, context)).isSameAs(failure);
         verifyNoInteractions(validator, messageEnvironmentStateRepository, createMessageRepository);

@@ -1,8 +1,0 @@
-# Opt-in override: la aplicacion y el ambiente se resuelven desde la sesion del componente de seguridad.
-# Use with docker-compose.yml. Do not combine with docker-compose.local-workspace.yml.
-services:
-  messageucolab:
-    environment:
-      SPRING_PROFILES_ACTIVE: security-session
-      # El PDP publicado en el host; localhost dentro del contenedor no lo alcanza.
-      SECURITY_PDP_URL: ${SECURITY_PDP_URL:-http://host.docker.internal:18080}

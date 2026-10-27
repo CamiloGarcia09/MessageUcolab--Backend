@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -60,11 +61,13 @@ class FunctionalityCatalogSurrealAdapterTest {
         return v;
     }
 
-    private Object functionalityDocument(String uuid, String name, String appId) {
+    private Object functionalityDocument(String uuid, String name, String appId, String stateId, String state) {
         Object doc = mock(Object.class);
         doReturn(recordIdValue("functionality", uuid)).when(doc).get("id");
         doReturn(stringValue(name)).when(doc).get("name");
         doReturn(recordIdValue("application", appId)).when(doc).get("application_id");
+        doReturn(recordIdValue("functionality_state", stateId)).when(doc).get("state_id");
+        doReturn(stringValue(state)).when(doc).get("state_name");
         return doc;
     }
 
@@ -88,14 +91,19 @@ class FunctionalityCatalogSurrealAdapterTest {
     void findAllByApplicationId_mapsFunctionalitiesWithApplicationId() {
         String uuid = UUID.randomUUID().toString();
         String appId = UUID.randomUUID().toString();
-        doReturn(responseWithOne(functionalityDocument(uuid, "Search", appId))).when(surreal).query(anyString());
+        String stateId = UUID.randomUUID().toString();
+        doReturn(responseWithOne(functionalityDocument(uuid, "Search", appId, stateId, "Active")))
+                .when(surreal).query(anyString());
 
         List<FunctionalityData> result = adapter.findAllByApplicationId(appId);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getName()).isEqualTo("Search");
-        assertThat(result.get(0).getId()).isEqualTo(UUID.fromString(uuid));
-        assertThat(result.get(0).getApplication().getId()).isEqualTo(UUID.fromString(appId));
+        assertAll(
+                () -> assertThat(result).hasSize(1),
+                () -> assertThat(result.get(0).getName()).isEqualTo("Search"),
+                () -> assertThat(result.get(0).getId()).isEqualTo(UUID.fromString(uuid)),
+                () -> assertThat(result.get(0).getApplication().getId()).isEqualTo(UUID.fromString(appId)),
+                () -> assertThat(result.get(0).getStateId()).isEqualTo(UUID.fromString(stateId)),
+                () -> assertThat(result.get(0).getState()).isEqualTo("Active"));
     }
 
     @Test
@@ -105,5 +113,28 @@ class FunctionalityCatalogSurrealAdapterTest {
         when(surreal.query(anyString())).thenReturn(response);
 
         assertThat(adapter.findAllByApplicationId("app-1")).isEmpty();
+    }
+
+    @Test
+    void findAllByApplicationId_mapsMissingStateToFailClosedDefaults() {
+        Object doc = functionalityDocumentWithoutState(UUID.randomUUID().toString(), "Legacy", UUID.randomUUID().toString());
+        doReturn(responseWithOne(doc)).when(surreal).query(anyString());
+
+        FunctionalityData result = adapter.findAllByApplicationId(UUID.randomUUID().toString()).getFirst();
+
+        assertThat(result.getStateId()).isEqualTo(co.edu.uco.crosscutting.helpers.UtilUUID.DEFAULT_UUID);
+        assertThat(result.getState()).isEmpty();
+    }
+
+    private Object functionalityDocumentWithoutState(String uuid, String name, String appId) {
+        Object doc = mock(Object.class);
+        doReturn(recordIdValue("functionality", uuid)).when(doc).get("id");
+        doReturn(stringValue(name)).when(doc).get("name");
+        doReturn(recordIdValue("application", appId)).when(doc).get("application_id");
+        Value absent = mock(Value.class);
+        when(absent.isNull()).thenReturn(true);
+        doReturn(absent).when(doc).get("state_id");
+        doReturn(absent).when(doc).get("state_name");
+        return doc;
     }
 }

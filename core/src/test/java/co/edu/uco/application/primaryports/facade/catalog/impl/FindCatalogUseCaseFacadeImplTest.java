@@ -2,7 +2,6 @@ package co.edu.uco.application.primaryports.facade.catalog.impl;
 
 import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
 import co.edu.uco.application.usecase.handling.HandlingFindCatalogPort;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,7 +9,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
-import java.time.Instant;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -18,8 +16,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class FindCatalogUseCaseFacadeImplTest {
 
-    private static final ExternalIdentity IDENTITY = new ExternalIdentity(
-            "issuer", "subject", null, Instant.MAX);
+    private static final List<CatalogItemDTO> SESSION_APPLICATIONS =
+            List.of(CatalogItemDTO.create("app-id", "Assigned app"));
 
     @Mock
     private HandlingFindCatalogPort handlingFindCatalogPort;
@@ -33,26 +31,26 @@ class FindCatalogUseCaseFacadeImplTest {
 
     @Test
     void findApplications_delegatesToHandlingPort() {
-        when(handlingFindCatalogPort.findApplications(IDENTITY))
+        when(handlingFindCatalogPort.findApplications(SESSION_APPLICATIONS))
                 .thenReturn(List.of(CatalogItemDTO.create("1", "App")));
 
-        facade.findApplications(IDENTITY);
+        facade.findApplications(SESSION_APPLICATIONS);
 
-        verify(handlingFindCatalogPort).findApplications(IDENTITY);
+        verify(handlingFindCatalogPort).findApplications(SESSION_APPLICATIONS);
     }
 
     @Test
     void findEnvironmentsByApplication_delegatesToHandlingPort() {
-        facade.findEnvironmentsByApplication("app-1", IDENTITY);
+        facade.findEnvironmentsByApplication("app-1", SESSION_APPLICATIONS);
 
-        verify(handlingFindCatalogPort).findEnvironmentsByApplication("app-1", IDENTITY);
+        verify(handlingFindCatalogPort).findEnvironmentsByApplication("app-1", SESSION_APPLICATIONS);
     }
 
     @Test
     void findFunctionalitiesByApplication_delegatesToHandlingPort() {
-        facade.findFunctionalitiesByApplication("app-1", IDENTITY);
+        facade.findFunctionalitiesByApplication("app-1", SESSION_APPLICATIONS);
 
-        verify(handlingFindCatalogPort).findFunctionalitiesByApplication("app-1", IDENTITY);
+        verify(handlingFindCatalogPort).findFunctionalitiesByApplication("app-1", SESSION_APPLICATIONS);
     }
 
     @Test

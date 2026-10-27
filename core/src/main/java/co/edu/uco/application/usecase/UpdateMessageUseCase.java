@@ -16,7 +16,6 @@ import co.edu.uco.application.secondaryports.repository.DataBaseMessageRepositor
 import co.edu.uco.application.secondaryports.repository.MessageEnvironmentStateCatalogRepository;
 import co.edu.uco.application.secondaryports.repository.UpdateMessageRepository;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
 import co.edu.uco.application.usecase.handling.HandlingUpdateMessagePort;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.application.usecase.validator.message.UpdateMessageCompositeValidator;
@@ -74,7 +73,7 @@ public final class UpdateMessageUseCase implements HandlingUpdateMessagePort {
             throw BusinessRuleException.buildUserException(catalogPort.getMessage(FUN_206.getCode()));
         }
 
-        var applicationId = environmentResolver.resolveApplication(context, PermissionCode.MESSAGE_UPDATE);
+        var applicationId = environmentResolver.resolveApplication(context);
 
         // El codigo es unico por aplicacion: nunca se busca en otras aplicaciones.
         var existing = messageRepository.findByCodeAndApplication(sanitizedId, applicationId)

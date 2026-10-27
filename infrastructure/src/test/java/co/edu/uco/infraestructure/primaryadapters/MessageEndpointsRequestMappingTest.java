@@ -36,13 +36,21 @@ class MessageEndpointsRequestMappingTest {
             Method method = MessagesController.class.getMethod("findByEnvironmentAndMessage",
                     String.class, String.class, String.class, String.class,
                     String.class, String.class, String.class, String.class, String.class, String.class,
-                    String.class, ServerWebExchange.class);
+                    String.class, String.class, String.class, ServerWebExchange.class);
             GetMapping mapping = method.getAnnotation(GetMapping.class);
+            RequestParam statusId = parameterAnnotation(method, 11, RequestParam.class);
+            RequestParam functionalityId = parameterAnnotation(method, 12, RequestParam.class);
 
             assertThat(mapping).isNotNull();
+            assertThat(statusId).isNotNull();
+            assertThat(functionalityId).isNotNull();
             assertAll(
                     () -> assertThat(mapping.params()).containsExactly("!code"),
-                    () -> assertThat(mapping.value()).isEmpty());
+                    () -> assertThat(mapping.value()).isEmpty(),
+                    () -> assertThat(statusId.value()).isEqualTo("filterStatusId"),
+                    () -> assertThat(statusId.required()).isFalse(),
+                    () -> assertThat(functionalityId.value()).isEqualTo("filterFunctionalityId"),
+                    () -> assertThat(functionalityId.required()).isFalse());
         }
 
         @Test

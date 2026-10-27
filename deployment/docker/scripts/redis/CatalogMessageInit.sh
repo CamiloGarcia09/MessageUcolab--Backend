@@ -28,6 +28,13 @@ redis_hset() {
 # Technical Messages
 # =============================================================
 
+redis_hset "TCH_076" "Session identity unavailable" "No fue posible obtener una identidad valida del BFF de seguridad." "TECHNICAL" "ERROR"
+redis_hset "TCH_077" "Personal workspace persistence failed" "No fue posible consultar o guardar el espacio de trabajo personal." "TECHNICAL" "ERROR"
+redis_hset "FUN_214" "Invalid organization" "El identificador de organizacion debe ser un UUID valido." "FUNCTIONAL" "ERROR"
+redis_hset "FUN_215" "Organization access denied" "La organizacion no existe o no pertenece al usuario autenticado." "FUNCTIONAL" "ERROR"
+redis_hset "FUN_216" "Application created" "Aplicacion creada exitosamente." "FUNCTIONAL" "INFORMATION"
+redis_hset "FUN_217" "Active functionality required" "Selecciona una funcionalidad activa de la aplicacion para crear el mensaje." "FUNCTIONAL" "ERROR"
+
 redis_hset "TCH_010" "Code is required" "Code is required" "TECHNICAL" "ERROR"
 redis_hset "TCH_011" "Content is required" "Content is required" "TECHNICAL" "ERROR"
 redis_hset "TCH_012" "Title is required" "Title is required" "TECHNICAL" "ERROR"

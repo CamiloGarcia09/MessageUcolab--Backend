@@ -107,4 +107,24 @@ class SimplePageMapperTest {
 
         org.assertj.core.api.Assertions.assertThat(request.getFilter().getEnvironmentIds()).isEmpty();
     }
+
+    @org.junit.jupiter.api.Test
+    void toSimplePageRequest_mapsCatalogIdFiltersAlongsideOtherFilters() {
+        var dto = PageRequestDTO.builder()
+                .filterCode("WELCOME")
+                .filterStatusId("7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82")
+                .filterFunctionalityId("c9dc13ee-2f0e-4912-946d-e7e4352c6510")
+                .filterEnvironments("env-1,env-2")
+                .build();
+
+        var request = mapper.toSimplePageRequest(dto);
+
+        org.assertj.core.api.Assertions.assertThat(request.getFilter().getCode()).isEqualTo("WELCOME");
+        org.assertj.core.api.Assertions.assertThat(request.getFilter().getStatusId())
+                .isEqualTo("7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82");
+        org.assertj.core.api.Assertions.assertThat(request.getFilter().getFunctionalityId())
+                .isEqualTo("c9dc13ee-2f0e-4912-946d-e7e4352c6510");
+        org.assertj.core.api.Assertions.assertThat(request.getFilter().getEnvironmentIds())
+                .containsExactly("env-1", "env-2");
+    }
 }

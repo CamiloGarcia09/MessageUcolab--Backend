@@ -3,7 +3,6 @@ package co.edu.uco.infraestructure.primaryadapters.controller;
 import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
 import co.edu.uco.application.primaryports.facade.catalog.FindCatalogUseCaseFacade;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.infraestructure.primaryadapters.CatalogController;
 import co.edu.uco.infraestructure.primaryadapters.ReactiveHttpResponse;
 import org.springframework.web.bind.annotation.RestController;
@@ -12,7 +11,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
-import static co.edu.uco.infraestructure.config.InfrastructureConstant.EXTERNAL_IDENTITY_ATTRIBUTE;
+import static co.edu.uco.infraestructure.config.InfrastructureConstant.SESSION_APPLICATIONS_ATTRIBUTE;
 
 @RestController
 final class CatalogControllerImpl implements CatalogController {
@@ -25,15 +24,15 @@ final class CatalogControllerImpl implements CatalogController {
     }
 
     public Mono<Void> getApplications(ServerWebExchange exchange) {
-        return ReactiveHttpResponse.blocking(() -> facade.findApplications(identity(exchange)))
+        return ReactiveHttpResponse.blocking(() -> facade.findApplications(sessionApplications(exchange)))
                 .flatMap(value -> ReactiveHttpResponse.present(presenter, value, exchange));
     }
     public Mono<Void> getEnvironmentsByApplication(String id, ServerWebExchange exchange) {
-        return ReactiveHttpResponse.blocking(() -> facade.findEnvironmentsByApplication(id, identity(exchange)))
+        return ReactiveHttpResponse.blocking(() -> facade.findEnvironmentsByApplication(id, sessionApplications(exchange)))
                 .flatMap(value -> ReactiveHttpResponse.present(presenter, value, exchange));
     }
     public Mono<Void> getFunctionalitiesByApplication(String id, ServerWebExchange exchange) {
-        return ReactiveHttpResponse.blocking(() -> facade.findFunctionalitiesByApplication(id, identity(exchange)))
+        return ReactiveHttpResponse.blocking(() -> facade.findFunctionalitiesByApplication(id, sessionApplications(exchange)))
                 .flatMap(value -> ReactiveHttpResponse.present(presenter, value, exchange));
     }
     public Mono<Void> getMessageTypes(ServerWebExchange exchange) {
@@ -52,7 +51,7 @@ final class CatalogControllerImpl implements CatalogController {
         return ReactiveHttpResponse.blocking(facade::findMessageEnvironmentStates)
                 .flatMap(value -> ReactiveHttpResponse.present(presenter, value, exchange));
     }
-    private ExternalIdentity identity(ServerWebExchange exchange) {
-        return (ExternalIdentity) exchange.getAttribute(EXTERNAL_IDENTITY_ATTRIBUTE);
+    private List<CatalogItemDTO> sessionApplications(ServerWebExchange exchange) {
+        return exchange.getAttribute(SESSION_APPLICATIONS_ATTRIBUTE);
     }
 }

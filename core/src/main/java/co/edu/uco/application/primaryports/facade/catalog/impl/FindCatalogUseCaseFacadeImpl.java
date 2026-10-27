@@ -2,7 +2,6 @@ package co.edu.uco.application.primaryports.facade.catalog.impl;
 
 import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
 import co.edu.uco.application.primaryports.facade.catalog.FindCatalogUseCaseFacade;
-import co.edu.uco.application.usecase.domain.security.ExternalIdentity;
 import co.edu.uco.application.usecase.handling.HandlingFindCatalogPort;
 
 import java.util.List;
@@ -16,20 +15,20 @@ public final class FindCatalogUseCaseFacadeImpl implements FindCatalogUseCaseFac
     }
 
     @Override
-    public List<CatalogItemDTO> findApplications(final ExternalIdentity identity) {
-        return handlingFindCatalogPort.findApplications(identity);
+    public List<CatalogItemDTO> findApplications(final List<CatalogItemDTO> sessionApplications) {
+        return handlingFindCatalogPort.findApplications(sessionApplications);
     }
 
     @Override
     public List<CatalogItemDTO> findEnvironmentsByApplication(final String applicationId,
-                                                               final ExternalIdentity identity) {
-        return handlingFindCatalogPort.findEnvironmentsByApplication(applicationId, identity);
+                                                               final List<CatalogItemDTO> sessionApplications) {
+        return handlingFindCatalogPort.findEnvironmentsByApplication(applicationId, sessionApplications);
     }
 
     @Override
     public List<CatalogItemDTO> findFunctionalitiesByApplication(final String applicationId,
-                                                                  final ExternalIdentity identity) {
-        return handlingFindCatalogPort.findFunctionalitiesByApplication(applicationId, identity);
+                                                                  final List<CatalogItemDTO> sessionApplications) {
+        return handlingFindCatalogPort.findFunctionalitiesByApplication(applicationId, sessionApplications);
     }
 
     @Override

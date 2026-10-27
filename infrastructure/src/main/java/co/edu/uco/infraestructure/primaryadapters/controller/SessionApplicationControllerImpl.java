@@ -6,7 +6,6 @@ import co.edu.uco.application.primaryports.facade.session.SessionApplicationUseC
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.infraestructure.primaryadapters.ReactiveHttpResponse;
 import co.edu.uco.infraestructure.primaryadapters.SessionApplicationController;
-import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -16,7 +15,6 @@ import java.util.List;
 import static co.edu.uco.infraestructure.config.InfrastructureConstant.SESSION_APPLICATIONS_ATTRIBUTE;
 
 @RestController
-@Profile("security-session")
 final class SessionApplicationControllerImpl implements SessionApplicationController {
     private final SessionApplicationUseCaseFacade facade;
     private final PresenterPort<SessionApplicationDTO> presenter;

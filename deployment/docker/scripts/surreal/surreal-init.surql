@@ -102,7 +102,17 @@ UPSERT application_state:`2a0ddacd-2dcc-47e2-b56f-03db5207c443` CONTENT {
 -- ORGANIZATION
 -- =============================================================
 
+DEFINE TABLE IF NOT EXISTS app_user SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS identity_source ON app_user TYPE string;
+DEFINE FIELD IF NOT EXISTS tenant_id ON app_user TYPE string;
+DEFINE FIELD IF NOT EXISTS subject ON app_user TYPE string;
+DEFINE FIELD IF NOT EXISTS email ON app_user TYPE string;
+DEFINE FIELD IF NOT EXISTS name ON app_user TYPE string;
+DEFINE INDEX IF NOT EXISTS app_user_identity_idx ON app_user FIELDS identity_source, tenant_id, subject UNIQUE;
+
 DEFINE TABLE IF NOT EXISTS organization SCHEMAFULL CHANGEFEED 7d;
+
+DEFINE FIELD IF NOT EXISTS owner_user_id ON organization TYPE option<record<app_user>>;
 
 DEFINE FIELD IF NOT EXISTS name
 ON organization TYPE string;
@@ -113,32 +123,10 @@ ON organization TYPE datetime DEFAULT time::now() READONLY;
 DEFINE FIELD IF NOT EXISTS updated_at
 ON organization TYPE datetime VALUE time::now();
 
-DEFINE INDEX IF NOT EXISTS organization_name_idx
-ON organization FIELDS name UNIQUE;
-
--- =============================================================
--- EXTERNAL IDENTITY
--- =============================================================
-
-DEFINE TABLE IF NOT EXISTS external_identity SCHEMAFULL;
-
-DEFINE FIELD IF NOT EXISTS issuer
-ON external_identity TYPE string;
-
-DEFINE FIELD IF NOT EXISTS subject
-ON external_identity TYPE string;
-
-DEFINE FIELD IF NOT EXISTS email
-ON external_identity TYPE option<string>;
-
-DEFINE FIELD OVERWRITE created_at
-ON external_identity TYPE datetime DEFAULT time::now() READONLY;
-
-DEFINE FIELD IF NOT EXISTS updated_at
-ON external_identity TYPE datetime VALUE time::now();
-
-DEFINE INDEX IF NOT EXISTS external_identity_issuer_subject_idx
-ON external_identity FIELDS issuer, subject UNIQUE;
+REMOVE INDEX IF EXISTS organization_name_idx ON organization;
+DEFINE INDEX IF NOT EXISTS organization_owner_name_idx
+ON organization FIELDS owner_user_id, name UNIQUE;
+DEFINE INDEX IF NOT EXISTS organization_owner_idx ON organization FIELDS owner_user_id;
 
 -- =============================================================
 -- APPLICATION
@@ -169,6 +157,9 @@ ON application FIELDS name;
 
 DEFINE INDEX IF NOT EXISTS application_organization_idx
 ON application FIELDS organization_id;
+
+DEFINE INDEX IF NOT EXISTS application_organization_name_idx
+ON application FIELDS organization_id, name UNIQUE;
 
 DEFINE INDEX IF NOT EXISTS application_language_state_idx
 ON application FIELDS language_id, state_id;
@@ -316,145 +307,6 @@ ON environment FIELDS application_id, type_id UNIQUE;
 
 DEFINE INDEX IF NOT EXISTS environment_type_state_idx
 ON environment FIELDS type_id, state_id;
-
--- =============================================================
--- ACTIVE CONTEXT
--- =============================================================
-
-DEFINE TABLE IF NOT EXISTS active_context SCHEMAFULL;
-
-DEFINE FIELD IF NOT EXISTS external_identity_id
-ON active_context TYPE record<external_identity>;
-
-DEFINE FIELD IF NOT EXISTS organization_id
-ON active_context TYPE record<organization>;
-
-DEFINE FIELD IF NOT EXISTS application_id
-ON active_context TYPE record<application>;
-
-DEFINE FIELD IF NOT EXISTS environment_id
-ON active_context TYPE record<environment>;
-
-DEFINE FIELD IF NOT EXISTS updated_at
-ON active_context TYPE datetime VALUE time::now();
-
-DEFINE INDEX IF NOT EXISTS active_context_external_identity_idx
-ON active_context FIELDS external_identity_id UNIQUE;
-
-DEFINE INDEX IF NOT EXISTS active_context_organization_idx
-ON active_context FIELDS organization_id;
-
-DEFINE INDEX IF NOT EXISTS active_context_application_idx
-ON active_context FIELDS application_id;
-
-DEFINE INDEX IF NOT EXISTS active_context_environment_idx
-ON active_context FIELDS environment_id;
-
--- =============================================================
--- AUTHORIZATION
--- =============================================================
-
-DEFINE TABLE IF NOT EXISTS membership SCHEMAFULL;
-
-DEFINE FIELD IF NOT EXISTS identity_id
-ON membership TYPE record<external_identity>;
-
-DEFINE FIELD IF NOT EXISTS organization_id
-ON membership TYPE record<organization>;
-
-DEFINE FIELD OVERWRITE created_at
-ON membership TYPE datetime DEFAULT time::now() READONLY;
-
-DEFINE INDEX IF NOT EXISTS membership_identity_organization_idx
-ON membership FIELDS identity_id, organization_id UNIQUE;
-
-DEFINE INDEX IF NOT EXISTS membership_organization_idx
-ON membership FIELDS organization_id;
-
-DEFINE TABLE IF NOT EXISTS permission SCHEMAFULL;
-
-DEFINE FIELD IF NOT EXISTS code
-ON permission TYPE string;
-
-DEFINE INDEX IF NOT EXISTS permission_code_idx
-ON permission FIELDS code UNIQUE;
-
-DELETE permission:context_select;
-DELETE permission:message_read;
-DELETE permission:message_create;
-DELETE permission:message_translate;
-DELETE permission:message_update;
-DELETE permission:message_delete;
-DELETE permission:application_create;
-DELETE permission:functionality_create;
-DELETE permission:`93faca26-c091-4bf6-bfd3-30e71201d34a`;
-DELETE permission:`3856a6e2-10c6-4b9c-94b0-6898ece6a136`;
-DELETE permission:`b778e79b-044a-4bf7-8423-b49c9bc5c3d9`;
-DELETE permission:`50fc21d2-0b1e-4a9e-a1da-fde253de49eb`;
-DELETE permission:`f4a82b31-5c9e-4d7a-b0e3-8a1f6c2d9e45`;
-DELETE permission:`2d7c5e84-1a3f-4b8c-9f0d-6e2a4b7c1d93`;
-DELETE permission:`5db84b21-a06b-4e23-bce2-ca8f99b3c9e2`;
-DELETE permission:`0dc67f6b-104f-41f0-b757-e1b32429bd8e`;
-
-UPSERT permission:`93faca26-c091-4bf6-bfd3-30e71201d34a` CONTENT { code: "CONTEXT_SELECT" };
-UPSERT permission:`3856a6e2-10c6-4b9c-94b0-6898ece6a136` CONTENT { code: "MESSAGE_READ" };
-UPSERT permission:`b778e79b-044a-4bf7-8423-b49c9bc5c3d9` CONTENT { code: "MESSAGE_CREATE" };
-UPSERT permission:`50fc21d2-0b1e-4a9e-a1da-fde253de49eb` CONTENT { code: "MESSAGE_TRANSLATE" };
-UPSERT permission:`f4a82b31-5c9e-4d7a-b0e3-8a1f6c2d9e45` CONTENT { code: "MESSAGE_UPDATE" };
-UPSERT permission:`2d7c5e84-1a3f-4b8c-9f0d-6e2a4b7c1d93` CONTENT { code: "MESSAGE_DELETE" };
-UPSERT permission:`5db84b21-a06b-4e23-bce2-ca8f99b3c9e2` CONTENT { code: "APPLICATION_CREATE" };
-UPSERT permission:`0dc67f6b-104f-41f0-b757-e1b32429bd8e` CONTENT { code: "FUNCTIONALITY_CREATE" };
-
-DEFINE TABLE IF NOT EXISTS role SCHEMAFULL;
-
-DEFINE FIELD IF NOT EXISTS name
-ON role TYPE string;
-
-DEFINE FIELD OVERWRITE created_at
-ON role TYPE datetime DEFAULT time::now() READONLY;
-
-DEFINE INDEX IF NOT EXISTS role_name_idx
-ON role FIELDS name UNIQUE;
-
-DEFINE TABLE IF NOT EXISTS role_permission SCHEMAFULL;
-
-DEFINE FIELD IF NOT EXISTS role_id
-ON role_permission TYPE record<role>;
-
-DEFINE FIELD IF NOT EXISTS permission_id
-ON role_permission TYPE record<permission>;
-
-DEFINE INDEX IF NOT EXISTS role_permission_role_permission_idx
-ON role_permission FIELDS role_id, permission_id UNIQUE;
-
-DEFINE INDEX IF NOT EXISTS role_permission_permission_idx
-ON role_permission FIELDS permission_id;
-
-DEFINE TABLE IF NOT EXISTS role_assignment SCHEMAFULL;
-
-DEFINE FIELD IF NOT EXISTS membership_id
-ON role_assignment TYPE record<membership>;
-
-DEFINE FIELD IF NOT EXISTS role_id
-ON role_assignment TYPE record<role>;
-
-DEFINE FIELD IF NOT EXISTS organization_id
-ON role_assignment TYPE record<organization>;
-
-DEFINE FIELD OVERWRITE created_at
-ON role_assignment TYPE datetime DEFAULT time::now() READONLY;
-
-DEFINE INDEX IF NOT EXISTS role_assignment_membership_idx
-ON role_assignment FIELDS membership_id;
-
-DEFINE INDEX IF NOT EXISTS role_assignment_role_idx
-ON role_assignment FIELDS role_id;
-
-DEFINE INDEX IF NOT EXISTS role_assignment_organization_idx
-ON role_assignment FIELDS organization_id;
-
-DEFINE INDEX IF NOT EXISTS role_assignment_unique_idx
-ON role_assignment FIELDS membership_id, role_id, organization_id UNIQUE;
 
 -- =============================================================
 -- ENVIRONMENT EVENTS
@@ -1133,19 +985,6 @@ UPDATE message_environment
 SET state_data_id = message_environment_state:`e68930ad-772a-4d38-beae-b20434372957`
 WHERE state_data_id IN [message_environment_state:inactive, message_environment_state:Inactive];
 
-UPDATE role_permission SET permission_id = permission:`93faca26-c091-4bf6-bfd3-30e71201d34a`
-WHERE permission_id = permission:context_select;
-UPDATE role_permission SET permission_id = permission:`3856a6e2-10c6-4b9c-94b0-6898ece6a136`
-WHERE permission_id = permission:message_read;
-UPDATE role_permission SET permission_id = permission:`b778e79b-044a-4bf7-8423-b49c9bc5c3d9`
-WHERE permission_id = permission:message_create;
-UPDATE role_permission SET permission_id = permission:`50fc21d2-0b1e-4a9e-a1da-fde253de49eb`
-WHERE permission_id = permission:message_translate;
-UPDATE role_permission SET permission_id = permission:`5db84b21-a06b-4e23-bce2-ca8f99b3c9e2`
-WHERE permission_id = permission:application_create;
-UPDATE role_permission SET permission_id = permission:`0dc67f6b-104f-41f0-b757-e1b32429bd8e`
-WHERE permission_id = permission:functionality_create;
-
 -- Recreate only this seed's deterministic records. SurrealDB 3.1.4 can
 -- report a self-conflict when UPSERT CONTENT meets an existing unique value.
 LET $init_now = time::now();
@@ -1154,27 +993,6 @@ DELETE message_environment_readmodel:`2e7a4c91-6b35-48fd-a2e8-1c9d5f703b64`;
 DELETE message_data_collection:`b6d3f821-7a4e-49c5-8d12-3f0b9e6a274c`;
 DELETE message_environment:`2e7a4c91-6b35-48fd-a2e8-1c9d5f703b64`;
 DELETE message:`b6d3f821-7a4e-49c5-8d12-3f0b9e6a274c`;
-DELETE active_context:`1d6c8f43-9a25-4b7e-b031-8f2d5c7a964e`;
-DELETE role_assignment:`3c7f1a82-5e94-4b6d-8a23-9d0e7f4c1b65`;
-DELETE role_permission:`70cc345c-3b96-459d-857b-29b0fea9bb0e`;
-DELETE role_permission:`00502d82-a2cd-413a-b655-d32c9b63eec6`;
-DELETE role_permission:`8b5e802c-60cb-438e-8dd6-a62a6d57fd47`;
-DELETE role_permission:`7ed9d909-7178-413a-a9d0-7e1960006061`;
-DELETE role_permission:`a2646025-bc41-42f9-970c-1a10567f603f`;
-DELETE role_permission:`a923c070-243f-4f5c-b35b-bdff8076b6b4`;
-DELETE role_permission:`c3b91f72-8e4a-4d6b-a1c5-9f0e7d3b8426`;
-DELETE role_permission:`5e8a2c14-3b7f-4a9d-b6e1-0c4d8f2e7a53`;
-DELETE role_permission:simulated_context_select;
-DELETE role_permission:simulated_message_read;
-DELETE role_permission:simulated_message_create;
-DELETE role_permission:simulated_message_translate;
-DELETE role_permission:simulated_application_create;
-DELETE role_permission:simulated_environment_create;
-DELETE role_permission:simulated_functionality_create;
-DELETE membership:`e9a4b2c7-3d81-4f56-a0e9-6c1b8d2f7435`;
-DELETE external_identity:`1d6c8f43-9a25-4b7e-b031-8f2d5c7a964e`;
-DELETE role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`;
-DELETE role:simulated_security_admin;
 DELETE functionality:`5a8e2c74-1d39-4f6b-b7c2-0e9a3d5f8164`;
 DELETE environment:`de1b8223-1e9c-4807-beec-b2c1cff44e73`;
 DELETE environment:`ebe114e4-01d4-427b-9773-b63325ddd55c`;
@@ -1183,10 +1001,6 @@ DELETE application:`c4a91e72-8d36-4f5b-b2a7-6e1c9d804f23`;
 DELETE organization:`8f2d3a10-6b47-4c91-a5e8-2d7f9b3c1a40`;
 
 -- Remove the obsolete predictable development records from earlier seeds.
-DELETE active_context:`44444444-4444-4444-4444-444444444444`;
-DELETE role_assignment:`66666666-6666-6666-6666-666666666666`;
-DELETE membership:`55555555-5555-5555-5555-555555555555`;
-DELETE external_identity:`44444444-4444-4444-4444-444444444444`;
 DELETE environment:`33333333-3333-3333-3333-333333333333`;
 DELETE application:`22222222-2222-2222-2222-222222222222`;
 DELETE organization:`11111111-1111-1111-1111-111111111111`;
@@ -1235,73 +1049,6 @@ UPSERT functionality:`5a8e2c74-1d39-4f6b-b7c2-0e9a3d5f8164` CONTENT {
     application_id: application:`c4a91e72-8d36-4f5b-b2a7-6e1c9d804f23`,
     state_id: functionality_state:`407de974-c8aa-43e2-a5cf-22dc7c44054b`,
     created_at: $init_now,
-    updated_at: $init_now
-};
-
-UPSERT external_identity:`1d6c8f43-9a25-4b7e-b031-8f2d5c7a964e` CONTENT {
-    issuer: "https://issuer.example",
-    subject: "subject-1",
-    email: "cirojeronimo17@gmail.com",
-    created_at: $init_now,
-    updated_at: $init_now
-};
-
-UPSERT membership:`e9a4b2c7-3d81-4f56-a0e9-6c1b8d2f7435` CONTENT {
-    identity_id: external_identity:`1d6c8f43-9a25-4b7e-b031-8f2d5c7a964e`,
-    organization_id: organization:`8f2d3a10-6b47-4c91-a5e8-2d7f9b3c1a40`,
-    created_at: $init_now
-};
-
-UPSERT role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9` CONTENT {
-    name: "Simulated Security Administrator",
-    created_at: $init_now
-};
-
-UPSERT role_permission:`70cc345c-3b96-459d-857b-29b0fea9bb0e` CONTENT {
-    role_id: role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`,
-    permission_id: permission:`93faca26-c091-4bf6-bfd3-30e71201d34a`
-};
-UPSERT role_permission:`00502d82-a2cd-413a-b655-d32c9b63eec6` CONTENT {
-    role_id: role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`,
-    permission_id: permission:`3856a6e2-10c6-4b9c-94b0-6898ece6a136`
-};
-UPSERT role_permission:`8b5e802c-60cb-438e-8dd6-a62a6d57fd47` CONTENT {
-    role_id: role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`,
-    permission_id: permission:`b778e79b-044a-4bf7-8423-b49c9bc5c3d9`
-};
-UPSERT role_permission:`7ed9d909-7178-413a-a9d0-7e1960006061` CONTENT {
-    role_id: role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`,
-    permission_id: permission:`50fc21d2-0b1e-4a9e-a1da-fde253de49eb`
-};
-UPSERT role_permission:`a2646025-bc41-42f9-970c-1a10567f603f` CONTENT {
-    role_id: role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`,
-    permission_id: permission:`5db84b21-a06b-4e23-bce2-ca8f99b3c9e2`
-};
-UPSERT role_permission:`a923c070-243f-4f5c-b35b-bdff8076b6b4` CONTENT {
-    role_id: role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`,
-    permission_id: permission:`0dc67f6b-104f-41f0-b757-e1b32429bd8e`
-};
-UPSERT role_permission:`c3b91f72-8e4a-4d6b-a1c5-9f0e7d3b8426` CONTENT {
-    role_id: role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`,
-    permission_id: permission:`f4a82b31-5c9e-4d7a-b0e3-8a1f6c2d9e45`
-};
-UPSERT role_permission:`5e8a2c14-3b7f-4a9d-b6e1-0c4d8f2e7a53` CONTENT {
-    role_id: role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`,
-    permission_id: permission:`2d7c5e84-1a3f-4b8c-9f0d-6e2a4b7c1d93`
-};
-
-UPSERT role_assignment:`3c7f1a82-5e94-4b6d-8a23-9d0e7f4c1b65` CONTENT {
-    membership_id: membership:`e9a4b2c7-3d81-4f56-a0e9-6c1b8d2f7435`,
-    role_id: role:`3762dbe9-eed2-42c3-a6b0-678ce2e8c6a9`,
-    organization_id: organization:`8f2d3a10-6b47-4c91-a5e8-2d7f9b3c1a40`,
-    created_at: $init_now
-};
-
-UPSERT active_context:`1d6c8f43-9a25-4b7e-b031-8f2d5c7a964e` CONTENT {
-    external_identity_id: external_identity:`1d6c8f43-9a25-4b7e-b031-8f2d5c7a964e`,
-    organization_id: organization:`8f2d3a10-6b47-4c91-a5e8-2d7f9b3c1a40`,
-    application_id: application:`c4a91e72-8d36-4f5b-b2a7-6e1c9d804f23`,
-    environment_id: environment:`7b3e5d91-a2c8-46f0-9d14-5e7a1b6c3f82`,
     updated_at: $init_now
 };
 

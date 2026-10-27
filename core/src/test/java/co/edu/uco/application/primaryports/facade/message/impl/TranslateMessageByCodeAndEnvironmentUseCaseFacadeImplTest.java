@@ -30,7 +30,7 @@ class TranslateMessageByCodeAndEnvironmentUseCaseFacadeImplTest {
                 "original category", "translated category", "original function", "translated function",
                 "provider", "model", 100L
         );
-        MessageAccessContext context = new MessageAccessContext("env-123", null);
+        MessageAccessContext context = new MessageAccessContext("app-1");
         when(handlingPort.execute("CODE001", context, "en", "es")).thenReturn(expected);
 
         TranslatedMessageDTO result = facade.execute("CODE001", context, "en", "es");

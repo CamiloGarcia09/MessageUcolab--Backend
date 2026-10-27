@@ -25,7 +25,7 @@ class FindMessageByCodeAndEnvironmentUseCaseFacadeImplTest {
     @Test
     void execute_delegatesToHandlingPortAndReturnsResult() {
         MessageDTO expected = MessageDTO.create("CODE001", "title", "content", "type", "category", "func");
-        MessageAccessContext context = new MessageAccessContext("env-123", null);
+        MessageAccessContext context = new MessageAccessContext("app-1");
         when(handlingPort.execute("CODE001", context)).thenReturn(expected);
 
         MessageDTO result = facade.execute("CODE001", context);

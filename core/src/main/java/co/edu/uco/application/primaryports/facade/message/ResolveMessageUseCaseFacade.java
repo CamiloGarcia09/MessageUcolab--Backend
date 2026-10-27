@@ -5,5 +5,5 @@ import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
 
 public interface ResolveMessageUseCaseFacade {
 
-    ResolvedMessageDTO execute(String code, MessageAccessContext context);
+    ResolvedMessageDTO execute(String code, String environmentId, MessageAccessContext context);
 }

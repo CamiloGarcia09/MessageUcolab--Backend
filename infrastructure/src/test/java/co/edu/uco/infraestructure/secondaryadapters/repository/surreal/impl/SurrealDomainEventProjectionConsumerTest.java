@@ -162,9 +162,9 @@ class SurrealDomainEventProjectionConsumerTest {
         ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
         verify(surreal, atLeastOnce()).query(queryCaptor.capture());
         return queryCaptor.getAllValues().stream()
-                .filter(query -> query.startsWith(prefix))
+                .filter(query -> query.contains(prefix))
                 .findFirst()
-                .orElseThrow();
+                .orElseThrow(() -> new AssertionError(queryCaptor.getAllValues().toString()));
     }
 
     @Test
@@ -271,9 +271,9 @@ class SurrealDomainEventProjectionConsumerTest {
         doReturn(stringValue("Title")).when(message).get("title");
         doReturn(stringValue("Content")).when(message).get("content");
         doReturn(stringValue("2020-03-04T05:06:07Z")).when(message).get("created_at");
-        when(message.get("updated_at")).thenReturn(null);
+        doReturn(stringValue("2025-02-03T04:05:06Z")).when(message).get("updated_at");
 
-        stubEvents(eventObject("event-1", "MESSAGE_CREATED", "message:msg-1", "message", 1));
+        stubEvents(eventObject("event-1", "MESSAGE_UPDATED", "message:msg-1", "message", 2));
         stubRecord("message:msg-1", message);
         stubRecord("type:t-1", catalogRecord("MESSAGE_TYPE"));
         stubRecord("category:c-1", catalogRecord("CATEGORY"));
@@ -286,7 +286,9 @@ class SurrealDomainEventProjectionConsumerTest {
         assertThat(documentQuery("UPSERT message_data_collection:`msg-1`"))
                 .contains("application: 'APP'")
                 .contains("created_at: '2020-03-04T05:06:07Z'")
+                .contains("updated_at: '2025-02-03T04:05:06Z'")
                 .doesNotContain(", version: ");
+        verify(surreal).query(contains("message.updated_at = '2025-02-03T04:05:06Z'"));
     }
 
     @Test
@@ -300,6 +302,8 @@ class SurrealDomainEventProjectionConsumerTest {
         doReturn(stringValue("CODE")).when(message).get("code");
         doReturn(stringValue("Title")).when(message).get("title");
         doReturn(stringValue("Content")).when(message).get("content");
+        when(message.get("created_at")).thenReturn(null);
+        doReturn(stringValue("2025-02-03T04:05:06Z")).when(message).get("updated_at");
 
         Object readModel = mock(Object.class);
         doReturn(stringValue("message:msg-1")).when(readModel).get("message_id");
@@ -323,8 +327,10 @@ class SurrealDomainEventProjectionConsumerTest {
 
         consumer.consumePendingDomainEvents();
 
-        assertThat(documentQuery("UPSERT message_environment_readmodel:`me-1`"))
+        assertThat(documentQuery("message_environment_readmodel"))
                 .contains("environment: { id: 'environment:e-1', name: 'PRODUCTION' }")
+                .contains("message: { id: 'message:msg-1'")
+                .contains("updated_at: '2025-02-03T04:05:06Z'")
                 .doesNotContain(", version: ");
     }
 

@@ -10,7 +10,6 @@ import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.usecase.handling.HandlingFindMessageByCodeAndEnvironmentPort;
 import co.edu.uco.application.usecase.validator.message.FindMessageCodeValidator;
 import co.edu.uco.application.usecase.domain.security.MessageAccessContext;
-import co.edu.uco.application.usecase.domain.security.PermissionCode;
 import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
@@ -40,7 +39,7 @@ public final class FindMessageByCodeAndEnvironmentUseCase implements HandlingFin
         String applicationId = null;
         try {
             findMessageCodeValidator.validate(messageCode);
-            applicationId = environmentResolver.resolveApplication(context, PermissionCode.MESSAGE_READ);
+            applicationId = environmentResolver.resolveApplication(context);
             var messageDataOptional = messageCatalogStrategy
                     .getMessageByCodeAndApplication(messageCode, applicationId);
             if (messageDataOptional.isEmpty()) {
