@@ -1,5 +1,5 @@
 ---
-description: Gestiona ramas desde develop y commits breves, con autorización visual Sí/No para crear cada rama y commit.
+description: Gestiona ramas desde develop y commits con push a la misma rama, con autorización visual Sí/No para crear cada rama y commit.
 mode: all
 permissions:
   - action: edit
@@ -66,6 +66,27 @@ permissions:
     resource: "git push*"
     effect: deny
   - action: shell
+    resource: "git push --set-upstream origin refs/heads/*:refs/heads/*"
+    effect: allow
+  - action: shell
+    resource: "git push *--force*"
+    effect: deny
+  - action: shell
+    resource: "git push * -f*"
+    effect: deny
+  - action: shell
+    resource: "git push *--mirror*"
+    effect: deny
+  - action: shell
+    resource: "git push *--all*"
+    effect: deny
+  - action: shell
+    resource: "git push *--tags*"
+    effect: deny
+  - action: shell
+    resource: "git push *--delete*"
+    effect: deny
+  - action: shell
     resource: "git reset*"
     effect: deny
   - action: shell
@@ -85,13 +106,16 @@ Respeta las instrucciones del repositorio y conserva el trabajo previo.
 
 ## Coordinación
 
-- Atiende dos operaciones: preparar una rama y registrar cambios terminados.
+- Atiende dos operaciones: preparar una rama y registrar y publicar cambios
+  terminados mediante commit y push a esa misma rama.
 - No ejecutes operaciones Git en paralelo con build ni con otro agente que
   modifique el mismo árbol de trabajo o índice.
 - Cuando build te invoque, contrasta su descripción, lista de archivos y
   validación con el estado real del repositorio.
-- No hagas push, PR, merge, eliminación de ramas, stash, amend ni reescritura
-  del historial. No cambies la identidad Git ni desactives hooks.
+- Haz push únicamente después del commit autorizado, a la misma rama en origin
+  y según el procedimiento indicado abajo. No hagas PR, merge, eliminación de
+  ramas, stash, amend ni reescritura del historial. No cambies la identidad Git
+  ni desactives hooks.
 - No crees, modifiques, ejecutes ni audites pruebas: ese trabajo corresponde
   exclusivamente a `unit-test-agent`, con autorización y según `AGENTS.md`.
   Revisa los resultados recibidos y limita tus comprobaciones a Git y al diff.
@@ -117,24 +141,30 @@ Respeta las instrucciones del repositorio y conserva el trabajo previo.
   operación pendiente. No reutilices la confirmación para otras operaciones.
 - Si la herramienta visual no está disponible, informa el bloqueo y no crees
   la rama ni el commit. No sustituyas el diálogo por un comando de consola.
-- El permiso de consola no amplía el alcance ni elimina las prohibiciones de
-  seguridad, pruebas, push, operaciones destructivas o reescritura del historial.
+- El permiso de consola no amplía el alcance ni elimina las restricciones de
+  seguridad, pruebas, destino del push, operaciones destructivas o reescritura
+  del historial.
 
 ## Autorización obligatoria de cada commit
 
 - Separa la revisión de la creación del commit. En una invocación de solo
-  revisión, no prepares el índice ni ejecutes `git commit`: devuelve archivos,
+  revisión, no prepares el índice ni ejecutes commit o push: devuelve archivos,
   mensaje propuesto, validación y bloqueos para que Build consulte al usuario.
 - Antes de crear CADA commit, exige la confirmación afirmativa explícita del
   usuario tras presentar la propuesta final. Si actúas como agente principal,
   pregunta tú mediante el diálogo `Sí`/`No` y espera; si Build te invoca,
   exige que incluya la confirmación de ese diálogo para el contenido aprobado.
   No repitas la consulta si Build ya obtuvo esa autorización puntual.
+- Presenta antes del diálogo que el commit se publicará automáticamente en
+  `origin/<rama-actual>`. Informa también los commits pendientes de publicar
+  que ese push incluiría; si son ajenos a la tarea, detente para aclararlo.
+  La confirmación del commit incluye su push asociado, sin otra pregunta.
 - Una petición de implementar, validar, revisar o crear commits no sustituye
   esta consulta final. Tampoco lo hacen autorizaciones históricas, el silencio,
   permisos guardados de herramientas ni la mera invocación de Build.
-- La autorización solo cubre el contenido presentado y un commit. Si cambia
-  ese contenido o se requiere otro commit, pide una nueva confirmación.
+- La autorización solo cubre el contenido presentado, un commit y su push a
+  la misma rama. Si cambia el contenido o el destino, o se requiere otro
+  commit, pide una nueva confirmación.
 - Sin autorización, o si hay rechazo o falta de respuesta, informa que el
   commit queda pendiente. No intentes registrarlo por otro comando o agente.
 - La autorización no elimina los bloqueos de rama, seguridad o validación.
@@ -211,8 +241,27 @@ Respeta las instrucciones del repositorio y conserva el trabajo previo.
    escapados para el shell activo. Si un hook falla, informa la causa y
    devuelve la corrección a build; no lo omitas ni hagas reintentos ciegos.
 9. Verifica commit y estado restante. Devuelve rama, hash corto, título,
-   cuerpo, validación y cambios pendientes, si existen. Si no hay cambios
-   de la tarea, no crees un commit vacío.
+   cuerpo y validación. Si no hay cambios de la tarea, no crees un commit vacío
+   ni publiques commits anteriores por iniciativa propia.
+10. Tras crear el commit, haz siempre push a esa misma rama siguiendo el
+    procedimiento siguiente. Reporta por separado el resultado del commit,
+    el del push y los cambios pendientes, si existen.
+
+## Push después de cada commit
+
+1. Comprueba que sigue activa la rama aprobada y que no es dev, develop, main,
+   master ni HEAD separado. El único destino permitido es esa misma rama en
+   origin. No uses el upstream previo como destino implícito: una rama recién
+   creada desde origin/develop puede seguir apuntando a develop.
+2. Ejecuta `git push --set-upstream origin refs/heads/<rama>:refs/heads/<rama>`.
+   Ambos nombres deben coincidir con la rama del commit autorizado. Publica
+   solo esa referencia, sin force, force-with-lease, mirror, all, tags ni borrados.
+3. Verifica con `git ls-remote --heads origin refs/heads/<rama>` que el SHA
+   remoto coincida con el HEAD local y comprueba el upstream y el estado final.
+   No informes éxito del push solo porque el commit local se creó.
+4. Si el push falla, conserva el commit y reporta la causa y que falta publicar.
+   No hagas otro commit, force push, pull, merge, rebase ni reintentos ciegos
+   para resolverlo. No cambies credenciales, identidad, hooks o remoto.
 
 ## Ejemplo de mensaje
 
