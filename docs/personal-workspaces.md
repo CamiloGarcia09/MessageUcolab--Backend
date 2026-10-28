@@ -46,7 +46,7 @@ Todas las rutas usan sesión BFF y permisos por ruta del PEP. Prefijo:
 | GET | `/session/user` | `data: [{id, email, name}]` del usuario actual |
 | GET | `/organizations` | Organizaciones propias: `data: [{id, name}]` |
 | POST | `/organizations` | Cuerpo `{name}`; propietario tomado de la sesión; retorna el elemento creado |
-| GET | `/organizations/{organizationId}/applications` | Aplicaciones de una organización propia: `data: [{id, name}]` |
+| GET | `/organizations/{organizationId}/applications` | Aplicaciones propias: `data: [{id, name, language: {id, name}}]`; `language` se omite si no está disponible |
 | POST | `/application` | Cuerpo `{name, organizationId, languageId, stateId}`; crea aplicación y sus tres ambientes |
 | GET | `/session/applications` | Aplicaciones propias con su organización; `registered` se conserva como `true` |
 
@@ -63,6 +63,21 @@ Organización ajena o inexistente devuelve 403 con el mismo mensaje de dominio
 (`FUN_215`), sin revelar la existencia de datos ajenos. UUID de organización
 inválido usa la validación de dominio (`FUN_214`). Ver el detalle de esquemas
 en `infrastructure/src/main/resources/static/openapi.yaml`.
+
+El idioma base de las tarjetas se obtiene de `application.language_id` y del
+campo `language` de esa referencia en `language_base`, no del idioma del navegador ni de
+una selección recordada solo en el frontend. El listado incluye `language` para
+que la tarjeta muestre el idioma realmente persistido, también después de
+recargar. Si falta la referencia o su nombre, el valor interno es `null` y JSON
+omite `language`; no se inventa un idioma. Este ajuste solo amplía la consulta:
+no cambia el idioma guardado, los datos existentes ni las comprobaciones de propiedad.
+
+La corrección del idioma quedó verificada mediante el mapper real con respuestas
+SDK simuladas y el endpoint WebFlux local, incluida la presencia de
+`data[].language.id/name` para el idioma persistido y la omisión cuando falta.
+Ver los resultados finales del 28-10-2026 en `docs/message-import.md`, sección
+«Verificación de plantilla V2 e idioma base». No se validó contra servicios reales
+ni se desplegó este ajuste.
 
 ## Inicialización de nuevos despliegues
 

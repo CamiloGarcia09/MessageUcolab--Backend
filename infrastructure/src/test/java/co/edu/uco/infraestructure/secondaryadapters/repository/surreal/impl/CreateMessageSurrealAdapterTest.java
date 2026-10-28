@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -60,6 +61,8 @@ class CreateMessageSurrealAdapterTest {
     @BeforeEach
     void setUp() {
         when(loggerFactory.getLogger(CreateMessageSurrealAdapter.class)).thenReturn(log);
+        lenient().when(catalogPort.getMessage("TCH_099"))
+                .thenReturn("Creando el mensaje y su relación con ambientes de forma atómica: {}");
         CatalogPortStaticRef.set(catalogPort);
         adapter = new CreateMessageSurrealAdapter(surreal, loggerFactory);
     }
@@ -122,9 +125,7 @@ class CreateMessageSurrealAdapterTest {
                         .contains("environment_id: environment:`" + ENVIRONMENT_ID + "`")
                         .contains("state_data_id: message_environment_state:`"
                                 + MESSAGE_ENVIRONMENT_STATE_ID + "`"));
-        verify(log).info(
-                "Creating message and environment relation atomically for message: {}",
-                MESSAGE_ID.toString());
+        verify(log).info("Creando el mensaje y su relación con ambientes de forma atómica: {}", MESSAGE_ID.toString());
     }
 
     @Test

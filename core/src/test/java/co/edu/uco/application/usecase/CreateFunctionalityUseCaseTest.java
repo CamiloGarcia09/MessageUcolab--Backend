@@ -1,6 +1,8 @@
 package co.edu.uco.application.usecase;
 
 import co.edu.uco.application.primaryports.dto.functionality.CreateFunctionalityDTO;
+import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
+import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.entity.FunctionalityData;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
@@ -9,6 +11,7 @@ import co.edu.uco.application.usecase.validator.functionality.CreateFunctionalit
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -21,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -33,13 +37,23 @@ class CreateFunctionalityUseCaseTest {
     @Mock private CreateFunctionalityCompositeValidator validator;
     @Mock private LoggingPortFactory loggerFactory;
     @Mock private LoggingPort log;
+    @Mock private CatalogPort catalogPort;
 
     private CreateFunctionalityUseCase useCase;
 
     @BeforeEach
     void setUp() {
+        CatalogPortStaticRef.set(null);
+        lenient().when(catalogPort.getMessage("TCH_089")).thenReturn("Funcionalidad creada correctamente con nombre: {}");
+        lenient().when(catalogPort.getMessage("TCH_090")).thenReturn("Ocurrió un error al crear la funcionalidad en el repositorio.");
+        CatalogPortStaticRef.set(catalogPort);
         when(loggerFactory.getLogger(CreateFunctionalityUseCase.class)).thenReturn(log);
         useCase = new CreateFunctionalityUseCase(repository, validator, loggerFactory);
+    }
+
+    @AfterEach
+    void resetCatalogReference() {
+        CatalogPortStaticRef.set(null);
     }
 
     @Test
@@ -54,7 +68,7 @@ class CreateFunctionalityUseCaseTest {
         verify(repository).create(captor.capture(), eq("state-1"));
         assertThat(captor.getValue().getName()).isEqualTo("Search messages");
         assertThat(captor.getValue().getApplication().getId().toString()).isEqualTo(APP_ID);
-        verify(log).info("Functionality created successfully with name: {}", "Search messages");
+        verify(log).info("Funcionalidad creada correctamente con nombre: {}", "Search messages");
     }
 
     @Test
@@ -78,7 +92,7 @@ class CreateFunctionalityUseCaseTest {
 
         assertThatThrownBy(() -> useCase.createFunctionality(dto)).isInstanceOf(BusinessException.class)
                 .satisfies(error -> assertThat(((BusinessException) error).getTechnicalMessage())
-                        .isEqualTo("Error al crear la funcionalidad"));
+                        .isEqualTo("Ocurrió un error al crear la funcionalidad en el repositorio."));
     }
 
     @Test

@@ -22,9 +22,10 @@ import co.edu.uco.application.usecase.validator.message.UpdateMessageCompositeVa
 import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
 import co.edu.uco.crosscutting.helpers.UtilUUID;
-import org.springframework.stereotype.Component;
 import java.util.List;
-import static co.edu.uco.application.CrosswordsConstant.STATE_ACTIVE;
+import static co.edu.uco.application.usecase.domain.catalog.CatalogNames.isActive;
+import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.TCH_095;
+import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.TCH_072;
 
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_197;
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_206;
@@ -35,7 +36,6 @@ import static co.edu.uco.crosscutting.helpers.UtilText.trim;
 import static co.edu.uco.crosscutting.helpers.UtilUUID.getStringFromUUID;
 import static co.edu.uco.crosscutting.helpers.UtilUUID.getUUIDFromString;
 
-@Component
 public final class UpdateMessageUseCase implements HandlingUpdateMessagePort {
 
     private final UpdateMessageRepository updateMessageRepository;
@@ -87,38 +87,38 @@ public final class UpdateMessageUseCase implements HandlingUpdateMessagePort {
         var messageEnvironmentStateId = environmentIds == null ? null : activeMessageEnvironmentStateId();
 
         try {
-            var messageData = new MessageData(
-                    existing.getId(),
-                    existing.getCode(),
-                    dto.getTitle(),
-                    dto.getContent(),
-                    new MessageTypeData(UtilUUID.getStringToUUID(dto.getTypeId()), EMPTY),
-                    new MessageCategoryData(UtilUUID.getStringToUUID(dto.getCategoryId()), EMPTY),
-                    EMPTY,
-                    new FunctionalityData(
-                            UtilUUID.getStringToUUID(dto.getFunctionalityId()),
-                            EMPTY,
-                            ApplicationData.build(UtilUUID.getStringToUUID(applicationId), EMPTY)
-                    )
-            );
-            messageData.setStatus(new StatusMessageData(UtilUUID.getStringToUUID(dto.getStatusId()), EMPTY));
-
-            updateMessageRepository.updateMessage(messageData, environmentIds, messageEnvironmentStateId);
+            if (dto.isEnvironmentsOnly()) {
+                updateMessageRepository.updateEnvironments(existing.getId().toString(), environmentIds,
+                        messageEnvironmentStateId);
+            } else {
+                updateMessageRepository.updateMessage(messageData(existing, dto, applicationId), environmentIds,
+                        messageEnvironmentStateId);
+            }
             messageCatalogStrategy.evictMessage(existing.getCode());
-            log.info("Message updated successfully with id: {}", sanitizedId);
+            log.info(catalogPort.getMessage(TCH_095.getCode()), sanitizedId);
         } catch (CrossWordsException ex) {
             throw ex;
         } catch (Exception ex) {
-            log.error("Error updating message in repository", ex);
+            log.error(catalogPort.getMessage(TCH_072.getCode()), ex);
             throw CrossWordsException.build(catalogPort.getMessage(FUN_207.getCode()), ex);
         }
+    }
+
+    private MessageData messageData(MessageData existing, UpdateMessageDTO dto, String applicationId) {
+        var message = new MessageData(existing.getId(), existing.getCode(), dto.getTitle(), dto.getContent(),
+                new MessageTypeData(UtilUUID.getStringToUUID(dto.getTypeId()), EMPTY),
+                new MessageCategoryData(UtilUUID.getStringToUUID(dto.getCategoryId()), EMPTY), EMPTY,
+                new FunctionalityData(UtilUUID.getStringToUUID(dto.getFunctionalityId()), EMPTY,
+                        ApplicationData.build(UtilUUID.getStringToUUID(applicationId), EMPTY)));
+        message.setStatus(new StatusMessageData(UtilUUID.getStringToUUID(dto.getStatusId()), EMPTY));
+        return message;
     }
 
     private String activeMessageEnvironmentStateId() {
         var states = messageEnvironmentStateRepository.findAll();
         return (states == null ? List.<MessageEnvironmentStateData>of() : states)
                 .stream()
-                .filter(state -> state != null && STATE_ACTIVE.equalsIgnoreCase(state.getName()))
+                .filter(state -> state != null && isActive(state.getName()))
                 .map(state -> getStringFromUUID(state.getId()))
                 .findFirst()
                 .orElseThrow(() -> BusinessRuleException.buildUserException(catalogPort.getMessage(FUN_197.getCode())));

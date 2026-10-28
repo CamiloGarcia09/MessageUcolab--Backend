@@ -115,7 +115,8 @@ class ResolveMessageSurrealRepositoryAdapterTest {
         verify(surreal).query(sql.capture());
         assertThat(sql.getValue()).contains("environment:`environment-uuid`", "message_id.code = 'CODE'",
                 "message_id.application_id = environment_id.application_id",
-                "message_id.status_id.name = 'Active'", "state_data_id.name = 'Active'")
+                "string::lowercase(message_id.status_id.name) IN ['activo', 'active']",
+                "string::lowercase(state_data_id.name) IN ['activo', 'active']")
                 .startsWith("SELECT message_id AS id, message_id.code AS code, message_id.title AS title, message_id.content AS content")
                 .contains("message_id.type_id.name AS type", "message_id.category_id.name AS category",
                         "message_id.functionality_id.name AS functionality", "message_id.created_at AS created_at",
@@ -169,7 +170,8 @@ class ResolveMessageSurrealRepositoryAdapterTest {
         verify(surreal).query(sql.capture());
         assertThat(sql.getValue()).startsWith("SELECT message_id AS id, message_id.updated_at AS updated_at")
                 .contains("message_id.application_id = environment_id.application_id",
-                        "message_id.status_id.name = 'Active'", "state_data_id.name = 'Active'");
+                        "string::lowercase(message_id.status_id.name) IN ['activo', 'active']",
+                        "string::lowercase(state_data_id.name) IN ['activo', 'active']");
     }
 
     @Test

@@ -83,7 +83,7 @@ class SurrealInitScriptContractTest {
 
     private static final int DEMO_ENVIRONMENT_COUNT = 3;
 
-    private static final List<String> DEMO_ENVIRONMENT_TYPES = List.of("Develop", "Testing", "Production");
+    private static final List<String> DEMO_ENVIRONMENT_TYPES = List.of("Develop", "Testing", "Produccion");
 
     private static final List<String> ENVIRONMENT_TIMESTAMP_FIELDS = List.of("created_at", "updated_at");
 
@@ -95,7 +95,7 @@ class SurrealInitScriptContractTest {
 
     private static final Set<String> TABLES_WITH_IMMUTABLE_CREATED_AT = Set.of(
             "domain_events", "organization", "application", "environment", "functionality", "message",
-            "message_environment");
+            "message_environment", "message_import_receipt");
 
     private static final Set<String> TABLES_WITH_MUTABLE_UPDATED_AT = Set.of(
             "organization", "application", "environment", "functionality", "message", "message_environment");
@@ -473,8 +473,7 @@ class SurrealInitScriptContractTest {
         List<String> environments = seedEnvironmentUpserts(initScript);
         Map<String, String> typeNames = catalogNames(initScript, "environment_type");
         String application = seedApplicationReference(initScript);
-        String activeState = recordReference("environment_state",
-                idNamed(catalogNames(initScript, "environment_state"), "Active"));
+        String activeState = recordReference("environment_state", "e6e00788-eda8-40fd-aa31-5763133e8834");
 
         List<String> violations = new ArrayList<>(environmentCountViolations(environments.size()));
         violations.addAll(sharedEnvironmentViolations(environments, application, activeState));

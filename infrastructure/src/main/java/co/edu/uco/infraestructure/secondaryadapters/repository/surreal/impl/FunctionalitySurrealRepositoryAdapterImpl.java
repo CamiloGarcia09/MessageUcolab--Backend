@@ -1,5 +1,8 @@
 package co.edu.uco.infraestructure.secondaryadapters.repository.surreal.impl;
 
+import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
+import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
+
 import co.edu.uco.application.secondaryports.entity.FunctionalityData;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.FunctionalityRepository;
@@ -40,7 +43,7 @@ public class FunctionalitySurrealRepositoryAdapterImpl extends SurrealCatalogSup
                 + "state_id: " + recordIdLiteral(SURREAL_TABLE_FUNCTIONALITY_STATE, stateId)
                 + " };";
         try {
-            log.info("Executing SurrealQL upsert functionality: {}", upsertSql);
+            log.info(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_102.getCode()), upsertSql);
             surreal.query(upsertSql);
         } catch (Exception ex) {
             log.error("Error al persistir la funcionalidad en SurrealDB", ex);

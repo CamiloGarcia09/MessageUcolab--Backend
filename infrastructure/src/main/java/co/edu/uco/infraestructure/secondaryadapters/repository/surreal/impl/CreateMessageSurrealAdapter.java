@@ -78,7 +78,7 @@ public class CreateMessageSurrealAdapter implements CreateMessageRepository {
                 + "COMMIT TRANSACTION;";
 
         try {
-            log.info("Creating message and environment relation atomically for message: {}", messageId);
+            log.info(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_099.getCode()), messageId);
             surreal.query(transactionSql);
         } catch (Exception ex) {
             log.error(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_066.getCode()), ex);

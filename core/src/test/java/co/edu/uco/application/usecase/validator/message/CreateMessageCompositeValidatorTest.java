@@ -9,6 +9,7 @@ import co.edu.uco.application.secondaryports.repository.MessageCodeQueryPort;
 import co.edu.uco.application.secondaryports.repository.RecordExistsCatalogPort;
 import co.edu.uco.application.secondaryports.repository.ReferenceCatalog;
 import co.edu.uco.application.usecase.validator.message.environment.MessageEnvironmentSelectionCompositeValidator;
+import co.edu.uco.application.usecase.domain.message.importing.ImportIssue;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
 import co.edu.uco.crosscutting.exceptions.ConflictException;
@@ -521,5 +522,31 @@ class CreateMessageCompositeValidatorTest {
 
         verify(environmentSelectionValidator).validate(environments, APPLICATION_ID_TEXT);
         verifyNoInteractions(functionalityCatalogRepository, messageCodeQueryPort);
+    }
+
+    @Test
+    void collectErrors_aggregatesValidFieldsAndRunsEnvironmentCompositeOnce() {
+        stubCatalogReferences();
+        stubFunctionalityBelongingToDerivedApplication();
+        when(messageCodeQueryPort.existsByCodeAndApplicationId(NORMALIZED_CODE, APPLICATION_ID_TEXT))
+                .thenReturn(false);
+
+        var issues = validator.collectErrors(validDto(), APPLICATION_ID_TEXT);
+
+        assertThat(issues).isEmpty();
+        verify(environmentSelectionValidator).validate(any(), eq(APPLICATION_ID_TEXT));
+        verify(functionalityCatalogRepository, times(2)).findAllByApplicationId(APPLICATION_ID_TEXT);
+    }
+
+    @Test
+    void collectRowErrors_skipsSharedEnvironmentAndDependentFunctionalityRulesAfterInvalidId() {
+        when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_038.getCode()))
+                .thenReturn(INVALID_FUNCTIONALITY_UUID_MESSAGE);
+        var dto = validDtoBuilder().functionalityId(INVALID_UUID).environmentIds(List.of(MISSING_ID)).build();
+
+        var issues = validator.collectRowErrors(dto, APPLICATION_ID_TEXT);
+
+        assertThat(issues).extracting(ImportIssue::field).contains("functionality").doesNotContain("environments");
+        verifyNoInteractions(environmentSelectionValidator, functionalityCatalogRepository);
     }
 }

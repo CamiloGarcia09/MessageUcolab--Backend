@@ -1,5 +1,6 @@
 package co.edu.uco.infraestructure.config;
 
+import co.edu.uco.crosscutting.catalog.BootstrapMessageCatalogEnum;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -27,7 +28,7 @@ public final class LoggingConfig implements WebFilter {
                 .doOnEach(signal -> {
                     if (signal.isOnComplete() || signal.isOnError()) {
                         try (MDC.MDCCloseable ignored = MDC.putCloseable(CORRELATION_ID, id)) {
-                            LOG.info("Request completed with status {}", exchange.getResponse().getStatusCode());
+                            LOG.info(BootstrapMessageCatalogEnum.TCH_105.getContent(), exchange.getResponse().getStatusCode());
                         }
                     }
                 });

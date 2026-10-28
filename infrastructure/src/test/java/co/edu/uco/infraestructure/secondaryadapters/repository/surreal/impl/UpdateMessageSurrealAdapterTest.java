@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -73,6 +74,8 @@ class UpdateMessageSurrealAdapterTest {
     @BeforeEach
     void setUp() {
         when(loggerFactory.getLogger(UpdateMessageSurrealAdapter.class)).thenReturn(log);
+        lenient().when(catalogPort.getMessage("TCH_095"))
+                .thenReturn("Mensaje actualizado correctamente con el identificador: {}");
         CatalogPortStaticRef.set(catalogPort);
         adapter = new UpdateMessageSurrealAdapter(surreal, loggerFactory);
     }
@@ -116,7 +119,7 @@ class UpdateMessageSurrealAdapterTest {
                 + "status_id: message_state:`" + STATUS_ID + "`, "
                 + "functionality_id: functionality:`" + FUNCTIONALITY_ID + "` };";
         assertThat(queries.getValue()).isEqualTo(expectedSql);
-        verify(log).info("Updating message with id: {}", MESSAGE_ID.toString());
+        verify(log).info("Mensaje actualizado correctamente con el identificador: {}", MESSAGE_ID.toString());
     }
 
     @Test

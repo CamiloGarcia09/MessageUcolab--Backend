@@ -55,8 +55,8 @@ public class ResolveMessageSurrealRepositoryAdapter extends SurrealCatalogSuppor
                 + " WHERE environment_id = " + recordIdLiteral("environment", environmentId)
                 + " AND message_id.code = " + quote(code)
                 + " AND message_id.application_id = environment_id.application_id"
-                + " AND message_id.status_id.name = 'Active'"
-                + " AND state_data_id.name = 'Active'"
+                + " AND string::lowercase(message_id.status_id.name) IN ['activo', 'active']"
+                + " AND string::lowercase(state_data_id.name) IN ['activo', 'active']"
                 + " LIMIT 1;";
         var errorMessage = catalogPort.getMessage(MessageCatalogCodeEnum.TCH_058.getCode()).formatted(sql);
         try {

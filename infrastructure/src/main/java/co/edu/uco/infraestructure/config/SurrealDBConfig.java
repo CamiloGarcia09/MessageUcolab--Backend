@@ -2,6 +2,7 @@ package co.edu.uco.infraestructure.config;
 
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
+import co.edu.uco.crosscutting.catalog.BootstrapMessageCatalogEnum;
 import com.surrealdb.Surreal;
 import com.surrealdb.signin.RootCredential;
 import org.springframework.context.annotation.Bean;
@@ -27,7 +28,7 @@ public class SurrealDBConfig {
                 surrealDBProperties.getPort()
         );
 
-        log.info("Connecting to SurrealDB at: {}", connectionUrl);
+        log.info(BootstrapMessageCatalogEnum.TCH_085.getContent(), connectionUrl);
 
         Surreal surreal = new Surreal();
 
@@ -42,7 +43,7 @@ public class SurrealDBConfig {
                 )
         );
 
-        log.info("Successfully signed in to SurrealDB");
+        log.info(BootstrapMessageCatalogEnum.TCH_086.getContent());
 
         // Seleccionar namespace
         surreal.useNs(
@@ -55,7 +56,7 @@ public class SurrealDBConfig {
         );
 
         log.info(
-                "Using namespace: {} and database: {}",
+                BootstrapMessageCatalogEnum.TCH_104.getContent(),
                 surrealDBProperties.getNamespace(),
                 surrealDBProperties.getDatabase()
         );

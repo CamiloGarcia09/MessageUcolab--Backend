@@ -65,7 +65,7 @@ class CatalogItemDTOTest {
             assertAll(
                     () -> assertThat(CatalogItemDTO.class.isSealed()).isTrue(),
                     () -> assertThat(CatalogItemDTO.class.getPermittedSubclasses())
-                            .containsExactly(FunctionalityCatalogItemDTO.class),
+                            .containsExactly(FunctionalityCatalogItemDTO.class, ApplicationCatalogItemDTO.class),
                     () -> assertThat(fields)
                             .isNotEmpty()
                             .allSatisfy(field -> assertThat(Modifier.isFinal(field.getModifiers())).isTrue()),
@@ -122,6 +122,19 @@ class CatalogItemDTOTest {
                     .orElseThrow();
 
             assertThat(json).contains("\"id\":\"app-1\"", "\"name\":\"Message App\"");
+        }
+
+        @Test
+        void toJson_preservesApplicationLanguageAndNullWhenAbsent() {
+            var mapper = new UtilMapperJson();
+            var application = new ApplicationCatalogItemDTO("app-1", "Message App",
+                    CatalogItemDTO.create("lang-en", "English"));
+            var withoutLanguage = new ApplicationCatalogItemDTO("app-2", "Other App", null);
+
+            String json = mapper.execute(List.of(application, withoutLanguage)).orElseThrow();
+
+            assertThat(json).contains("\"language\":{\"id\":\"lang-en\",\"name\":\"English\"}",
+                    "\"id\":\"app-2\"");
         }
     }
 }

@@ -59,17 +59,17 @@ DELETE language_base:`bed4d574-4c7f-4d95-bc12-6dbbcdbbf4fc`;
 DELETE language_base:`8cc7ae54-db8c-4ef1-929b-22e17de58129`;
 
 UPSERT language_base:`6319ca87-47b3-4e0e-994f-3166378988f2` CONTENT {
-    language: "English",
+    language: "Inglés",
     code: "EN"
 };
 
 UPSERT language_base:`bed4d574-4c7f-4d95-bc12-6dbbcdbbf4fc` CONTENT {
-    language: "Spanish",
+    language: "Español",
     code: "ES"
 };
 
 UPSERT language_base:`8cc7ae54-db8c-4ef1-929b-22e17de58129` CONTENT {
-    language: "French",
+    language: "Francés",
     code: "FR"
 };
 
@@ -91,11 +91,11 @@ DELETE application_state:`dfb7a7cb-66f6-4b73-a1d8-803336f72ebe`;
 DELETE application_state:`2a0ddacd-2dcc-47e2-b56f-03db5207c443`;
 
 UPSERT application_state:`dfb7a7cb-66f6-4b73-a1d8-803336f72ebe` CONTENT {
-    name: "Active"
+    name: "Activo"
 };
 
 UPSERT application_state:`2a0ddacd-2dcc-47e2-b56f-03db5207c443` CONTENT {
-    name: "Inactive"
+    name: "Inactivo"
 };
 
 -- =============================================================
@@ -246,7 +246,7 @@ UPSERT environment_type:`3ba48618-abb9-40c2-b700-e4413dd9332b` CONTENT {
 };
 
 UPSERT environment_type:`71ff34c1-1f4b-4858-943e-771907071c02` CONTENT {
-    name: "Production"
+    name: "Produccion"
 };
 
 UPSERT environment_type:`19b374bd-503a-4e65-b729-4c2442a69a4e` CONTENT {
@@ -271,11 +271,11 @@ DELETE environment_state:`e6e00788-eda8-40fd-aa31-5763133e8834`;
 DELETE environment_state:`ec30283f-2b63-485e-ab7a-5bd6f44c8878`;
 
 UPSERT environment_state:`e6e00788-eda8-40fd-aa31-5763133e8834` CONTENT {
-    name: "Active"
+    name: "Activo"
 };
 
 UPSERT environment_state:`ec30283f-2b63-485e-ab7a-5bd6f44c8878` CONTENT {
-    name: "Inactive"
+    name: "Inactivo"
 };
 
 -- =============================================================
@@ -384,11 +384,11 @@ DELETE functionality_state:`407de974-c8aa-43e2-a5cf-22dc7c44054b`;
 DELETE functionality_state:`505cde87-96f2-4926-8dc6-b04529469bd3`;
 
 UPSERT functionality_state:`407de974-c8aa-43e2-a5cf-22dc7c44054b` CONTENT {
-    name: "Active"
+    name: "Activo"
 };
 
 UPSERT functionality_state:`505cde87-96f2-4926-8dc6-b04529469bd3` CONTENT {
-    name: "Inactive"
+    name: "Inactivo"
 };
 
 -- =============================================================
@@ -492,11 +492,11 @@ DELETE message_state:`4223b3dc-c991-4603-a746-d37ce5ecd976`;
 DELETE message_state:`5861f44a-1303-41dc-a079-a7bd7c5cfc47`;
 
 UPSERT message_state:`4223b3dc-c991-4603-a746-d37ce5ecd976` CONTENT {
-    name: "Active"
+    name: "Activo"
 };
 
 UPSERT message_state:`5861f44a-1303-41dc-a079-a7bd7c5cfc47` CONTENT {
-    name: "Inactive"
+    name: "Inactivo"
 };
 
 -- =============================================================
@@ -519,11 +519,11 @@ DELETE message_type:`0c71601d-96b3-417e-b385-06b10ba126d9`;
 DELETE message_type:`d6cca1fe-1801-48c7-98ce-0e63255d187e`;
 
 UPSERT message_type:`0c71601d-96b3-417e-b385-06b10ba126d9` CONTENT {
-    name: "Functional"
+    name: "Funcional"
 };
 
 UPSERT message_type:`d6cca1fe-1801-48c7-98ce-0e63255d187e` CONTENT {
-    name: "Technical"
+    name: "Técnico"
 };
 
 -- =============================================================
@@ -559,24 +559,29 @@ UPSERT message_category:`c1e02ac3-02c3-4818-8f94-f35d852db9b0` CONTENT {
 };
 
 UPSERT message_category:`3b337f14-dde1-436e-829a-eebacb556eb4` CONTENT {
-    name: "Information"
+    name: "Información"
 };
 
 UPSERT message_category:`4276d9a3-c403-4c35-9167-97da025a2fd5` CONTENT {
-    name: "Confirmation"
+    name: "Confirmación"
 };
 
 UPSERT message_category:`9eaca010-c577-4af0-8b05-4a0a82450311` CONTENT {
-    name: "Warning"
+    name: "Advertencia"
 };
 
 UPSERT message_category:`bf416ec8-64a9-43a4-b3db-0c8a79ba525f` CONTENT {
-    name: "Debug"
+    name: "Depuración"
 };
 
 -- =============================================================
 -- MESSAGE
 -- =============================================================
+
+DEFINE TABLE IF NOT EXISTS message_import_receipt SCHEMAFULL;
+DEFINE FIELD IF NOT EXISTS application_id ON message_import_receipt TYPE record<application>;
+DEFINE FIELD IF NOT EXISTS receipt_json ON message_import_receipt TYPE string;
+DEFINE FIELD IF NOT EXISTS created_at ON message_import_receipt TYPE datetime DEFAULT time::now() READONLY;
 
 DEFINE TABLE IF NOT EXISTS message SCHEMAFULL CHANGEFEED 7d;
 
@@ -697,11 +702,11 @@ DELETE message_environment_state:`10ddbab2-352e-48de-b9eb-de0895ddb944`;
 DELETE message_environment_state:`e68930ad-772a-4d38-beae-b20434372957`;
 
 UPSERT message_environment_state:`10ddbab2-352e-48de-b9eb-de0895ddb944` CONTENT {
-    name: "Active"
+    name: "Activo"
 };
 
 UPSERT message_environment_state:`e68930ad-772a-4d38-beae-b20434372957` CONTENT {
-    name: "Inactive"
+    name: "Inactivo"
 };
 
 -- =============================================================
@@ -1014,7 +1019,7 @@ UPSERT organization:`8f2d3a10-6b47-4c91-a5e8-2d7f9b3c1a40` CONTENT {
 UPSERT application:`c4a91e72-8d36-4f5b-b2a7-6e1c9d804f23` CONTENT {
     name: "Arquisoft",
     organization_id: organization:`8f2d3a10-6b47-4c91-a5e8-2d7f9b3c1a40`,
-    language_id: language_base:`6319ca87-47b3-4e0e-994f-3166378988f2`,
+    language_id: language_base:`bed4d574-4c7f-4d95-bc12-6dbbcdbbf4fc`,
     state_id: application_state:`dfb7a7cb-66f6-4b73-a1d8-803336f72ebe`,
     created_at: $init_now,
     updated_at: $init_now
@@ -1045,7 +1050,7 @@ UPSERT environment:`de1b8223-1e9c-4807-beec-b2c1cff44e73` CONTENT {
 };
 
 UPSERT functionality:`5a8e2c74-1d39-4f6b-b7c2-0e9a3d5f8164` CONTENT {
-    name: "General Messages",
+    name: "Mensajes generales",
     application_id: application:`c4a91e72-8d36-4f5b-b2a7-6e1c9d804f23`,
     state_id: functionality_state:`407de974-c8aa-43e2-a5cf-22dc7c44054b`,
     created_at: $init_now,
@@ -1054,8 +1059,8 @@ UPSERT functionality:`5a8e2c74-1d39-4f6b-b7c2-0e9a3d5f8164` CONTENT {
 
 UPSERT message:`b6d3f821-7a4e-49c5-8d12-3f0b9e6a274c` CONTENT {
     code: "MSG_WELCOME",
-    title: "Welcome",
-    content: "Welcome to MessageUcoLab",
+    title: "Bienvenida a MessageUcoLab",
+    content: "Te damos la bienvenida a MessageUcoLab.",
     type_id: message_type:`0c71601d-96b3-417e-b385-06b10ba126d9`,
     category_id: message_category:`3b337f14-dde1-436e-829a-eebacb556eb4`,
     status_id: message_state:`4223b3dc-c991-4603-a746-d37ce5ecd976`,
@@ -1077,12 +1082,12 @@ UPSERT message_data_collection:`b6d3f821-7a4e-49c5-8d12-3f0b9e6a274c` CONTENT {
     source_id: "message:b6d3f821-7a4e-49c5-8d12-3f0b9e6a274c",
     message_id: "message:b6d3f821-7a4e-49c5-8d12-3f0b9e6a274c",
     code: "MSG_WELCOME",
-    title: "Welcome",
-    content: "Welcome to MessageUcoLab",
-    type: { id: "message_type:0c71601d-96b3-417e-b385-06b10ba126d9", name: "Functional" },
-    category: { id: "message_category:3b337f14-dde1-436e-829a-eebacb556eb4", name: "Information" },
-    status: { id: "message_state:4223b3dc-c991-4603-a746-d37ce5ecd976", name: "Active" },
-    functionality: { id: "functionality:5a8e2c74-1d39-4f6b-b7c2-0e9a3d5f8164", name: "General Messages" },
+    title: "Bienvenida a MessageUcoLab",
+    content: "Te damos la bienvenida a MessageUcoLab.",
+    type: { id: "message_type:0c71601d-96b3-417e-b385-06b10ba126d9", name: "Funcional" },
+    category: { id: "message_category:3b337f14-dde1-436e-829a-eebacb556eb4", name: "Información" },
+    status: { id: "message_state:4223b3dc-c991-4603-a746-d37ce5ecd976", name: "Activo" },
+    functionality: { id: "functionality:5a8e2c74-1d39-4f6b-b7c2-0e9a3d5f8164", name: "Mensajes generales" },
     created_at: $init_now,
     projection_version: 1,
     generated_at: $init_now
@@ -1097,15 +1102,15 @@ UPSERT message_environment_readmodel:`2e7a4c91-6b35-48fd-a2e8-1c9d5f703b64` CONT
     message: {
         id: "message:b6d3f821-7a4e-49c5-8d12-3f0b9e6a274c",
         code: "MSG_WELCOME",
-        title: "Welcome",
-        content: "Welcome to MessageUcoLab",
-        type: { id: "message_type:0c71601d-96b3-417e-b385-06b10ba126d9", name: "Functional" },
-        category: { id: "message_category:3b337f14-dde1-436e-829a-eebacb556eb4", name: "Information" },
-        status: { id: "message_state:4223b3dc-c991-4603-a746-d37ce5ecd976", name: "Active" },
-        functionality: { id: "functionality:5a8e2c74-1d39-4f6b-b7c2-0e9a3d5f8164", name: "General Messages" },
+        title: "Bienvenida a MessageUcoLab",
+        content: "Te damos la bienvenida a MessageUcoLab.",
+        type: { id: "message_type:0c71601d-96b3-417e-b385-06b10ba126d9", name: "Funcional" },
+        category: { id: "message_category:3b337f14-dde1-436e-829a-eebacb556eb4", name: "Información" },
+        status: { id: "message_state:4223b3dc-c991-4603-a746-d37ce5ecd976", name: "Activo" },
+        functionality: { id: "functionality:5a8e2c74-1d39-4f6b-b7c2-0e9a3d5f8164", name: "Mensajes generales" },
         created_at: $init_now
     },
-    status: { id: "message_environment_state:10ddbab2-352e-48de-b9eb-de0895ddb944", name: "Active" },
+    status: { id: "message_environment_state:10ddbab2-352e-48de-b9eb-de0895ddb944", name: "Activo" },
     projection_version: 1,
     generated_at: $init_now
 };

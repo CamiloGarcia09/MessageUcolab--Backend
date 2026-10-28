@@ -14,6 +14,8 @@ import co.edu.uco.crosscutting.exceptions.CrossWordsException;
 
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_206;
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_208;
+import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.TCH_096;
+import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.TCH_074;
 import static co.edu.uco.crosscutting.helpers.UtilText.trim;
 
 public final class DeleteMessageUseCase implements HandlingDeleteMessagePort {
@@ -56,11 +58,11 @@ public final class DeleteMessageUseCase implements HandlingDeleteMessagePort {
         try {
             deleteMessageRepository.deleteMessage(existing.getId().toString());
             messageCatalogStrategy.evictMessage(existing.getCode());
-            log.info("Message deleted successfully with id: {}", sanitizedId);
+            log.info(catalogPort.getMessage(TCH_096.getCode()), sanitizedId);
         } catch (CrossWordsException ex) {
             throw ex;
         } catch (Exception ex) {
-            log.error("Error deleting message in repository", ex);
+            log.error(catalogPort.getMessage(TCH_074.getCode()), ex);
             throw CrossWordsException.build(catalogPort.getMessage(FUN_208.getCode()), ex);
         }
     }

@@ -83,7 +83,7 @@ public class ApplicationSurrealRepositoryAdapterImpl extends SurrealCatalogSuppo
         transaction.append("COMMIT TRANSACTION;");
 
         try {
-            log.info("Creating application and {} default environments atomically", environments.size());
+            log.info(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_098.getCode()), environments.size());
             surreal.query(transaction.toString());
         } catch (Exception ex) {
             log.error("Error al persistir la aplicación y sus ambientes en SurrealDB", ex);

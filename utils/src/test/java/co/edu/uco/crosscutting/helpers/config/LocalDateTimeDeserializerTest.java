@@ -45,7 +45,7 @@ class LocalDateTimeDeserializerTest {
         assertThatThrownBy(() -> deserializer.deserialize(json, LocalDateTime.class, null))
                 .isInstanceOf(CrossWordsException.class)
                 .satisfies(exception -> assertThat(((CrossWordsException) exception).getTechnicalMessage())
-                        .isEqualTo("The date to be converted has no valid format."));
+                        .isEqualTo("La fecha que se convertirá no tiene un formato válido."));
     }
 
     @Test

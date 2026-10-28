@@ -3,6 +3,9 @@ package co.edu.uco.crosscutting.helpers;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
+import co.edu.uco.crosscutting.exceptions.BusinessException;
+import co.edu.uco.crosscutting.exceptions.enumeration.ExceptionLocation;
+import static co.edu.uco.crosscutting.catalog.BootstrapMessageCatalogEnum.*;
 
 import static co.edu.uco.crosscutting.helpers.UtilText.isEmptyOrNull;
 
@@ -13,18 +16,18 @@ public final class PropertiesHelper {
 
     public static String getValue(final String propertiesFileName, final String key) {
         if (isEmptyOrNull(propertiesFileName)) {
-            throw new IllegalArgumentException("Properties file name cannot be null or empty");
+            throw new IllegalArgumentException(TCH_080.getContent());
         }
 
         if (isEmptyOrNull(key)) {
-            throw new IllegalArgumentException("Key cannot be null or empty when reading from: " + propertiesFileName);
+            throw new IllegalArgumentException(TCH_081.getContent().formatted(propertiesFileName));
         }
 
         try (InputStream inputStream = PropertiesHelper.class.getClassLoader()
                 .getResourceAsStream(propertiesFileName)) {
 
             if (inputStream == null) {
-                throw new RuntimeException("Properties file not found: " + propertiesFileName);
+                throw BusinessException.buildTechnicalException(TCH_082.getContent().formatted(propertiesFileName));
             }
 
             var properties = new Properties();
@@ -32,7 +35,7 @@ public final class PropertiesHelper {
             var value = properties.getProperty(key);
 
             if (isEmptyOrNull(value)) {
-                throw new RuntimeException("Key '" + key + "' not found in: " + propertiesFileName);
+                throw BusinessException.buildTechnicalException(TCH_083.getContent().formatted(key, propertiesFileName));
             }
 
             return value;
@@ -40,7 +43,8 @@ public final class PropertiesHelper {
         } catch (final RuntimeException exception) {
             throw exception;
         } catch (final IOException exception) {
-            throw new RuntimeException("Error reading properties file: " + propertiesFileName, exception);
+            throw BusinessException.buildTechnicalException(TCH_084.getContent().formatted(propertiesFileName),
+                    exception, ExceptionLocation.GENERAL);
         }
     }
 }

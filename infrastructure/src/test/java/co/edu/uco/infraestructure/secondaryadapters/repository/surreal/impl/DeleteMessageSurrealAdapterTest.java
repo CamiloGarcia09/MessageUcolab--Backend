@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,6 +49,8 @@ class DeleteMessageSurrealAdapterTest {
     @BeforeEach
     void setUp() {
         when(loggerFactory.getLogger(DeleteMessageSurrealAdapter.class)).thenReturn(log);
+        lenient().when(catalogPort.getMessage("TCH_100"))
+                .thenReturn("Eliminando el mensaje y sus relaciones con ambientes de forma atómica: {}");
         CatalogPortStaticRef.set(catalogPort);
         adapter = new DeleteMessageSurrealAdapter(surreal, loggerFactory);
     }
@@ -72,7 +75,7 @@ class DeleteMessageSurrealAdapterTest {
                 + "DELETE " + MESSAGE_RECORD + ";"
                 + "COMMIT TRANSACTION;";
         assertThat(captureSingleQuery()).isEqualTo(expectedSql);
-        verify(log).info("Deleting message and environment relations atomically for message: {}", MESSAGE_ID);
+        verify(log).info("Eliminando el mensaje y sus relaciones con ambientes de forma atómica: {}", MESSAGE_ID);
     }
 
     @Test

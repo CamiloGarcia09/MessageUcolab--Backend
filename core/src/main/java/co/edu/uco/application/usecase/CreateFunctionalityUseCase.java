@@ -12,6 +12,8 @@ import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
 import co.edu.uco.crosscutting.exceptions.enumeration.ExceptionLocation;
 import co.edu.uco.crosscutting.helpers.UtilUUID;
+import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
+import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 
 
 public final class CreateFunctionalityUseCase implements HandlingCreateFunctionalityPort {
@@ -40,13 +42,13 @@ public final class CreateFunctionalityUseCase implements HandlingCreateFunctiona
                     application
             );
             functionalityRepository.create(functionality, dto.getStateId());
-            log.info("Functionality created successfully with name: {}", dto.getName());
+            log.info(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_089.getCode()), dto.getName());
         } catch (CrossWordsException ex) {
             throw ex;
         } catch (Exception ex) {
-            log.error("Error creating functionality in repository", ex);
+            log.error(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_090.getCode()), ex);
             throw BusinessException.buildTechnicalException(
-                    "Error al crear la funcionalidad", ex, ExceptionLocation.APPLICATION);
+                    CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_090.getCode()), ex, ExceptionLocation.APPLICATION);
         }
     }
 

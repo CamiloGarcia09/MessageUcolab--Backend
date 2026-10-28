@@ -40,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -83,6 +84,9 @@ class UpdateMessageUseCaseTest {
     @BeforeEach
     void setUp() {
         when(loggerFactory.getLogger(UpdateMessageUseCase.class)).thenReturn(log);
+        lenient().when(catalogPort.getMessage("TCH_095"))
+                .thenReturn("Mensaje actualizado correctamente con el identificador: {}");
+        lenient().when(catalogPort.getMessage("TCH_072")).thenReturn("Error al actualizar el mensaje.");
         useCase = new UpdateMessageUseCase(
                 updateMessageRepository,
                 messageRepository,
@@ -155,7 +159,7 @@ class UpdateMessageUseCaseTest {
         order.verify(messageRepository).findByCodeAndApplication(MESSAGE_CODE, APP_UUID);
         order.verify(validator).validate(dto, APP_UUID);
         order.verify(updateMessageRepository).updateMessage(any(MessageData.class), isNull(), isNull());
-        verify(log).info("Message updated successfully with id: {}", MESSAGE_CODE);
+        verify(log).info("Mensaje actualizado correctamente con el identificador: {}", MESSAGE_CODE);
     }
 
     @Test
@@ -246,7 +250,7 @@ class UpdateMessageUseCaseTest {
         useCase.updateMessage("  " + MESSAGE_CODE + "  ", validDto(), sessionContext());
 
         verify(messageRepository).findByCodeAndApplication(MESSAGE_CODE, APP_UUID);
-        verify(log).info("Message updated successfully with id: {}", MESSAGE_CODE);
+        verify(log).info("Mensaje actualizado correctamente con el identificador: {}", MESSAGE_CODE);
     }
 
     @ParameterizedTest(name = "messageId blank: \"{0}\"")
@@ -315,17 +319,17 @@ class UpdateMessageUseCaseTest {
         stubApplicationResolvingTo(APP_UUID);
         stubExistingMessage();
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_207.getCode()))
-                .thenReturn("Error al actualizar el mensaje");
+                .thenReturn("No fue posible actualizar el mensaje.");
         doThrow(new RuntimeException("db error")).when(updateMessageRepository)
                 .updateMessage(any(MessageData.class), isNull(), isNull());
 
         assertThatThrownBy(() -> useCase.updateMessage(MESSAGE_CODE, dto, sessionContext()))
                 .isInstanceOf(CrossWordsException.class)
                 .satisfies(ex -> assertThat(((CrossWordsException) ex).getTechnicalMessage())
-                        .isEqualTo("Error al actualizar el mensaje"));
+                        .isEqualTo("No fue posible actualizar el mensaje."));
 
         assertAll(
-                () -> verify(log).error(eq("Error updating message in repository"),
+                () -> verify(log).error(eq("Error al actualizar el mensaje."),
                         any(RuntimeException.class)),
                 () -> verify(catalogPort).getMessage(MessageCatalogCodeEnum.FUN_207.getCode())
         );
