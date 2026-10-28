@@ -9,7 +9,7 @@ import static co.edu.uco.crosscutting.helpers.UtilText.trim;
 @Getter
 @EqualsAndHashCode
 @ToString
-public sealed class CatalogItemDTO permits FunctionalityCatalogItemDTO {
+public sealed class CatalogItemDTO permits FunctionalityCatalogItemDTO, ApplicationCatalogItemDTO {
 
     private final String id;
     private final String name;

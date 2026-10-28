@@ -37,8 +37,8 @@ class BootstrapMessageCatalogEnumTest {
     void findByCode_returnsConstant_whenExists() {
         Optional<BootstrapMessageCatalogEnum> found = BootstrapMessageCatalogEnum.findByCode("TCH_007");
 
-        assertThat(found).isPresent();
-        assertThat(found.get().getContent()).isEqualTo("The message key is null");
+        assertThat(found).hasValueSatisfying(constant -> assertThat(constant.getContent())
+                .isEqualTo("La clave del mensaje es nula."));
     }
 
     @Test
@@ -63,7 +63,9 @@ class BootstrapMessageCatalogEnumTest {
     }
 
     @Test
-    void count_includesApplicationScopedRepositoryErrorCatalogEntry() {
-        assertThat(BootstrapMessageCatalogEnum.values()).hasSize(36);
+    void count_includesNewSpanishBootstrapCatalogEntries() {
+        assertThat(BootstrapMessageCatalogEnum.values()).hasSize(48)
+                .extracting(BootstrapMessageCatalogEnum::getCode)
+                .contains("FUN_050", "FUN_051", "FUN_052", "TCH_080", "TCH_084", "TCH_105");
     }
 }

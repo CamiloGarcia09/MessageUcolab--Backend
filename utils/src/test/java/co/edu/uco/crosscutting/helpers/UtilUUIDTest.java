@@ -77,7 +77,7 @@ class UtilUUIDTest {
         assertThatThrownBy(() -> UtilUUID.getUUIDFromString("not-a-uuid"))
                 .isInstanceOf(CrossWordsException.class)
                 .satisfies(ex -> assertThat(((CrossWordsException) ex).getTechnicalMessage())
-                        .isEqualTo("The UUID to be converted has no valid format."));
+                        .isEqualTo("El valor que se convertirá a UUID no tiene un formato válido."));
     }
 
     @Test

@@ -17,8 +17,8 @@ class BootstrapMessageCatalogPortTest {
         MessageCatalog model = catalog.getMessageModel("TCH_021");
 
         assertThat(model.code()).isEqualTo("TCH_021");
-        assertThat(model.title()).isEqualTo("Response success");
-        assertThat(model.content()).isEqualTo("The successful response is: {}");
+        assertThat(model.title()).isEqualTo("Respuesta correcta");
+        assertThat(model.content()).isEqualTo("La respuesta correcta es: {}");
         assertThat(model.type()).isEqualTo("TECHNICAL");
         assertThat(model.category()).isEqualTo("INFORMATION");
     }
@@ -43,7 +43,7 @@ class BootstrapMessageCatalogPortTest {
 
     @Test
     void getMessage_returnsContent_whenKeyExists() {
-        assertThat(catalog.getMessage("TCH_007")).isEqualTo("The message key is null");
+        assertThat(catalog.getMessage("TCH_007")).isEqualTo("La clave del mensaje es nula.");
     }
 
     @Test
@@ -59,7 +59,7 @@ class BootstrapMessageCatalogPortTest {
 
     @Test
     void getMessage_withDefault_returnsContent_whenKeyExists() {
-        assertThat(catalog.getMessage("TCH_007", "default")).isEqualTo("The message key is null");
+        assertThat(catalog.getMessage("TCH_007", "default")).isEqualTo("La clave del mensaje es nula.");
     }
 
     @Test
@@ -75,7 +75,7 @@ class BootstrapMessageCatalogPortTest {
 
     @Test
     void getTitle_returnsTitle_whenKeyExists() {
-        assertThat(catalog.getTitle("TCH_021")).isEqualTo("Response success");
+        assertThat(catalog.getTitle("TCH_021")).isEqualTo("Respuesta correcta");
     }
 
     @Test
@@ -93,6 +93,6 @@ class BootstrapMessageCatalogPortTest {
     void setMessage_isNoOp() {
         catalog.setMessage("TCH_007", new MessageCatalog("c", "t", "x", "y", "z"));
 
-        assertThat(catalog.getMessage("TCH_007")).isEqualTo("The message key is null");
+        assertThat(catalog.getMessage("TCH_007")).isEqualTo("La clave del mensaje es nula.");
     }
 }

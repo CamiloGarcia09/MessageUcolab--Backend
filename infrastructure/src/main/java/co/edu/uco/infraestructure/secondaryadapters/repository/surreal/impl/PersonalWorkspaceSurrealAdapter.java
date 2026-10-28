@@ -1,6 +1,7 @@
 package co.edu.uco.infraestructure.secondaryadapters.repository.surreal.impl;
 
 import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
+import co.edu.uco.application.primaryports.dto.catalog.ApplicationCatalogItemDTO;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.PersonalWorkspaceRepository;
@@ -21,6 +22,8 @@ import static co.edu.uco.infraestructure.secondaryadapters.repository.surreal.im
 
 @Repository
 public class PersonalWorkspaceSurrealAdapter extends SurrealCatalogSupport implements PersonalWorkspaceRepository {
+    private static final String SELECT_APPLICATIONS =
+            "SELECT id, name, language_id, language_id.language AS language_name FROM application WHERE ";
     private final CatalogPort catalog;
 
     public PersonalWorkspaceSurrealAdapter(Surreal surreal, LoggingPortFactory loggerFactory, CatalogPort catalog) {
@@ -68,15 +71,16 @@ public class PersonalWorkspaceSurrealAdapter extends SurrealCatalogSupport imple
 
     @Override
     public List<CatalogItemDTO> findApplications(UUID userId) {
-        return items("SELECT id, name FROM application WHERE organization_id.owner_user_id = " + userRecord(userId)
-                + " ORDER BY name, id;");
+        return items(SELECT_APPLICATIONS + "organization_id.owner_user_id = " + userRecord(userId)
+                + " ORDER BY name, id;", this::applicationItem);
     }
 
     @Override
     public List<CatalogItemDTO> findApplicationsByOrganization(UUID userId, UUID organizationId) {
-        return items("SELECT id, name FROM application WHERE organization_id = "
+        return items(SELECT_APPLICATIONS + "organization_id = "
                 + recordIdLiteral("organization", organizationId.toString())
-                + " AND organization_id.owner_user_id = " + userRecord(userId) + " ORDER BY name, id;");
+                + " AND organization_id.owner_user_id = " + userRecord(userId) + " ORDER BY name, id;",
+                this::applicationItem);
     }
 
     @Override
@@ -98,8 +102,12 @@ public class PersonalWorkspaceSurrealAdapter extends SurrealCatalogSupport imple
     }
 
     private List<CatalogItemDTO> items(String sql) {
+        return items(sql, this::item);
+    }
+
+    private List<CatalogItemDTO> items(String sql, RowMapper<CatalogItemDTO> mapper) {
         try {
-            return query(sql, catalog.getMessage(MessageCatalogCodeEnum.TCH_077.getCode()), this::item);
+            return query(sql, catalog.getMessage(MessageCatalogCodeEnum.TCH_077.getCode()), mapper);
         } catch (RuntimeException exception) {
             throw failure(exception);
         }
@@ -107,6 +115,14 @@ public class PersonalWorkspaceSurrealAdapter extends SurrealCatalogSupport imple
 
     private CatalogItemDTO item(Object document) {
         return CatalogItemDTO.create(extractIdAsUUID(document.get("id")).toString(), stringOf(document.get("name")));
+    }
+
+    private CatalogItemDTO applicationItem(Object document) {
+        var languageName = stringOf(document.get("language_name"));
+        var language = languageName.isBlank() ? null : CatalogItemDTO.create(
+                extractIdAsUUID(document.get("language_id")).toString(), languageName);
+        return new ApplicationCatalogItemDTO(extractIdAsUUID(document.get("id")).toString(),
+                stringOf(document.get("name")), language);
     }
 
     private void execute(String sql) {

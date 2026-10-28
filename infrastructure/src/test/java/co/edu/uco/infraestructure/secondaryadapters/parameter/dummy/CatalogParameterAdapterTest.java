@@ -4,6 +4,7 @@ import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
+import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,9 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -60,11 +59,10 @@ class CatalogParameterAdapterTest {
 
     @Test
     void consultarParametro_throwsCrossWordsException_whenKeyNotFound() {
-        when(catalogPort.getMessage(MessageCatalogCodeEnum.TCH_068.getCode())).thenReturn("No existe el parametro %s");
-
         assertThatThrownBy(() -> adapter.consultarParametro("NON-EXISTENT"))
-                .isInstanceOf(CrossWordsException.class)
-                .satisfies(ex -> assertThat(((CrossWordsException) ex).getTechnicalMessage()).isEqualTo("No existe el parametro NON-EXISTENT"));
-        verify(log).error(anyString(), any(RuntimeException.class));
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getTechnicalMessage())
+                        .isEqualTo("No se encontró la clave 'NON-EXISTENT' en: parameter.properties"));
+        verifyNoInteractions(log);
     }
 }

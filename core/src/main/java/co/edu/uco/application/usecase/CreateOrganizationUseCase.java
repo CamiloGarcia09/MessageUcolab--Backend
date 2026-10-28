@@ -10,6 +10,8 @@ import co.edu.uco.application.usecase.validator.organization.CreateOrganizationC
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
 import co.edu.uco.crosscutting.exceptions.enumeration.ExceptionLocation;
+import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
+import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 
 import static co.edu.uco.crosscutting.helpers.UtilUUID.getNewUUID;
 
@@ -36,13 +38,13 @@ public final class CreateOrganizationUseCase implements HandlingCreateOrganizati
             organization.setId(getNewUUID());
             organization.setName(organizationDTO.getName());
             organizationRepository.create(organization);
-            log.info("Organization created successfully");
+            log.info(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_091.getCode()));
         } catch (final CrossWordsException exception) {
             throw exception;
         } catch (final RuntimeException exception) {
-            log.error("Error creating organization in repository", exception);
+            log.error(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_092.getCode()), exception);
             throw BusinessException.buildTechnicalException(
-                    "Error al crear la organizacion", exception, ExceptionLocation.APPLICATION);
+                    CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_092.getCode()), exception, ExceptionLocation.APPLICATION);
         }
     }
 }

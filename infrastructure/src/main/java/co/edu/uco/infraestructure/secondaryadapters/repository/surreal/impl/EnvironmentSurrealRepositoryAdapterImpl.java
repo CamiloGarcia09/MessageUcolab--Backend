@@ -56,7 +56,7 @@ public class EnvironmentSurrealRepositoryAdapterImpl extends SurrealCatalogSuppo
                 + "state_id: " + recordIdLiteral(SURREAL_TABLE_ENVIRONMENT_STATE, stateId)
                 + " };";
         try {
-            log.info("Executing SurrealQL upsert environment: {}", upsertSql);
+            log.info(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_101.getCode()), upsertSql);
             surreal.query(upsertSql);
         } catch (Exception ex) {
             log.error("Error al persistir el entorno en SurrealDB", ex);

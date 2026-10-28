@@ -23,6 +23,12 @@ public final class UpdateMessageDTO {
     private String functionalityId;
     // Opcional: si se envia, reemplaza los ambientes del mensaje; si es nulo no los cambia.
     private List<String> environmentIds;
+    private boolean environmentsOnly;
+
+    public UpdateMessageDTO(String title, String content, String typeId, String categoryId,
+                            String statusId, String functionalityId, List<String> environmentIds) {
+        this(title, content, typeId, categoryId, statusId, functionalityId, environmentIds, false);
+    }
 
     public UpdateMessageDTO() {
         setTitle(EMPTY);
@@ -39,6 +45,7 @@ public final class UpdateMessageDTO {
     public void setCategoryId(String categoryId) { this.categoryId = trim(categoryId); }
     public void setStatusId(String statusId) { this.statusId = trim(statusId); }
     public void setFunctionalityId(String functionalityId) { this.functionalityId = trim(functionalityId); }
+    public void setEnvironmentsOnly(boolean environmentsOnly) { this.environmentsOnly = environmentsOnly; }
     public void setEnvironmentIds(List<String> environmentIds) {
         this.environmentIds = environmentIds == null ? null : environmentIds.stream().map(UtilText::trim).toList();
     }

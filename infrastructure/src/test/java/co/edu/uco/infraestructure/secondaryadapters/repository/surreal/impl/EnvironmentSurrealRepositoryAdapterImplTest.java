@@ -58,6 +58,8 @@ class EnvironmentSurrealRepositoryAdapterImplTest {
     void setUp() {
         when(loggerFactory.getLogger(EnvironmentSurrealRepositoryAdapterImpl.class)).thenReturn(log);
         lenient().when(catalogPort.getMessage(org.mockito.ArgumentMatchers.anyString())).thenReturn("msg");
+        lenient().when(catalogPort.getMessage("TCH_101"))
+                .thenReturn("Ejecutando el guardado del ambiente mediante SurrealQL: {}");
         CatalogPortStaticRef.set(catalogPort);
         adapter = new EnvironmentSurrealRepositoryAdapterImpl(surreal, loggerFactory);
     }
@@ -330,7 +332,7 @@ class EnvironmentSurrealRepositoryAdapterImplTest {
         adapter.create(environment, typeId.toString(), "state-1");
 
         verify(surreal).query(expectedQuery);
-        verify(log).info("Executing SurrealQL upsert environment: {}", expectedQuery);
+        verify(log).info("Ejecutando el guardado del ambiente mediante SurrealQL: {}", expectedQuery);
     }
 
     @Test

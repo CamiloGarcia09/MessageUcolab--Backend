@@ -5,6 +5,8 @@ import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.usecase.domain.aggregate.entities.OrganizationEntity;
 import co.edu.uco.application.usecase.domain.security.SessionIdentity;
+import co.edu.uco.application.primaryports.dto.catalog.ApplicationCatalogItemDTO;
+import co.edu.uco.application.primaryports.dto.catalog.CatalogItemDTO;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import com.surrealdb.Array;
 import com.surrealdb.Object;
@@ -63,12 +65,39 @@ class PersonalWorkspaceSurrealAdapterTest {
         assertThat(adapter.ownsOrganization(USER_ID, ORGANIZATION_ID)).isFalse();
 
         verify(surreal).query("SELECT id, name FROM organization WHERE owner_user_id = " + USER_TABLE + " ORDER BY name, id;");
-        verify(surreal).query("SELECT id, name FROM application WHERE organization_id.owner_user_id = "
+        verify(surreal).query("SELECT id, name, language_id, language_id.language AS language_name FROM application WHERE organization_id.owner_user_id = "
                 + USER_TABLE + " ORDER BY name, id;");
-        verify(surreal).query("SELECT id, name FROM application WHERE organization_id = organization:`"
+        verify(surreal).query("SELECT id, name, language_id, language_id.language AS language_name FROM application WHERE organization_id = organization:`"
                 + ORGANIZATION_ID + "` AND organization_id.owner_user_id = " + USER_TABLE + " ORDER BY name, id;");
         verify(surreal).query("SELECT id, name FROM organization:`" + ORGANIZATION_ID
                 + "` WHERE owner_user_id = " + USER_TABLE + ";");
+    }
+
+    @Test
+    @DisplayName("maps selected language identifiers and names from SDK rows; missing names yield no language")
+    void findApplications_mapsLanguageFromSurrealResponse() {
+        var english = applicationDocument("123e4567-e89b-12d3-a456-426614174020", "English",
+                "123e4567-e89b-12d3-a456-426614174021");
+        var spanish = applicationDocument("123e4567-e89b-12d3-a456-426614174022", "Español",
+                "123e4567-e89b-12d3-a456-426614174023");
+        var blankName = applicationDocument("123e4567-e89b-12d3-a456-426614174024", "", null);
+        var missingName = applicationDocument("123e4567-e89b-12d3-a456-426614174026", null, null);
+        doReturn(responseWithOne(english), responseWithOne(spanish), responseWithOne(blankName),
+                responseWithOne(missingName)).when(surreal).query(anyString());
+
+        var englishItems = adapter.findApplications(USER_ID);
+        var spanishItems = adapter.findApplications(USER_ID);
+        var blankNameItems = adapter.findApplications(USER_ID);
+        var missingNameItems = adapter.findApplications(USER_ID);
+
+        assertThat(((ApplicationCatalogItemDTO) englishItems.getFirst()).getLanguage())
+                .isEqualTo(CatalogItemDTO.create("123e4567-e89b-12d3-a456-426614174021", "English"));
+        assertThat(((ApplicationCatalogItemDTO) spanishItems.getFirst()).getLanguage())
+                .isEqualTo(CatalogItemDTO.create("123e4567-e89b-12d3-a456-426614174023", "Español"));
+        assertThat(((ApplicationCatalogItemDTO) blankNameItems.getFirst()).getLanguage()).isNull();
+        assertThat(((ApplicationCatalogItemDTO) missingNameItems.getFirst()).getLanguage()).isNull();
+        verify(surreal, times(4)).query("SELECT id, name, language_id, language_id.language AS language_name FROM application WHERE organization_id.owner_user_id = "
+                + USER_TABLE + " ORDER BY name, id;");
     }
 
     @Test
@@ -216,4 +245,23 @@ class PersonalWorkspaceSurrealAdapterTest {
         when(response.size()).thenReturn(0);
         return response;
     }
+
+    private Object applicationDocument(String applicationId, String languageName, String languageId) {
+        Object document = org.mockito.Mockito.mock(Object.class);
+        doReturn(stringValue("application:" + applicationId)).when(document).get("id");
+        doReturn(stringValue("Application " + applicationId)).when(document).get("name");
+        if (languageName != null) {
+            doReturn(stringValue(languageName)).when(document).get("language_name");
+        } else {
+            Value none = org.mockito.Mockito.mock(Value.class);
+            when(none.isNull()).thenReturn(false);
+            when(none.isNone()).thenReturn(true);
+            doReturn(none).when(document).get("language_name");
+        }
+        if (languageId != null) {
+            doReturn(stringValue("language_base:" + languageId)).when(document).get("language_id");
+        }
+        return document;
+    }
+
 }

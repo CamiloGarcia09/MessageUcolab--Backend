@@ -63,7 +63,7 @@ class CreateApplicationUseCaseTest {
         when(environmentReferenceCatalogRepository.findAllTypes()).thenReturn(List.of(
                 new EnvironmentTypeData(UUID.randomUUID(), "Develop"),
                 new EnvironmentTypeData(UUID.randomUUID(), "Testing"),
-                new EnvironmentTypeData(UUID.randomUUID(), "Production")));
+                new EnvironmentTypeData(UUID.randomUUID(), "Producción")));
         when(environmentReferenceCatalogRepository.findStateIdByName(STATE_ACTIVE)).thenReturn(Optional.of(ACTIVE_STATE_ID));
         ArgumentCaptor<ApplicationData> appCaptor = ArgumentCaptor.forClass(ApplicationData.class);
         ArgumentCaptor<List<EnvironmentData>> envCaptor = ArgumentCaptor.forClass(List.class);
@@ -74,7 +74,7 @@ class CreateApplicationUseCaseTest {
                 envCaptor.capture(), eq(ACTIVE_STATE_ID.toString()));
         assertThat(appCaptor.getValue().getId()).isNotEqualTo(UUID.fromString(APP_ID));
         assertThat(envCaptor.getValue()).extracting(environment -> environment.getType().getName())
-                .containsExactly("Develop", "Testing", "Production");
+                .containsExactly("Develop", "Testing", "Producción");
         verify(validator).validate(dto);
     }
 
@@ -103,12 +103,13 @@ class CreateApplicationUseCaseTest {
                 new EnvironmentTypeData(UUID.randomUUID(), "Testing"),
                 new EnvironmentTypeData(UUID.randomUUID(), "Production")));
         when(environmentReferenceCatalogRepository.findStateIdByName(STATE_ACTIVE)).thenReturn(Optional.of(ACTIVE_STATE_ID));
+        when(catalog.getMessage("TCH_088")).thenReturn("Ocurrió un error al crear la aplicación.");
         doThrow(new IllegalStateException("repository unavailable")).when(applicationRepository)
                 .createWithEnvironments(any(), anyString(), anyString(), any(), anyString());
 
         assertThatThrownBy(() -> useCase.createApplication(dto)).isInstanceOf(BusinessException.class)
                 .satisfies(error -> assertThat(((BusinessException) error).getTechnicalMessage())
-                        .isEqualTo("Error al crear la aplicación"));
+                        .isEqualTo("Ocurrió un error al crear la aplicación."));
     }
 
     @Test
@@ -137,7 +138,7 @@ class CreateApplicationUseCaseTest {
         UUID testingId = UUID.randomUUID();
         UUID productionId = UUID.randomUUID();
         when(environmentReferenceCatalogRepository.findAllTypes()).thenReturn(java.util.Arrays.asList(null,
-                new EnvironmentTypeData(productionId, "PRODUCTION"),
+                new EnvironmentTypeData(productionId, "PRODUCCIÓN"),
                 new EnvironmentTypeData(developId, "dEvElOp"), new EnvironmentTypeData(testingId, "testing")));
         when(environmentReferenceCatalogRepository.findStateIdByName(STATE_ACTIVE)).thenReturn(Optional.of(ACTIVE_STATE_ID));
         ArgumentCaptor<List<EnvironmentData>> captor = ArgumentCaptor.forClass(List.class);
@@ -164,7 +165,7 @@ class CreateApplicationUseCaseTest {
     void createApplication_rejectsMissingActiveStateWithoutWriting() {
         stubReferenceCatalog(List.of(new EnvironmentTypeData(UUID.randomUUID(), "Develop"),
                 new EnvironmentTypeData(UUID.randomUUID(), "Testing"),
-                new EnvironmentTypeData(UUID.randomUUID(), "Production")));
+                new EnvironmentTypeData(UUID.randomUUID(), "Producción")));
         when(environmentReferenceCatalogRepository.findStateIdByName(STATE_ACTIVE)).thenReturn(Optional.empty());
         when(catalog.getMessage("FUN_177")).thenReturn("Active state missing");
 

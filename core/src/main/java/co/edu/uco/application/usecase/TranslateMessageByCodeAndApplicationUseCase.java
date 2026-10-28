@@ -17,6 +17,7 @@ import co.edu.uco.application.usecase.security.MessageEnvironmentResolver;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import co.edu.uco.crosscutting.exceptions.CrossWordsException;
+import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
 
 import static co.edu.uco.crosscutting.helpers.UtilText.isEmptyOrNull;
 import static co.edu.uco.crosscutting.helpers.UtilText.trim;
@@ -98,7 +99,7 @@ public final class TranslateMessageByCodeAndApplicationUseCase
                     targetLanguage
             );
             if (cachedTranslation.isPresent()) {
-                log.info("Translation served from cache. Snippet: code={}, sourceLanguage={}, targetLanguage={}",
+                log.info(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_097.getCode()),
                         messageData.getCode(), normalizedSourceLanguage, targetLanguage);
                 return buildDto(messageData, normalizedSourceLanguage, targetLanguage, type, category,
                         functionality, cachedTranslation.get());

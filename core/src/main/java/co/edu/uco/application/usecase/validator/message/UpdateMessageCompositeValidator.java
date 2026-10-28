@@ -34,6 +34,8 @@ import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_195;
 
 public final class UpdateMessageCompositeValidator extends CompositeValidator<UpdateMessageValidationContext> {
 
+    private final MessageEnvironmentSelectionCompositeValidator environmentSelectionValidator;
+
     public UpdateMessageCompositeValidator(CatalogPort catalogPort,
                                            RecordExistsCatalogPort recordExistsCatalogPort,
                                            FunctionalityCatalogRepository functionalityCatalogRepository,
@@ -62,9 +64,14 @@ public final class UpdateMessageCompositeValidator extends CompositeValidator<Up
                 forEnvironments(environmentSelectionValidator),
                 new UpdateMessageFunctionalityBelongsApplicationRule(catalogPort, functionalityCatalogRepository)
         ), catalogPort);
+        this.environmentSelectionValidator = environmentSelectionValidator;
     }
 
     public void validate(UpdateMessageDTO dto, String applicationId) {
+        if (dto != null && dto.isEnvironmentsOnly()) {
+            environmentSelectionValidator.validate(dto.getEnvironmentIds(), applicationId);
+            return;
+        }
         super.validate(dto == null ? null : new UpdateMessageValidationContext(dto, applicationId));
     }
 

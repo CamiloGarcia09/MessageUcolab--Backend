@@ -7,4 +7,7 @@ import java.util.List;
 public interface UpdateMessageRepository {
     // environmentIds nulo conserva los ambientes; con valor, el mensaje queda solo en esos ambientes.
     void updateMessage(MessageData message, List<String> environmentIds, String messageEnvironmentStateId);
+
+    // No modifica contenido ni clasificacion; conserva las relaciones que siguen seleccionadas.
+    void updateEnvironments(String messageId, List<String> environmentIds, String messageEnvironmentStateId);
 }

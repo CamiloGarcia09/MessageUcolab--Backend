@@ -1,6 +1,8 @@
 package co.edu.uco.application.usecase;
 
 import co.edu.uco.application.primaryports.dto.organization.CreateOrganizationDTO;
+import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
+import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.OrganizationRepository;
@@ -10,6 +12,7 @@ import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
 import co.edu.uco.crosscutting.exceptions.enumeration.ExceptionLocation;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -23,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -41,13 +45,25 @@ class CreateOrganizationUseCaseTest {
     private LoggingPortFactory loggerFactory;
     @Mock
     private LoggingPort log;
+    @Mock
+    private CatalogPort catalogPort;
 
     private CreateOrganizationUseCase useCase;
 
     @BeforeEach
     void setUp() {
+        CatalogPortStaticRef.set(null);
+        lenient().when(catalogPort.getMessage("TCH_091")).thenReturn("Organización creada correctamente.");
+        lenient().when(catalogPort.getMessage("TCH_092"))
+                .thenReturn("Ocurrió un error al crear la organización en el repositorio.");
+        CatalogPortStaticRef.set(catalogPort);
         when(loggerFactory.getLogger(CreateOrganizationUseCase.class)).thenReturn(log);
         useCase = new CreateOrganizationUseCase(organizationRepository, validator, loggerFactory);
+    }
+
+    @AfterEach
+    void resetCatalogReference() {
+        CatalogPortStaticRef.set(null);
     }
 
     @Test
@@ -66,7 +82,7 @@ class CreateOrganizationUseCaseTest {
                         "has a generated non-default identifier");
         verify(log).info(logMessageCaptor.capture());
         assertThat(logMessageCaptor.getValue())
-                .isEqualTo("Organization created successfully")
+                .isEqualTo("Organización creada correctamente.")
                 .doesNotContain(dto.getName());
     }
 
@@ -114,10 +130,10 @@ class CreateOrganizationUseCaseTest {
                         .extracting(BusinessException::getTechnicalMessage,
                                 BusinessException::getRootException,
                                 BusinessException::getLocation)
-                        .containsExactly("Error al crear la organizacion",
+                        .containsExactly("Ocurrió un error al crear la organización en el repositorio.",
                                 repositoryFailure,
                                 ExceptionLocation.APPLICATION));
-        verify(log).error("Error creating organization in repository", repositoryFailure);
+        verify(log).error("Ocurrió un error al crear la organización en el repositorio.", repositoryFailure);
         verify(log, never()).error(eq("UCO"), any(Throwable.class));
     }
 }

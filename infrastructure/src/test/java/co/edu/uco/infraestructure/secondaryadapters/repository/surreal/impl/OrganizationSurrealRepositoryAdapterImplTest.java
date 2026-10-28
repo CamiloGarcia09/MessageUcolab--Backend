@@ -23,7 +23,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -92,7 +91,7 @@ class OrganizationSurrealRepositoryAdapterImplTest {
         adapter.create(organization);
 
         verifyQuery("UPSERT organization:`" + id + "` CONTENT { name: 'UCO' };");
-        verify(log).info("Executing SurrealQL upsert organization");
+        verify(log).info("TCH_103");
     }
 
     @Test

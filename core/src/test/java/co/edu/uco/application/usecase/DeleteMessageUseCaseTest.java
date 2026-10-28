@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -63,6 +64,9 @@ class DeleteMessageUseCaseTest {
     @BeforeEach
     void setUp() {
         when(loggerFactory.getLogger(DeleteMessageUseCase.class)).thenReturn(log);
+        lenient().when(catalogPort.getMessage("TCH_096"))
+                .thenReturn("Mensaje eliminado correctamente con el identificador: {}");
+        lenient().when(catalogPort.getMessage("TCH_074")).thenReturn("Error al eliminar el mensaje.");
         useCase = new DeleteMessageUseCase(
                 deleteMessageRepository,
                 messageRepository,
@@ -111,7 +115,7 @@ class DeleteMessageUseCaseTest {
         order.verify(messageRepository).findByCodeAndApplication(eq(MESSAGE_CODE), any());
         order.verify(deleteMessageRepository).deleteMessage(MESSAGE_UUID);
         order.verify(messageCatalogStrategy).evictMessage(MESSAGE_CODE);
-        verify(log).info("Message deleted successfully with id: {}", MESSAGE_CODE);
+        verify(log).info("Mensaje eliminado correctamente con el identificador: {}", MESSAGE_CODE);
     }
 
     @Test
@@ -135,7 +139,7 @@ class DeleteMessageUseCaseTest {
         useCase.deleteMessage("  " + MESSAGE_CODE + "  ", context);
 
         verify(messageRepository).findByCodeAndApplication(eq(MESSAGE_CODE), any());
-        verify(log).info("Message deleted successfully with id: {}", MESSAGE_CODE);
+        verify(log).info("Mensaje eliminado correctamente con el identificador: {}", MESSAGE_CODE);
     }
 
     @Test
@@ -208,7 +212,7 @@ class DeleteMessageUseCaseTest {
                         .isEqualTo("Mensaje no encontrado"));
 
         assertAll(
-                () -> verify(log).error(eq("Error deleting message in repository"),
+                () -> verify(log).error(eq("Error al eliminar el mensaje."),
                         any(RuntimeException.class)),
                 () -> verify(catalogPort).getMessage(MessageCatalogCodeEnum.FUN_208.getCode())
         );

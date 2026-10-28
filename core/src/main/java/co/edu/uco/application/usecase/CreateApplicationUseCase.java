@@ -22,6 +22,11 @@ import java.util.List;
 import java.util.UUID;
 
 import static co.edu.uco.application.CrosswordsConstant.STATE_ACTIVE;
+import static co.edu.uco.application.CrosswordsConstant.STATE_ACTIVE_LEGACY;
+import static co.edu.uco.application.CrosswordsConstant.ENVIRONMENT_PRODUCTION;
+import static co.edu.uco.application.usecase.domain.catalog.CatalogNames.sameEnvironmentType;
+import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.TCH_087;
+import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.TCH_088;
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_175;
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_177;
 import static co.edu.uco.crosscutting.helpers.UtilObject.isNullObject;
@@ -29,7 +34,7 @@ import static co.edu.uco.crosscutting.helpers.UtilUUID.getUUIDFromString;
 
 public final class CreateApplicationUseCase implements HandlingCreateApplicationPort {
 
-    private static final List<String> DEFAULT_ENVIRONMENT_TYPES = List.of("Develop", "Testing", "Production");
+    private static final List<String> DEFAULT_ENVIRONMENT_TYPES = List.of("Develop", "Testing", ENVIRONMENT_PRODUCTION);
 
     private final ApplicationRepository applicationRepository;
     private final EnvironmentReferenceCatalogRepository environmentReferenceCatalogRepository;
@@ -68,13 +73,13 @@ public final class CreateApplicationUseCase implements HandlingCreateApplication
                     environments,
                     environmentStateId.toString()
             );
-            log.info("Application created successfully with name: {}", dto.getName());
+            log.info(catalogPort.getMessage(TCH_087.getCode()), dto.getName());
         } catch (CrossWordsException ex) {
             throw ex;
         } catch (RuntimeException ex) {
-            log.error("Error creating application in repository", ex);
+            log.error(catalogPort.getMessage(TCH_088.getCode()), ex);
             throw BusinessException.buildTechnicalException(
-                    "Error al crear la aplicación", ex, ExceptionLocation.APPLICATION);
+                    catalogPort.getMessage(TCH_088.getCode()), ex, ExceptionLocation.APPLICATION);
         }
     }
 
@@ -91,13 +96,14 @@ public final class CreateApplicationUseCase implements HandlingCreateApplication
             throw missingEnvironmentType();
         }
         return availableTypes.stream()
-                .filter(type -> !isNullObject(type) && typeName.equalsIgnoreCase(type.getName()))
+                .filter(type -> !isNullObject(type) && sameEnvironmentType(typeName, type.getName()))
                 .findFirst()
                 .orElseThrow(this::missingEnvironmentType);
     }
 
     private UUID activeEnvironmentStateId() {
         return environmentReferenceCatalogRepository.findStateIdByName(STATE_ACTIVE)
+                .or(() -> environmentReferenceCatalogRepository.findStateIdByName(STATE_ACTIVE_LEGACY))
                 .orElseThrow(() -> BusinessRuleException.buildUserException(
                         catalogPort.getMessage(FUN_177.getCode())));
     }

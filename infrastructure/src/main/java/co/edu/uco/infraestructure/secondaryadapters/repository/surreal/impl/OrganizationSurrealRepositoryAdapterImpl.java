@@ -1,5 +1,8 @@
 package co.edu.uco.infraestructure.secondaryadapters.repository.surreal.impl;
 
+import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
+import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
+
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.application.secondaryports.repository.OrganizationRepository;
 import co.edu.uco.application.usecase.domain.aggregate.entities.OrganizationEntity;
@@ -51,7 +54,7 @@ public class OrganizationSurrealRepositoryAdapterImpl extends SurrealCatalogSupp
         final String sql = "UPSERT " + recordIdLiteral(SURREAL_TABLE_ORGANIZATION, model.getId().toString())
                 + " CONTENT { name: " + quote(model.getName()) + " };";
         try {
-            log.info("Executing SurrealQL upsert organization");
+            log.info(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_103.getCode()));
             surreal.query(sql);
         } catch (final Exception ex) {
             log.error("Error al persistir la organizacion en SurrealDB", ex);

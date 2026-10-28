@@ -255,7 +255,7 @@ class ApplicationSurrealRepositoryAdapterImplTest {
                 () -> assertThat(query).contains("language_id: language_base:`" + LANGUAGE_ID + "`"),
                 () -> assertThat(query).contains("state_id: application_state:`" + STATE_ID + "`"),
                 () -> assertThat(query).contains("organization_id: organization:`" + ORGANIZATION_ID + "`"));
-        verify(log).info("Creating application and {} default environments atomically", 3);
+        verify(log).info("TCH_098", 3);
         verifyNoMoreInteractions(surreal);
     }
 

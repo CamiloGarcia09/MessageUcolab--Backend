@@ -24,7 +24,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-import static co.edu.uco.application.CrosswordsConstant.STATE_ACTIVE;
+import static co.edu.uco.application.usecase.domain.catalog.CatalogNames.isActive;
+import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.TCH_093;
+import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.TCH_094;
 import static co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum.FUN_197;
 import static co.edu.uco.crosscutting.helpers.UtilText.EMPTY;
 import static co.edu.uco.crosscutting.helpers.UtilMessageCode.normalize;
@@ -89,12 +91,12 @@ public final class CreateMessageUseCase implements HandlingCreateMessagePort {
                     messageEnvironmentStateId
             );
 
-            log.info("Message created successfully with code: {}", normalizedCode);
+            log.info(catalogPort.getMessage(TCH_093.getCode()), normalizedCode);
         } catch (CrossWordsException ex) {
             throw ex;
         } catch (Exception ex) {
-            log.error("Error creating message in repository", ex);
-            throw CrossWordsException.build("Error al crear el mensaje", ex);
+            log.error(catalogPort.getMessage(TCH_094.getCode()), ex);
+            throw CrossWordsException.build(catalogPort.getMessage(TCH_094.getCode()), ex);
         }
     }
 
@@ -102,7 +104,7 @@ public final class CreateMessageUseCase implements HandlingCreateMessagePort {
         var states = messageEnvironmentStateRepository.findAll();
         return (states == null ? List.<MessageEnvironmentStateData>of() : states)
                 .stream()
-                .filter(state -> state != null && STATE_ACTIVE.equalsIgnoreCase(state.getName()))
+                .filter(state -> state != null && isActive(state.getName()))
                 .map(state -> getStringFromUUID(state.getId()))
                 .findFirst()
                 .orElseThrow(() -> BusinessRuleException.buildUserException(catalogPort.getMessage(FUN_197.getCode())));

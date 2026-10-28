@@ -107,8 +107,8 @@ class RedisCatalogMessageAdapterTest {
         MessageCatalog catalog = adapter.getMessageModel("TCH_021");
 
         assertThat(catalog.code()).isEqualTo("TCH_021");
-        assertThat(catalog.title()).isEqualTo("Response success");
-        assertThat(catalog.content()).isEqualTo("The successful response is: {}");
+        assertThat(catalog.title()).isEqualTo("Respuesta correcta");
+        assertThat(catalog.content()).isEqualTo("La respuesta correcta es: {}");
         assertThat(catalog.type()).isEqualTo("TECHNICAL");
         assertThat(catalog.category()).isEqualTo("INFORMATION");
         verify(hashOperations, never()).entries(anyString());
@@ -153,7 +153,7 @@ class RedisCatalogMessageAdapterTest {
 
     @Test
     void getMessage_returnsBootstrapContent_whenKeyIsBootstrapCode() {
-        assertThat(adapter.getMessage("TCH_007")).isEqualTo("The message key is null");
+        assertThat(adapter.getMessage("TCH_007")).isEqualTo("La clave del mensaje es nula.");
         verify(hashOperations, never()).get(anyString(), any());
     }
 
@@ -187,7 +187,7 @@ class RedisCatalogMessageAdapterTest {
     @Test
     void getMessageWithDefault_returnsBootstrapContent_whenKeyIsBootstrapCode() {
         assertThat(adapter.getMessage("TCH_009", "default"))
-                .isEqualTo("Message code does not exist with %s key");
+                .isEqualTo("No existe un código de mensaje con la clave %s.");
         verify(hashOperations, never()).get(anyString(), any());
     }
 
@@ -220,7 +220,7 @@ class RedisCatalogMessageAdapterTest {
 
     @Test
     void getTitle_returnsBootstrapTitle_whenKeyIsBootstrapCode() {
-        assertThat(adapter.getTitle("TCH_021")).isEqualTo("Response success");
+        assertThat(adapter.getTitle("TCH_021")).isEqualTo("Respuesta correcta");
         verify(hashOperations, never()).get(anyString(), any());
     }
 

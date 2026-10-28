@@ -19,19 +19,19 @@ class CatalogPortStaticRefTest {
     @Test
     void getMessage_resolvesBootstrapContent_whenNoInstanceSet() {
         assertThat(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_007.getCode()))
-                .isEqualTo("The message key is null");
+                .isEqualTo("La clave del mensaje es nula.");
     }
 
     @Test
     void getMessage_withDefault_resolvesBootstrapContent_whenNoInstanceSet() {
         assertThat(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_007.getCode(), "fallback"))
-                .isEqualTo("The message key is null");
+                .isEqualTo("La clave del mensaje es nula.");
     }
 
     @Test
     void getTitle_resolvesBootstrapTitle_whenNoInstanceSet() {
         assertThat(CatalogPortStaticRef.getTitle(MessageCatalogCodeEnum.TCH_021.getCode()))
-                .isEqualTo("Response success");
+                .isEqualTo("Respuesta correcta");
     }
 
     @Test
@@ -39,7 +39,7 @@ class CatalogPortStaticRefTest {
         MessageCatalog model = CatalogPortStaticRef.getMessageModel(MessageCatalogCodeEnum.TCH_021.getCode());
 
         assertThat(model.code()).isEqualTo("TCH_021");
-        assertThat(model.content()).isEqualTo("The successful response is: {}");
+        assertThat(model.content()).isEqualTo("La respuesta correcta es: {}");
     }
 
     @Test
@@ -50,7 +50,7 @@ class CatalogPortStaticRefTest {
         CatalogPortStaticRef.set(null);
 
         assertThat(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_007.getCode()))
-                .isEqualTo("The message key is null");
+                .isEqualTo("La clave del mensaje es nula.");
     }
 
     @Test

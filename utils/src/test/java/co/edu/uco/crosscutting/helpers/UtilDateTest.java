@@ -192,7 +192,7 @@ class UtilDateTest {
         assertThatThrownBy(() -> UtilDate.parseDate("not-a-date"))
                 .isInstanceOf(CrossWordsException.class)
                 .satisfies(ex -> assertThat(((CrossWordsException) ex).getTechnicalMessage())
-                        .isEqualTo("The date to be converted has no valid format."));
+                        .isEqualTo("La fecha que se convertirá no tiene un formato válido."));
     }
 
     @Test

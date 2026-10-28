@@ -53,8 +53,19 @@ public class UpdateMessageSurrealAdapter extends SurrealCatalogSupport implement
                 + "functionality_id: " + toRecordId(TABLE_FUNCTIONALITY, funcId)
                 + " };";
 
+        executeUpdate(messageId, updateSql, environmentIds, messageEnvironmentStateId);
+    }
+
+    @Override
+    public void updateEnvironments(String messageId, List<String> environmentIds, String messageEnvironmentStateId) {
+        String updateSql = "UPDATE " + toRecordId(TABLE_MESSAGE, messageId) + " SET updated_at = time::now();";
+        executeUpdate(messageId, updateSql, environmentIds, messageEnvironmentStateId);
+    }
+
+    private void executeUpdate(String messageId, String updateSql, List<String> environmentIds,
+                               String messageEnvironmentStateId) {
         try {
-            log.info("Updating message with id: {}", messageId);
+            log.info(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_095.getCode()), messageId);
             if (environmentIds == null) {
                 surreal.query(updateSql);
                 return;

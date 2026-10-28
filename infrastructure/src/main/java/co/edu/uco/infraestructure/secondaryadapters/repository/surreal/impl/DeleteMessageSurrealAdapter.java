@@ -42,7 +42,7 @@ public class DeleteMessageSurrealAdapter implements DeleteMessageRepository {
                 + "COMMIT TRANSACTION;";
 
         try {
-            log.info("Deleting message and environment relations atomically for message: {}", cleanId);
+            log.info(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_100.getCode()), cleanId);
             surreal.query(transactionSql);
         } catch (Exception ex) {
             log.error(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_074.getCode()), ex);

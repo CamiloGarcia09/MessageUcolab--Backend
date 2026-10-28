@@ -43,6 +43,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -83,6 +84,8 @@ class CreateMessageUseCaseTest {
     @BeforeEach
     void setUp() {
         when(loggerFactory.getLogger(CreateMessageUseCase.class)).thenReturn(log);
+        lenient().when(catalogPort.getMessage("TCH_093")).thenReturn("Mensaje creado correctamente con el código: {}");
+        lenient().when(catalogPort.getMessage("TCH_094")).thenReturn("No fue posible crear el mensaje.");
         useCase = new CreateMessageUseCase(createMessageRepository, validator,
                 environmentResolver, messageEnvironmentStateRepository,
                 catalogPort, loggerFactory);
@@ -146,7 +149,7 @@ class CreateMessageUseCaseTest {
         order.verify(messageEnvironmentStateRepository).findAll();
         order.verify(createMessageRepository)
                 .createMessage(any(), eq(ENVIRONMENTS), eq(ACTIVE_STATE_UUID));
-        verify(log).info("Message created successfully with code: {}", "MSG_WELCOME");
+        verify(log).info("Mensaje creado correctamente con el código: {}", "MSG_WELCOME");
     }
 
     @Test
@@ -188,7 +191,7 @@ class CreateMessageUseCaseTest {
         assertAll(
                 () -> assertThat(messageCaptor.getValue().getCode())
                         .isEqualTo("MSG_WEL_COME"),
-                () -> verify(log).info("Message created successfully with code: {}",
+                () -> verify(log).info("Mensaje creado correctamente con el código: {}",
                         "MSG_WEL_COME"));
     }
 
@@ -245,7 +248,7 @@ class CreateMessageUseCaseTest {
         assertThatThrownBy(() -> useCase.createMessage(dto, sessionContext()))
                 .isInstanceOf(CrossWordsException.class)
                 .satisfies(ex -> assertThat(((CrossWordsException) ex).getTechnicalMessage())
-                        .isEqualTo("The UUID to be converted has no valid format."));
+                        .isEqualTo("El valor que se convertirá a UUID no tiene un formato válido."));
         verifyNoInteractions(createMessageRepository);
     }
 
@@ -285,8 +288,8 @@ class CreateMessageUseCaseTest {
         assertThatThrownBy(() -> useCase.createMessage(dto, sessionContext()))
                 .isInstanceOf(CrossWordsException.class)
                 .satisfies(ex -> assertThat(((CrossWordsException) ex).getTechnicalMessage())
-                        .isEqualTo("Error al crear el mensaje"));
-        verify(log).error(eq("Error creating message in repository"), any(RuntimeException.class));
+                        .isEqualTo("No fue posible crear el mensaje."));
+        verify(log).error(eq("No fue posible crear el mensaje."), any(RuntimeException.class));
     }
 
     @Test

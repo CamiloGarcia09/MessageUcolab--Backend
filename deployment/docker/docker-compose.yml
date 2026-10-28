@@ -142,6 +142,30 @@ services:
     networks:
       - app-network
 
+  # Explicit maintenance task: imports only the additive receipt schema, never the full seed.
+  surrealdb-import-schema:
+    profiles: [maintenance]
+    image: surrealdb/surrealdb:v3.1.4
+    entrypoint: ["/surreal"]
+    command:
+      - import
+      - --endpoint
+      - http://surrealdb:${SURREALDBPORT}
+      - --username
+      - ${SURREALDBUSER}
+      - --password
+      - ${SURREALDBPASSWORD}
+      - --namespace
+      - ${SURREALDBNAMESPACE}
+      - --database
+      - ${SURREALDBDATABASE}
+      - /init/surreal/message-import-schema.surql
+    volumes:
+      - ./scripts:/init:ro
+    restart: "no"
+    networks:
+      - app-network
+
   kong:
     image: kong/kong-gateway:3.5
     container_name: api-gateway-kong
