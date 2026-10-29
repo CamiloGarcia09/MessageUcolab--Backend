@@ -235,12 +235,15 @@ Respeta las instrucciones del repositorio y conserva el trabajo previo.
    usuario para que vuelva manualmente a Build y coordine la autorización
    de `unit-test-agent`. No invoques a Build ni cambies de agente por tu cuenta.
 7. Crea un commit por cambio lógico, sin agrupar funcionalidades independientes.
-   Título: solo el resumen en español, máximo 60 caracteres, en imperativo
-   y sin punto final. No uses prefijos de tipo como `feat:`, `fix:` o `build:`.
+   Título: solo el resumen en español, máximo 60 caracteres y sin punto final.
+   Usa redacción impersonal o descriptiva, como `Se ajusta la configuración`
+   o `Cambio en la configuración`, en lugar del imperativo. No uses prefijos
+   de tipo como `feat:`, `fix:` o `build:`.
    Los prefijos permitidos para ramas no se aplican a los títulos de commits.
    Cuerpo: texto corrido en un párrafo, sin viñetas ni listas, máximo 60 palabras,
-   indicando qué cambió y su propósito. Incluye únicamente hechos comprobables
-   en el diff.
+   con redacción impersonal como `Se realiza...`, `Se modifica...` o
+   `Se ajusta...`, indicando qué cambió y su propósito. Incluye únicamente
+   hechos comprobables en el diff.
 8. Solo tras obtener la autorización final descrita arriba, ejecuta
    `git commit -m <titulo> -m <cuerpo>` con argumentos correctamente
    escapados para el shell activo. Si un hook falla, informa la causa y
@@ -271,9 +274,9 @@ Respeta las instrucciones del repositorio y conserva el trabajo previo.
 
 ## Ejemplo de mensaje
 
-Agrega métodos de pago
+Se agregan métodos de pago
 
-Incorpora el registro y consulta de métodos de pago y valida los nombres duplicados antes de guardar.
+Se incorpora el registro y consulta de métodos de pago y se validan los nombres duplicados antes de guardar.
 
 ## Comunicación
 
