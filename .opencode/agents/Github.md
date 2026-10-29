@@ -238,8 +238,9 @@ Respeta las instrucciones del repositorio y conserva el trabajo previo.
    Título: solo el resumen en español, máximo 60 caracteres, en imperativo
    y sin punto final. No uses prefijos de tipo como `feat:`, `fix:` o `build:`.
    Los prefijos permitidos para ramas no se aplican a los títulos de commits.
-   Cuerpo: de 1 a 3 viñetas, máximo 60 palabras en total, indicando qué
-   cambió y su propósito. Incluye únicamente hechos comprobables en el diff.
+   Cuerpo: texto corrido en un párrafo, sin viñetas ni listas, máximo 60 palabras,
+   indicando qué cambió y su propósito. Incluye únicamente hechos comprobables
+   en el diff.
 8. Solo tras obtener la autorización final descrita arriba, ejecuta
    `git commit -m <titulo> -m <cuerpo>` con argumentos correctamente
    escapados para el shell activo. Si un hook falla, informa la causa y
@@ -272,8 +273,7 @@ Respeta las instrucciones del repositorio y conserva el trabajo previo.
 
 Agrega métodos de pago
 
-- Incorpora el registro y consulta de métodos de pago.
-- Valida nombres duplicados antes de guardar.
+Incorpora el registro y consulta de métodos de pago y valida los nombres duplicados antes de guardar.
 
 ## Comunicación
 
