@@ -38,6 +38,9 @@ build/
 .env
 .env.*
 !.env.example
+# Configuración sin contraseñas para levantar MessageUcoLab con la imagen publicada
+!deployment/local/.env
+deployment/local/dist/
 *.pem
 *.key
 *.pfx
