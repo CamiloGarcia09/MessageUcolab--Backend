@@ -27,6 +27,22 @@ RUN --mount=type=secret,id=maven_settings,required=true \
     --mount=type=secret,id=github_packages_token,env=GITHUB_PACKAGES_TOKEN,required=true \
     ./mvnw -s /run/secrets/maven_settings clean verify -B -ntp
 
+# El jar se extrae por capas: las dependencias cambian poco y quedan en capas que Docker reutiliza.
+# El driver de SurrealDB trae su motor nativo para 12 plataformas (~300 MB); solo se conserva el de
+# la arquitectura de la imagen (TARGETARCH lo define Docker: amd64 o arm64).
+ARG TARGETARCH
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y zip unzip \
+    && rm -rf /var/lib/apt/lists/* \
+    && cp infrastructure/target/infrastructure-*.jar app.jar \
+    && java -Djarmode=tools -jar app.jar extract --layers --destination extracted \
+    && mkdir -p extracted/dependencies extracted/spring-boot-loader \
+        extracted/snapshot-dependencies extracted/application \
+    && if [ "$TARGETARCH" = "arm64" ]; then native=linux_arm64; else native=linux_64; fi \
+    && surrealdb=$(find extracted -name 'surrealdb-*.jar') \
+    && zip -q "$surrealdb" -d $(unzip -Z1 "$surrealdb" 'natives/*' | grep -v "^natives/$native/" | grep -v '/$') \
+    && unzip -Z1 "$surrealdb" 'natives/*' | grep -q "^natives/$native/"
+
 FROM eclipse-temurin:25-jre-noble
 
 RUN apt-get update \
@@ -39,7 +55,10 @@ WORKDIR /app
 
 RUN mkdir -p /app/logs && chown -R app:app /app
 
-COPY --from=build --chown=app:app /app/infrastructure/target/infrastructure-*.jar app.jar
+COPY --from=build --chown=app:app /app/extracted/dependencies/ ./
+COPY --from=build --chown=app:app /app/extracted/spring-boot-loader/ ./
+COPY --from=build --chown=app:app /app/extracted/snapshot-dependencies/ ./
+COPY --from=build --chown=app:app /app/extracted/application/ ./
 
 ENV JAVA_OPTS="-Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
 ENV TZ=UTC
