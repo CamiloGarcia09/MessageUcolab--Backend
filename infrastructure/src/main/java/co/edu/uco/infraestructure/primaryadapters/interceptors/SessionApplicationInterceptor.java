@@ -33,12 +33,14 @@ import static co.edu.uco.infraestructure.config.InfrastructureConstant.WORKSPACE
  * El servidor valida la propiedad antes de fijar la aplicacion
  * de negocio; nunca acepta una aplicacion ajena. El ambiente es un dato de
  * cada mensaje y solo se valida cuando la peticion lo envia explicitamente.
+ * Las rutas publicas de consumo no usan sesion: validan aplicacion y ambiente en su caso de uso.
  */
 @Component
 @Order(0)
 public final class SessionApplicationInterceptor implements WebFilter {
 
     private static final String API_PREFIX = "/messageucolab/v1/";
+    private static final String PUBLIC_PREFIX = API_PREFIX + "public/";
     private final SessionApplicationUseCaseFacade facade;
     private final PersonalWorkspaceUseCaseFacade workspace;
 
@@ -51,7 +53,7 @@ public final class SessionApplicationInterceptor implements WebFilter {
     @Override
     public Mono<Void> filter(final ServerWebExchange exchange, final WebFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
-        if (!path.startsWith(API_PREFIX)) {
+        if (!path.startsWith(API_PREFIX) || path.startsWith(PUBLIC_PREFIX)) {
             return chain.filter(exchange);
         }
         HttpCookie cookie = exchange.getRequest().getCookies().getFirst(SECURITY_SESSION_COOKIE);

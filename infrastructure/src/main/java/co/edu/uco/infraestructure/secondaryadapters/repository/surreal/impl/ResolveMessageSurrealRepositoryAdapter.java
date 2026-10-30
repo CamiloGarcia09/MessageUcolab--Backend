@@ -15,6 +15,7 @@ import com.surrealdb.Surreal;
 import com.surrealdb.Value;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.time.Instant;
 
@@ -33,14 +34,30 @@ public class ResolveMessageSurrealRepositoryAdapter extends SurrealCatalogSuppor
         this.catalogPort = catalogPort;
     }
 
+    private static final String MESSAGE_PROJECTION = "message_id AS id, message_id.code AS code, "
+            + "message_id.title AS title, message_id.content AS content, message_id.type_id.name AS type, "
+            + "message_id.category_id.name AS category, message_id.functionality_id.name AS functionality, "
+            + "message_id.application_id AS application_id, message_id.created_at AS created_at, "
+            + "message_id.updated_at AS updated_at";
+
     @Override
     public Optional<MessageData> findAvailableByCodeAndEnvironment(String code, String environmentId) {
-        var projection = "message_id AS id, message_id.code AS code, message_id.title AS title, "
-                + "message_id.content AS content, message_id.type_id.name AS type, "
-                + "message_id.category_id.name AS category, message_id.functionality_id.name AS functionality, "
-                + "message_id.application_id AS application_id, message_id.created_at AS created_at, "
-                + "message_id.updated_at AS updated_at";
-        return findAvailable(projection, code, environmentId, ResolveMessageSurrealRepositoryAdapter::toMessageData);
+        return findAvailable(MESSAGE_PROJECTION, code, environmentId,
+                ResolveMessageSurrealRepositoryAdapter::toMessageData);
+    }
+
+    @Override
+    public List<MessageData> findAvailableByEnvironment(String environmentId) {
+        var sql = "SELECT " + MESSAGE_PROJECTION + " FROM message_environment"
+                + availableIn(environmentId) + " ORDER BY code;";
+        var errorMessage = catalogPort.getMessage(MessageCatalogCodeEnum.TCH_058.getCode()).formatted(sql);
+        try {
+            return query(sql, errorMessage, ResolveMessageSurrealRepositoryAdapter::toMessageData);
+        } catch (CrossWordsException exception) {
+            throw exception;
+        } catch (RuntimeException exception) {
+            throw CrossWordsException.buildInfrastructure(errorMessage, exception);
+        }
     }
 
     @Override
@@ -51,12 +68,8 @@ public class ResolveMessageSurrealRepositoryAdapter extends SurrealCatalogSuppor
     }
 
     private <T> Optional<T> findAvailable(String projection, String code, String environmentId, RowMapper<T> mapper) {
-        var sql = "SELECT " + projection + " FROM message_environment"
-                + " WHERE environment_id = " + recordIdLiteral("environment", environmentId)
+        var sql = "SELECT " + projection + " FROM message_environment" + availableIn(environmentId)
                 + " AND message_id.code = " + quote(code)
-                + " AND message_id.application_id = environment_id.application_id"
-                + " AND string::lowercase(message_id.status_id.name) IN ['activo', 'active']"
-                + " AND string::lowercase(state_data_id.name) IN ['activo', 'active']"
                 + " LIMIT 1;";
         var errorMessage = catalogPort.getMessage(MessageCatalogCodeEnum.TCH_058.getCode()).formatted(sql);
         try {
@@ -66,6 +79,14 @@ public class ResolveMessageSurrealRepositoryAdapter extends SurrealCatalogSuppor
         } catch (RuntimeException exception) {
             throw CrossWordsException.buildInfrastructure(errorMessage, exception);
         }
+    }
+
+    // Mensaje activo, con asociacion activa al ambiente y de la misma aplicacion que el ambiente.
+    private static String availableIn(String environmentId) {
+        return " WHERE environment_id = " + recordIdLiteral("environment", environmentId)
+                + " AND message_id.application_id = environment_id.application_id"
+                + " AND string::lowercase(message_id.status_id.name) IN ['activo', 'active']"
+                + " AND string::lowercase(state_data_id.name) IN ['activo', 'active']";
     }
 
     private static MessageData toMessageData(Object object) {

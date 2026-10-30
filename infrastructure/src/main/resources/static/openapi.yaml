@@ -26,6 +26,8 @@ tags:
     description: Excel contextualizado, validacion sin escrituras de mensajes y confirmacion atomica e idempotente.
   - name: Mensajes
     description: Consulta y traduccion de mensajes.
+  - name: Consumo publico
+    description: Consulta de mensajes para aplicaciones consumidoras, sin sesion BFF ni PEP.
   - name: Sesion
     description: Identidad validada del usuario y sus aplicaciones de negocio propias.
   - name: Catalogos
@@ -227,6 +229,123 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /messageucolab/v1/public/messages:
+    get:
+      tags: [Consumo publico]
+      summary: Listar los mensajes disponibles de una aplicacion en un ambiente
+      operationId: listPublicMessages
+      security: []
+      description: |
+        Publico mientras seguridad no autorice aplicacion a aplicacion: no requiere cookie ni pasa por el PEP.
+        Valida que la aplicacion exista y que el ambiente le pertenezca; luego consulta el puerto de
+        autorizacion de consumidores (modo public: permite el acceso).
+        Devuelve los mensajes activos con asociacion activa al ambiente, ordenados por codigo y en el
+        idioma base de la aplicacion. Kong limita la ruta a 120 peticiones por minuto por IP.
+      parameters:
+        - $ref: '#/components/parameters/PublicApplicationId'
+        - $ref: '#/components/parameters/PublicEnvironmentId'
+      responses:
+        '200':
+          description: Mensajes disponibles; la lista puede estar vacia.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-store]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicMessageList'
+              example:
+                language: es
+                total: 1
+                messages:
+                  - code: MSG_PRODSAVED
+                    title: Producto guardado
+                    content: El producto {nombre} se guardo correctamente.
+                    type: Funcional
+                    category: Confirmación
+                    functionality: Gestion de inventario
+                    created_at: '2026-10-27T20:27:52Z'
+                    updated_at: '2026-10-27T20:27:52Z'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /messageucolab/v1/public/messages/{code}:
+    get:
+      tags: [Consumo publico]
+      summary: Consultar un mensaje en un idioma
+      operationId: findPublicMessage
+      security: []
+      description: |
+        Publico con las mismas condiciones del listado. Sin language devuelve el texto original en el
+        idioma base de la aplicacion. Con otro idioma traduce titulo, contenido, tipo, categoria y
+        funcionalidad con el traductor configurado y guarda la traduccion en Redis; la clave incluye
+        una huella del mensaje, asi que al editarlo se vuelve a traducir. No persiste la traduccion.
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            example: MSG_PRODSAVED
+        - name: language
+          in: query
+          required: false
+          description: Idioma destino (en, fr, pt-BR...). Si se omite se usa el idioma base de la aplicacion.
+          schema:
+            type: string
+            maxLength: 50
+            pattern: '^[a-zA-Z]{2,3}([_-][a-zA-Z0-9]{2,8})*$'
+            example: en
+        - $ref: '#/components/parameters/PublicApplicationId'
+        - $ref: '#/components/parameters/PublicEnvironmentId'
+      responses:
+        '200':
+          description: Mensaje disponible en el idioma solicitado.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-store]
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsumerTranslatedMessage'
+              example:
+                code: MSG_PRODSAVED
+                sourceLanguage: es
+                targetLanguage: es
+                title: Producto guardado
+                content: El producto {nombre} se guardo correctamente.
+                type: Funcional
+                category: Confirmación
+                functionality: Gestion de inventario
+                created_at: '2026-10-27T20:27:52Z'
+                updated_at: '2026-10-27T20:27:52Z'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
@@ -1048,6 +1167,22 @@ components:
       description: Sesion BFF externa. El PEP conserva la autorizacion por ruta.
 
   parameters:
+    PublicApplicationId:
+      name: X-Application-Id
+      in: header
+      required: true
+      description: UUID de la aplicacion de MessageUcoLab cuyos mensajes se consultan.
+      schema:
+        type: string
+        format: uuid
+    PublicEnvironmentId:
+      name: X-Environment-Id
+      in: header
+      required: true
+      description: UUID de un ambiente de esa aplicacion (Develop, Testing o Produccion).
+      schema:
+        type: string
+        format: uuid
     ImportApplicationId:
       name: X-Application-Id
       in: header
@@ -1381,6 +1516,22 @@ components:
         completedAt:
           type: string
           format: date-time
+    PublicMessageList:
+      type: object
+      additionalProperties: false
+      required: [language, total, messages]
+      properties:
+        language:
+          type: string
+          description: Idioma base de la aplicacion, en el que estan escritos los mensajes.
+          example: es
+        total:
+          type: integer
+          minimum: 0
+        messages:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsumerMessage'
     ConsumerTranslationRequest:
       type: object
       required: [targetLanguage]

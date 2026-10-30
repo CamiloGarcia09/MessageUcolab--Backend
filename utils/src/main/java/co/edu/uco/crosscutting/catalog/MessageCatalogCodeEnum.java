@@ -779,6 +779,8 @@ public enum MessageCatalogCodeEnum {
     FUN_219("FUN_219"),
     /** El mensaje o su idioma base cambiaron mientras se obtenia la traduccion. */
     FUN_220("FUN_220"),
+    /** La aplicacion consumidora no esta autorizada para consultar los mensajes publicos. */
+    FUN_221("FUN_221"),
     TCH_076("TCH_076"),
     TCH_077("TCH_077"),
     /** Error al consultar mensajes por aplicacion en SurrealDB. */

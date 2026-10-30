@@ -20,7 +20,16 @@ class CorsConfig {
         cors.setExposedHeaders(List.of("X-Decision-Id"));
         cors.setAllowCredentials(true);
 
+        // La consulta publica no usa cookies: cualquier origen puede leerla.
+        CorsConfiguration publicCors = new CorsConfiguration();
+        publicCors.setAllowedOrigins(List.of("*"));
+        publicCors.setAllowedMethods(List.of("GET", "OPTIONS"));
+        publicCors.setAllowedHeaders(List.of("Accept", "X-Correlation-Id", "X-Application-Id", "X-Environment-Id"));
+        publicCors.setAllowCredentials(false);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // El primer patron que coincide gana: la ruta publica va antes que la general.
+        source.registerCorsConfiguration("/messageucolab/v1/public/**", publicCors);
         source.registerCorsConfiguration("/**", cors);
         return new CorsWebFilter(source);
     }
