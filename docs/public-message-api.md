@@ -76,6 +76,7 @@ La primera traducción puede tardar varios segundos; las siguientes salen de la 
 | 404 | La aplicación o el ambiente no existen, o el mensaje no está disponible en ese ambiente |
 | 409 | El ambiente no pertenece a la aplicación, o el mensaje cambió mientras se traducía |
 | 403 | El consumidor no está autorizado (solo cuando el modo deje de ser `public`) |
+| 405 | Se usó un método distinto de `GET`; el encabezado `Allow` indica los permitidos |
 
 Los errores usan el cuerpo habitual `{"data": [], "errors": [{"code", "message"}], ...}`.
 

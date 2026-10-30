@@ -334,6 +334,10 @@ redis_hset "FUN_218" "Mensaje no disponible" "El mensaje %s no está disponible 
 redis_hset "FUN_219" "Idioma base no disponible" "La aplicación debe tener un código de idioma base válido antes de traducir mensajes." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_220" "Mensaje modificado durante la traducción" "El mensaje o el idioma base de la aplicación cambió durante la traducción. Reintenta la solicitud." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_221" "Consumo no autorizado" "La aplicación no está autorizada para consultar mensajes en el ambiente indicado." "FUNCTIONAL" "ERROR"
+redis_hset "FUN_222" "Método no permitido" "La ruta no admite el método %s. Métodos permitidos: %s." "FUNCTIONAL" "ERROR"
+redis_hset "FUN_223" "Ruta no encontrada" "No existe la ruta solicitada. Revisa la dirección y la versión de la API." "FUNCTIONAL" "ERROR"
+redis_hset "FUN_224" "Tipo de contenido no admitido" "La ruta no admite el tipo de contenido enviado. Revisa el encabezado Content-Type." "FUNCTIONAL" "ERROR"
+redis_hset "FUN_225" "Solicitud inválida" "La solicitud está incompleta o mal formada. Revisa los parámetros obligatorios y el cuerpo enviado." "FUNCTIONAL" "ERROR"
 redis_hset "TCH_078" "Error al consultar mensajes por aplicación" "Ocurrió un error al buscar mensajes por aplicación en SurrealDB. Identificador de aplicación: %s" "TECHNICAL" "ERROR"
 
 redis_hset "TCH_080" "Nombre de archivo obligatorio" "El nombre del archivo de propiedades no puede ser nulo ni estar vacío." "TECHNICAL" "ERROR"
