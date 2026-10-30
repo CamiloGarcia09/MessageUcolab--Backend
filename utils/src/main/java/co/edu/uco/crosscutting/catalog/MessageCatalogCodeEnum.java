@@ -779,6 +779,16 @@ public enum MessageCatalogCodeEnum {
     FUN_219("FUN_219"),
     /** El mensaje o su idioma base cambiaron mientras se obtenia la traduccion. */
     FUN_220("FUN_220"),
+    /** La aplicacion consumidora no esta autorizada para consultar los mensajes publicos. */
+    FUN_221("FUN_221"),
+    /** La ruta existe pero no admite el metodo HTTP usado. */
+    FUN_222("FUN_222"),
+    /** No existe una ruta para la direccion solicitada. */
+    FUN_223("FUN_223"),
+    /** El tipo de contenido del cuerpo no es admitido por la ruta. */
+    FUN_224("FUN_224"),
+    /** Faltan parametros obligatorios o el cuerpo no se puede leer. */
+    FUN_225("FUN_225"),
     TCH_076("TCH_076"),
     TCH_077("TCH_077"),
     /** Error al consultar mensajes por aplicacion en SurrealDB. */

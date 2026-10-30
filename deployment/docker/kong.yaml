@@ -9,6 +9,18 @@ services:
           - /messageucolab/v1
         strip_path: false
 
+      # Consulta publica de mensajes: sin sesion y con limite de peticiones por cliente.
+      - name: messageucolab-public
+        paths:
+          - /messageucolab/v1/public
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 120
+              policy: local
+              limit_by: ip
+
       - name: messageucolab-health
         paths:
           - /actuator/health

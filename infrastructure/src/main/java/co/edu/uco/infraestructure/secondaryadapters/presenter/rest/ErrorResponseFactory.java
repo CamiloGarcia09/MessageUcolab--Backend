@@ -30,8 +30,10 @@ public final class ErrorResponseFactory {
             case 401 -> "UNAUTHORIZED";
             case 403 -> "FORBIDDEN";
             case 404 -> "NOT_FOUND";
+            case 405 -> "METHOD_NOT_ALLOWED";
             case 406 -> "NOT_ACCEPTABLE";
             case 409 -> "CONFLICT";
+            case 415 -> "UNSUPPORTED_MEDIA_TYPE";
             case 422 -> "UNPROCESSABLE_ENTITY";
             default -> "INTERNAL_SERVER_ERROR";
         };
