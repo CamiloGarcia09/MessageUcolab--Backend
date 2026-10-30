@@ -84,7 +84,9 @@ Los errores usan el cuerpo habitual `{"data": [], "errors": [{"code", "message"}
 
 - Kong limita la ruta `/messageucolab/v1/public` a **120 peticiones por minuto por IP**
   (encabezados `RateLimit-*` en la respuesta).
-- CORS permite cualquier origen para `GET`, sin credenciales.
+- CORS solo afecta a los navegadores: los backends consumen la ruta sin restricción. Desde el navegador
+  solo la leen los orígenes de `messageucolab.cors.public-origins` (variable
+  `MESSAGEUCOLAB_PUBLIC_CORS_ORIGINS`, separados por coma), con `GET` y sin credenciales.
 
 ## Paso a ruta asegurada
 
