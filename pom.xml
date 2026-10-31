@@ -22,6 +22,7 @@
         <module>core</module>
         <module>infrastructure</module>
         <module>utils</module>
+        <module>clients/java</module>
     </modules>
     <dependencies>
         <dependency>

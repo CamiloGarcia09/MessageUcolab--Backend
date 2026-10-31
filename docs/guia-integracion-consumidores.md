@@ -1,6 +1,7 @@
 # Guía de integración: consumir MessageUcoLab
 
-Actualizada el 20 de octubre de 2026 para el retiro del mecanismo propietario.
+Actualizada el 30 de octubre de 2026 para el retiro del mecanismo propietario
+y la incorporación del cliente Maven.
 Las verificaciones históricas con ese mecanismo no certifican una integración
 nueva con el proveedor de seguridad.
 
@@ -84,7 +85,47 @@ no se elimina la autorización ni se sirve caché si falla esa comprobación.
 El consumidor debe reemplazar los marcadores `{nombre}`; el backend entrega el
 contenido original sin sustitución. La selección de idioma pertenece al consumidor.
 
-## 4. Traducción
+## 4. Cliente Maven
+
+Para consumidores en **Java 25 y Spring Boot 4.1.1**, el módulo
+`messageucolab-spring-boot-starter` evita implementar manualmente encabezados,
+deserialización, timeout y proyecciones. Se publica en GitHub Packages con las
+coordenadas siguientes:
+
+```xml
+<dependency>
+    <groupId>co.edu.uco</groupId>
+    <artifactId>messageucolab-spring-boot-starter</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
+
+El POM consumidor debe declarar el repositorio
+`https://maven.pkg.github.com/CamiloGarcia09/MessageUcolab--Backend` con id `github`.
+Las credenciales de lectura se configuran en el `settings.xml` del consumidor o
+en su gestor de secretos; nunca se agregan al POM.
+
+```yaml
+messageucolab:
+  url: ${MESSAGEUCOLAB_URL:http://localhost:8000}
+  application-id: ${MESSAGEUCOLAB_APPLICATION_ID}
+  environment-id: ${MESSAGEUCOLAB_ENVIRONMENT_ID}
+  timeout: 60s
+```
+
+El bean `MessageReader` expone únicamente la consulta de todos los atributos por
+código (`getDetails`), la consulta o traducción por código e idioma
+(`getDetails(code, language)`) y el catálogo completo (`getAll`). Un bean propio
+de `MessageFallbackPort` puede resolver respaldos ante `404`, `5xx` o errores de
+transporte; el starter no inventa textos locales.
+
+El starter consume exclusivamente las rutas públicas descritas en
+[Consulta pública de mensajes](public-message-api.md), enviando
+`X-Application-Id` y `X-Environment-Id`. No incluye secretos de Doppler ni
+depende de modelos internos del servidor. Aplicaciones en Java 17 o Spring Boot
+3 deben migrar antes de usar esta versión del starter.
+
+## 5. Traducción
 
 Para aplicaciones consumidoras, requiere sesión BFF y permiso de traducción sobre
 la nueva ruta, además de un mensaje activo y habilitado en el ambiente indicado:
@@ -116,7 +157,7 @@ no sustituye la operación de consumo. La IA puede ser lenta: preparar las
 traducciones antes del renderizado y verificar la conservación de marcadores.
 Ver [el contrato de consumo](message-consumer-api.md#traducción-para-consumo).
 
-## 5. Errores y resiliencia
+## 6. Errores y resiliencia
 
 | Estado | Significado | Acción del consumidor |
 |---|---|---|
@@ -136,7 +177,7 @@ debe separar aplicación, ambiente e idioma; un cambio de contexto no debe
 reutilizar textos de otro alcance. Los cambios se ven cuando vence o se invalida
 esa caché. No se ofrece promoción de mensajes entre ambientes en este contrato.
 
-## 6. Ejecutar el componente en desarrollo
+## 7. Ejecutar el componente en desarrollo
 
 Requiere Docker Compose y Doppler CLI vinculado al proyecto `messageucolab`,
 configuración `dev`. No hace falta un `.env` ni acceso de escritura a secretos

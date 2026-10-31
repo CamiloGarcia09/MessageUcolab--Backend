@@ -12,6 +12,9 @@ COPY pom.xml .
 COPY infrastructure/pom.xml infrastructure/
 COPY core/pom.xml core/
 COPY utils/pom.xml utils/
+COPY clients/java/pom.xml clients/java/
+COPY clients/java/messageucolab-client-api/pom.xml clients/java/messageucolab-client-api/
+COPY clients/java/messageucolab-spring-boot-starter/pom.xml clients/java/messageucolab-spring-boot-starter/
 
 ARG GITHUB_PACKAGES_USER
 RUN --mount=type=secret,id=maven_settings,required=true \
@@ -21,6 +24,8 @@ RUN --mount=type=secret,id=maven_settings,required=true \
 COPY infrastructure/src infrastructure/src
 COPY core/src core/src
 COPY utils/src utils/src
+COPY clients/java/messageucolab-client-api/src clients/java/messageucolab-client-api/src
+COPY clients/java/messageucolab-spring-boot-starter/src clients/java/messageucolab-spring-boot-starter/src
 COPY deployment/docker/scripts/surreal/surreal-init.surql deployment/docker/scripts/surreal/surreal-init.surql
 
 RUN --mount=type=secret,id=maven_settings,required=true \
