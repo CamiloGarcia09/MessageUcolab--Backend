@@ -62,7 +62,7 @@ testeable (y en ese caso lo reportas antes de hacerlo).
   detener, reiniciar, reconstruir, recrear o eliminar `security-baseline`.
 - Distinguir el frontend MessageUcoLab (5174), el administrativo de seguridad
   (5173) y Security UI (5175, `/security-administration.js`). Consultar el mapa de
-  puertos y contratos en `AGENTS.md` y `docs/security-integration.md`; no asumir
+  puertos y contratos en `AGENTS.md` y `docs/integracion-seguridad.md`; no asumir
   disponibilidad actual por evidencias históricas ni arrancar servicios externos.
 - Las autorizaciones históricas para editar datos específicos de seguridad no
   se heredan en esta tarea ni en nuevas sesiones. No repetir esas escrituras.
