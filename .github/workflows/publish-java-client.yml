@@ -1,0 +1,120 @@
+name: Publish MessageUcoLab Java client
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'clients/java/**'
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: publish-messageucolab-java-client
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          prefix='messageucolab-client-v'
+          current_tag="$(git tag --points-at "$GITHUB_SHA" --list "${prefix}*" | sort -V | tail -n 1)"
+
+          if [[ -n "$current_tag" ]]; then
+            tag="$current_tag"
+            version="${tag#${prefix}}"
+          else
+            latest_tag="$(git tag --list "${prefix}*" | sort -V | tail -n 1)"
+
+            if [[ -z "$latest_tag" ]]; then
+              version='0.1.0'
+            else
+              if ! gh release view "$latest_tag" >/dev/null 2>&1; then
+                echo "::error::The previous release $latest_tag is incomplete. Re-run its publication before creating another version."
+                exit 1
+              fi
+
+              latest_version="${latest_tag#${prefix}}"
+              if [[ ! "$latest_version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+                echo "::error::Invalid client tag: $latest_tag"
+                exit 1
+              fi
+
+              version="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((BASH_REMATCH[3] + 1))"
+            fi
+
+            tag="${prefix}${version}"
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid release version: $version"
+            exit 1
+          fi
+
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Reserve release tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if git rev-parse --verify --quiet "refs/tags/$RELEASE_TAG" >/dev/null; then
+            tag_commit="$(git rev-list -n 1 "$RELEASE_TAG")"
+            if [[ "$tag_commit" != "$GITHUB_SHA" ]]; then
+              echo "::error::Tag $RELEASE_TAG already points to $tag_commit instead of $GITHUB_SHA."
+              exit 1
+            fi
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag --annotate "$RELEASE_TAG" --message "MessageUcoLab Java client ${{ steps.version.outputs.value }}"
+          git push origin "$RELEASE_TAG"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Publish client artifacts
+        run: >-
+          ./mvnw -f clients/java/pom.xml
+          --batch-mode
+          -DskipTests
+          -DdeployAtEnd=true
+          -Drevision="${{ steps.version.outputs.value }}"
+          deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: MessageUcoLab Java client ${{ steps.version.outputs.value }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

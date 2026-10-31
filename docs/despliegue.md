@@ -112,6 +112,14 @@ La validación incluye:
 
 El pipeline requiere credenciales de lectura de GitHub Packages. No debe recibir el grupo completo de secretos de despliegue para validar un pull request.
 
+### Publicación del cliente Java
+
+Los tres artefactos del cliente Java se publican automáticamente en GitHub Packages cuando un cambio bajo `clients/java` llega a `main`. El workflow `.github/workflows/publish-java-client.yml` toma como base el último tag `messageucolab-client-vX.Y.Z`, incrementa el patch y usa esa versión para el reactor Maven.
+
+La publicación crea el tag y el GitHub Release correspondientes. Si una ejecución se reintenta sobre el mismo commit, reutiliza la versión reservada; si una publicación anterior quedó incompleta, bloquea versiones posteriores hasta resolverla. Las pruebas no se repiten durante el despliegue porque el cambio ya debe haber superado `clean verify` en el pipeline de integración.
+
+La versión `0.1.0` fue la publicación inicial. La primera publicación generada por este workflow será `0.1.1`.
+
 ## Despliegue en Azure
 
 `azure-deploy-pipeline.yml` es manual y solo acepta `refs/heads/develop`. Admite:

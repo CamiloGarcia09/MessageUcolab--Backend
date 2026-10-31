@@ -7,7 +7,7 @@
     <parent>
         <groupId>co.edu.uco</groupId>
         <artifactId>messageucolab-java-client</artifactId>
-        <version>0.1.0</version>
+        <version>${revision}</version>
     </parent>
 
     <artifactId>messageucolab-client-api</artifactId>
