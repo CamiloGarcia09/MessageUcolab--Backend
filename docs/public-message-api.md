@@ -68,6 +68,52 @@ La primera traducción puede tardar varios segundos; las siguientes salen de la 
 }
 ```
 
+## Cliente Maven para Java
+
+Los consumidores que usan **Java 25 y Spring Boot 4.1.1** pueden incorporar el
+starter publicado en GitHub Packages. El starter mantiene separados el contrato
+público, el adaptador HTTP y los DTO internos de esta API.
+
+```xml
+<repositories>
+    <repository>
+        <id>github</id>
+        <url>https://maven.pkg.github.com/CamiloGarcia09/MessageUcolab--Backend</url>
+    </repository>
+</repositories>
+
+<dependency>
+    <groupId>co.edu.uco</groupId>
+    <artifactId>messageucolab-spring-boot-starter</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
+
+GitHub Packages requiere que el consumidor configure el servidor Maven `github`
+con credenciales que tengan permiso `read:packages`. Esas credenciales no forman
+parte del POM ni del artefacto.
+
+```yaml
+messageucolab:
+  url: ${MESSAGEUCOLAB_URL:http://localhost:8000}
+  application-id: ${MESSAGEUCOLAB_APPLICATION_ID}
+  environment-id: ${MESSAGEUCOLAB_ENVIRONMENT_ID}
+  timeout: 60s
+```
+
+Spring registra un `MessageReader` con estas operaciones:
+
+```java
+Mono<MessageDetails> details = messages.getDetails("MSG_PRODSAVED");
+Mono<MessageDetails> translated = messages.getDetails("MSG_PRODSAVED", "en");
+Mono<MessageCollection> all = messages.getAll();
+```
+
+El cliente aplica el respaldo opcional del consumidor ante `404`, respuestas
+`5xx` y errores de transporte. Para definirlo, la aplicación registra un bean
+`MessageFallbackPort`; si no lo hace, se conserva el error original. El listado
+completo no usa respaldo porque no existe un mensaje individual que resolver.
+
 ## Errores
 
 | HTTP | Cuándo |
