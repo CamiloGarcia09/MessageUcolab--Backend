@@ -1,0 +1,27 @@
+_format_version: "3.0"
+
+services:
+  - name: messageucolab
+    url: http://messageucolab:8085
+    routes:
+      - name: messageucolab-api
+        paths:
+          - /messageucolab/v1
+        strip_path: false
+
+      - name: messageucolab-health
+        paths:
+          - /actuator/health
+        methods:
+          - GET
+        strip_path: false
+
+      - name: messageucolab-swagger
+        paths:
+          - /swagger-ui
+          - /swagger-ui.html
+          - /openapi.yaml
+          - /v3/api-docs
+        methods:
+          - GET
+        strip_path: false

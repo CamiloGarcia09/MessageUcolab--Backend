@@ -1,43 +1,78 @@
-FROM maven:3.8.4-openjdk-17-slim AS build
+# syntax=docker/dockerfile:1.10
+FROM eclipse-temurin:25-jdk-noble AS build
+
 WORKDIR /app
+
+COPY .mvn .mvn
+COPY mvnw .
+COPY core/mvnw core/mvnw
+RUN sed -i 's/\r$//' mvnw core/mvnw && chmod +x mvnw
 
 COPY pom.xml .
 COPY infrastructure/pom.xml infrastructure/
 COPY core/pom.xml core/
 COPY utils/pom.xml utils/
+COPY clients/java/pom.xml clients/java/
+COPY clients/java/messageucolab-client-api/pom.xml clients/java/messageucolab-client-api/
+COPY clients/java/messageucolab-spring-boot-starter/pom.xml clients/java/messageucolab-spring-boot-starter/
 
-RUN mvn dependency:go-offline -B
+ARG GITHUB_PACKAGES_USER
+RUN --mount=type=secret,id=maven_settings,required=true \
+    --mount=type=secret,id=github_packages_token,env=GITHUB_PACKAGES_TOKEN,required=true \
+    ./mvnw -s /run/secrets/maven_settings dependency:go-offline -B -ntp
 
-# Copiar el código fuente de todos los módulos
 COPY infrastructure/src infrastructure/src
 COPY core/src core/src
 COPY utils/src utils/src
+COPY clients/java/messageucolab-client-api/src clients/java/messageucolab-client-api/src
+COPY clients/java/messageucolab-spring-boot-starter/src clients/java/messageucolab-spring-boot-starter/src
+COPY deployment/docker/scripts/surreal/surreal-init.surql deployment/docker/scripts/surreal/surreal-init.surql
 
-# Construir todos los módulos
-RUN mvn clean package -DskipTests -B
+RUN --mount=type=secret,id=maven_settings,required=true \
+    --mount=type=secret,id=github_packages_token,env=GITHUB_PACKAGES_TOKEN,required=true \
+    ./mvnw -s /run/secrets/maven_settings clean verify -B -ntp
 
-# Etapa de ejecución
-FROM eclipse-temurin:17-jdk-jammy
+# El jar se extrae por capas: las dependencias cambian poco y quedan en capas que Docker reutiliza.
+# El driver de SurrealDB trae su motor nativo para 12 plataformas (~300 MB); solo se conserva el de
+# la arquitectura de la imagen (TARGETARCH lo define Docker: amd64 o arm64).
+ARG TARGETARCH
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y zip unzip \
+    && rm -rf /var/lib/apt/lists/* \
+    && cp infrastructure/target/infrastructure-*.jar app.jar \
+    && java -Djarmode=tools -jar app.jar extract --layers --destination extracted \
+    && mkdir -p extracted/dependencies extracted/spring-boot-loader \
+        extracted/snapshot-dependencies extracted/application \
+    && if [ "$TARGETARCH" = "arm64" ]; then native=linux_arm64; else native=linux_64; fi \
+    && surrealdb=$(find extracted -name 'surrealdb-*.jar') \
+    && zip -q "$surrealdb" -d $(unzip -Z1 "$surrealdb" 'natives/*' | grep -v "^natives/$native/" | grep -v '/$') \
+    && unzip -Z1 "$surrealdb" 'natives/*' | grep -q "^natives/$native/"
 
-# Instalar herramientas de diagnóstico
-RUN apt-get update && apt-get install -y \
-    curl \
-    iputils-ping \
-    net-tools \
-    && rm -rf /var/lib/apt/lists/*
+FROM eclipse-temurin:25-jre-noble
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system app \
+    && useradd --system --gid app --home-dir /app app
 
 WORKDIR /app
 
-# Crear directorio de logs y dar permisos
-RUN mkdir -p /app/logs && \
-    chmod 777 /app/logs
+RUN mkdir -p /app/logs && chown -R app:app /app
 
-# Copiar el JAR desde la etapa de construcción
-COPY --from=build /app/infrastructure/target/infrastructure-0.0.1-SNAPSHOT.jar app.jar
+COPY --from=build --chown=app:app /app/extracted/dependencies/ ./
+COPY --from=build --chown=app:app /app/extracted/spring-boot-loader/ ./
+COPY --from=build --chown=app:app /app/extracted/snapshot-dependencies/ ./
+COPY --from=build --chown=app:app /app/extracted/application/ ./
 
-# Configuración de variables de entorno
-ENV JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+ENV JAVA_OPTS="-Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+ENV TZ=UTC
 
 EXPOSE 8085
 
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+USER app
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl --fail --silent http://localhost:8085/actuator/health || exit 1
+
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Duser.timezone=UTC -jar app.jar"]

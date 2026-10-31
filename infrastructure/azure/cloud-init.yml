@@ -1,0 +1,35 @@
+#cloud-config
+package_update: true
+package_upgrade: false
+
+packages:
+  - ca-certificates
+  - curl
+  - docker.io
+  - docker-compose-v2
+  - gnupg
+
+write_files:
+  - path: /etc/docker/daemon.json
+    permissions: '0644'
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": {
+          "max-size": "10m",
+          "max-file": "3"
+        }
+      }
+
+runcmd:
+  - systemctl enable --now docker
+  - usermod -aG docker __ADMIN_USERNAME__
+  - mkdir -p /opt/messageucolab
+  - chown -R __ADMIN_USERNAME__:__ADMIN_USERNAME__ /opt/messageucolab
+  - curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+  - curl -sLf --retry 3 --tlsv1.2 --proto '=https' https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key | gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg
+  - echo 'deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] https://packages.doppler.com/public/cli/deb/debian any-version main' > /etc/apt/sources.list.d/doppler-cli.list
+  - apt-get update && apt-get install -y doppler
+  - systemctl restart docker
+
+final_message: "Inicialización de la máquina virtual de MessageUcoLab completada"

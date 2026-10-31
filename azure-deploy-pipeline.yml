@@ -1,0 +1,307 @@
+trigger: none
+pr: none
+
+parameters:
+  - name: operation
+    displayName: Operación de despliegue
+    type: string
+    default: DEPLOY
+    values:
+      - DEPLOY
+      - STOP
+
+pool:
+  vmImage: ubuntu-24.04
+
+lockBehavior: sequential
+
+variables:
+  IMAGE_REPOSITORY: messageucolab
+  IMAGE_TAG: $(Build.SourceVersion)
+  DEPLOY_ROOT: /opt/messageucolab
+  DOPPLER_DEPLOY_TOKEN_SECRET: doppler-deploy-token
+
+stages:
+  - stage: ValidateRequest
+    displayName: Validar solicitud de despliegue
+    jobs:
+      - job: BranchGuard
+        displayName: Verificar rama protegida
+        steps:
+          - checkout: none
+          - task: PowerShell@2
+            displayName: Validar rama de origen
+            inputs:
+              targetType: inline
+              script: |
+                if ('$(Build.SourceBranch)' -ne 'refs/heads/develop') {
+                  throw 'DEPLOY y STOP solo están permitidos desde la rama develop.'
+                }
+
+  - stage: DeployDemo
+    displayName: Desplegar entorno de demostración
+    dependsOn: ValidateRequest
+    condition: and(succeeded(), eq('${{ parameters.operation }}', 'DEPLOY'))
+    variables:
+      - group: messageucolab-cicd
+    jobs:
+      - deployment: Deploy
+        displayName: Compilar y desplegar en la máquina virtual temporal
+        environment: messageucolab-dev
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                  clean: true
+
+                - task: PowerShell@2
+                  displayName: Validar herramientas del agente
+                  inputs:
+                    targetType: inline
+                    script: |
+                      $ErrorActionPreference = 'Stop'
+                      docker version
+                      if ($LASTEXITCODE -ne 0) { throw 'Docker Engine no está disponible.' }
+                      az version
+                      if ($LASTEXITCODE -ne 0) { throw 'Azure CLI no está disponible.' }
+                      ssh -V
+                      if ($LASTEXITCODE -ne 0) { throw 'OpenSSH no está disponible.' }
+
+                - task: AzureCLI@2
+                  displayName: Compilar y publicar la imagen de la aplicación
+                  inputs:
+                    azureSubscription: messageucolab-azure-wif
+                    scriptType: pscore
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      $ErrorActionPreference = 'Stop'
+                      & "$(Build.SourcesDirectory)/deployment/ci/Assert-GitHubPackagesCredentials.ps1"
+                      $loginServer = "$(ACR_NAME).azurecr.io"
+                      $commitImage = "${loginServer}/$(IMAGE_REPOSITORY):$(IMAGE_TAG)"
+                      az acr login --name "$(ACR_NAME)"
+                      if ($LASTEXITCODE -ne 0) { throw 'El inicio de sesión en ACR falló.' }
+                      docker build `
+                        --secret "id=maven_settings,src=$(Build.SourcesDirectory)/.mvn/settings.xml" `
+                        --secret id=github_packages_token,env=GITHUB_PACKAGES_TOKEN `
+                        --build-arg "GITHUB_PACKAGES_USER=$env:GITHUB_PACKAGES_USER" `
+                        --tag $commitImage .
+                      if ($LASTEXITCODE -ne 0) { throw 'La compilación de la imagen de la aplicación falló.' }
+                      docker push $commitImage
+                      if ($LASTEXITCODE -ne 0) { throw 'La publicación de la imagen del commit falló.' }
+                  env:
+                    DOCKER_BUILDKIT: '1'
+                    GITHUB_PACKAGES_USER: $(GITHUB_PACKAGES_USER)
+                    GITHUB_PACKAGES_TOKEN: $(GITHUB_PACKAGES_TOKEN)
+
+                - task: DownloadSecureFile@1
+                  name: sshKey
+                  displayName: Descargar clave SSH de despliegue
+                  inputs:
+                    secureFile: $(SSH_SECURE_FILE)
+
+                - task: AzureCLI@2
+                  displayName: Iniciar la máquina virtual y abrir acceso SSH temporal
+                  inputs:
+                    azureSubscription: messageucolab-azure-wif
+                    scriptType: pscore
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      $ErrorActionPreference = 'Stop'
+                      $agentIp = (Invoke-RestMethod -Uri 'https://api.ipify.org').Trim()
+                      az vm start --resource-group "$(AZURE_RESOURCE_GROUP)" --name "$(AZURE_VM_NAME)"
+                      if ($LASTEXITCODE -ne 0) { throw 'El inicio de la máquina virtual falló.' }
+                      $publicIp = az vm list-ip-addresses --resource-group "$(AZURE_RESOURCE_GROUP)" --name "$(AZURE_VM_NAME)" --query '[0].virtualMachine.network.publicIpAddresses[0].ipAddress' --output tsv
+                      if ($LASTEXITCODE -ne 0) { throw 'No se pudo obtener la dirección IP pública de la máquina virtual.' }
+                      Write-Host "##vso[task.setvariable variable=VM_PUBLIC_IP]$publicIp"
+                      $existingRules = @(az network nsg rule list `
+                        --resource-group "$(AZURE_RESOURCE_GROUP)" `
+                        --nsg-name "$(AZURE_NSG_NAME)" `
+                        --query '[].name' `
+                        --output tsv)
+                      if ($LASTEXITCODE -ne 0) { throw 'No se pudieron listar las reglas existentes del NSG.' }
+                      foreach ($ruleName in @('AllowApplicationDemo', 'AllowDemoGateway', 'AllowPipelineDeployment')) {
+                        if ($existingRules -contains $ruleName) {
+                          az network nsg rule delete `
+                            --resource-group "$(AZURE_RESOURCE_GROUP)" `
+                            --nsg-name "$(AZURE_NSG_NAME)" `
+                            --name $ruleName `
+                            --output none
+                          if ($LASTEXITCODE -ne 0) { throw "No se pudo eliminar la regla obsoleta del NSG: $ruleName." }
+                        }
+                      }
+                      az network nsg rule create `
+                        --resource-group "$(AZURE_RESOURCE_GROUP)" `
+                        --nsg-name "$(AZURE_NSG_NAME)" `
+                        --name AllowPipelineDeployment `
+                        --priority 100 `
+                        --access Allow `
+                        --direction Inbound `
+                        --protocol Tcp `
+                        --source-address-prefixes "$agentIp/32" `
+                        --source-port-ranges '*' `
+                        --destination-address-prefixes '*' `
+                        --destination-port-ranges 22 `
+                        --output none
+                      if ($LASTEXITCODE -ne 0) { throw 'No se pudo crear el acceso temporal en el NSG.' }
+
+                - task: PowerShell@2
+                  displayName: Copiar archivos de despliegue
+                  inputs:
+                    targetType: inline
+                    script: |
+                      $ErrorActionPreference = 'Stop'
+                      $key = '$(sshKey.secureFilePath)'
+                      $remoteHost = 'azureuser@$(VM_PUBLIC_IP)'
+                      chmod 600 $key
+                      if ($LASTEXITCODE -ne 0) { throw 'No se pudo proteger la clave SSH privada.' }
+                      ssh -i $key -o StrictHostKeyChecking=accept-new -o ConnectTimeout=30 $remoteHost `
+                        "mkdir -p $(DEPLOY_ROOT)/deployment/docker"
+                      if ($LASTEXITCODE -ne 0) { throw 'La conexión SSH falló.' }
+                      scp -i $key -r deployment/azure "${remoteHost}:$(DEPLOY_ROOT)/deployment/"
+                      if ($LASTEXITCODE -ne 0) { throw 'No se pudieron copiar los archivos de despliegue de Azure.' }
+                      scp -i $key -r deployment/docker/scripts "${remoteHost}:$(DEPLOY_ROOT)/deployment/docker/"
+                      if ($LASTEXITCODE -ne 0) { throw 'No se pudieron copiar los scripts de inicialización.' }
+
+                - task: AzureCLI@2
+                  displayName: Desplegar y verificar contenedores
+                  inputs:
+                    azureSubscription: messageucolab-azure-wif
+                    scriptType: pscore
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      $ErrorActionPreference = 'Stop'
+                      $deployCommand = "chmod +x '$(DEPLOY_ROOT)/deployment/azure/deploy.sh' && sudo -u azureuser -H '$(DEPLOY_ROOT)/deployment/azure/deploy.sh' '$(IMAGE_TAG)' '$(ACR_NAME)' '$(KEY_VAULT_NAME)' '$(DOPPLER_DEPLOY_TOKEN_SECRET)'"
+                      $result = az vm run-command invoke `
+                        --resource-group "$(AZURE_RESOURCE_GROUP)" `
+                        --name "$(AZURE_VM_NAME)" `
+                        --command-id RunShellScript `
+                        --scripts $deployCommand `
+                        --query 'value[0].message' `
+                        --output tsv
+                      if ($LASTEXITCODE -ne 0) { throw 'El despliegue remoto falló.' }
+                      $resultText = $result -join [Environment]::NewLine
+                      Write-Host $resultText
+                      if ($resultText -notmatch 'Deployment completed with image tag') {
+                        throw 'El despliegue remoto no informó que finalizó correctamente.'
+                      }
+
+                - task: AzureCLI@2
+                  displayName: Abrir acceso público a la puerta de enlace de la API
+                  inputs:
+                    azureSubscription: messageucolab-azure-wif
+                    scriptType: pscore
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      $ErrorActionPreference = 'Stop'
+                      az network nsg rule create `
+                        --resource-group "$(AZURE_RESOURCE_GROUP)" `
+                        --nsg-name "$(AZURE_NSG_NAME)" `
+                        --name AllowDemoGateway `
+                        --priority 110 `
+                        --access Allow `
+                        --direction Inbound `
+                        --protocol Tcp `
+                        --source-address-prefixes Internet `
+                        --source-port-ranges '*' `
+                        --destination-address-prefixes '*' `
+                        --destination-port-ranges 8000 `
+                        --output none
+                      if ($LASTEXITCODE -ne 0) { throw 'No se pudo abrir el acceso público a la puerta de enlace de la API.' }
+
+                - task: PowerShell@2
+                  displayName: Ejecutar prueba rápida externa
+                  inputs:
+                    targetType: inline
+                    script: |
+                      $ErrorActionPreference = 'Stop'
+                      $healthUri = 'http://$(VM_PUBLIC_IP):8000/actuator/health'
+                      $response = $null
+                      for ($attempt = 1; $attempt -le 12; $attempt++) {
+                        try {
+                          $response = Invoke-RestMethod -Uri $healthUri -TimeoutSec 15
+                          break
+                        } catch {
+                          Write-Host "El intento $attempt de comprobar el estado de la puerta de enlace falló."
+                          Start-Sleep -Seconds 10
+                        }
+                      }
+                      if ($response.status -ne 'UP') { throw 'La comprobación del estado de la aplicación no devolvió UP.' }
+                      Write-Host "Estado de la aplicación: $($response.status)"
+                      Write-Host 'Puerta de enlace de la API: http://$(VM_PUBLIC_IP):8000'
+                      Write-Host 'Swagger UI: http://$(VM_PUBLIC_IP):8000/swagger-ui/index.html'
+
+                - task: AzureCLI@2
+                  displayName: Limpiar acceso temporal de red
+                  condition: always()
+                  inputs:
+                    azureSubscription: messageucolab-azure-wif
+                    scriptType: pscore
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      function Remove-NsgRule([string] $RuleName) {
+                        $existingRules = @(az network nsg rule list `
+                          --resource-group "$(AZURE_RESOURCE_GROUP)" `
+                          --nsg-name "$(AZURE_NSG_NAME)" `
+                          --query '[].name' `
+                          --output tsv)
+                        if ($LASTEXITCODE -ne 0) { throw 'No se pudieron listar las reglas existentes del NSG.' }
+                        if ($existingRules -contains $RuleName) {
+                          az network nsg rule delete `
+                            --resource-group "$(AZURE_RESOURCE_GROUP)" `
+                            --nsg-name "$(AZURE_NSG_NAME)" `
+                            --name $RuleName `
+                            --output none
+                          if ($LASTEXITCODE -ne 0) { throw "No se pudo eliminar la regla del NSG: $RuleName." }
+                        }
+                      }
+
+                      Remove-NsgRule 'AllowPipelineDeployment'
+                      if ('$(Agent.JobStatus)' -ne 'Succeeded') {
+                        Remove-NsgRule 'AllowDemoGateway'
+                      }
+
+  - stage: StopDemo
+    displayName: Detener y desasignar la máquina virtual de demostración
+    dependsOn: ValidateRequest
+    condition: and(succeeded(), eq('${{ parameters.operation }}', 'STOP'))
+    variables:
+      - group: messageucolab-cicd
+    jobs:
+      - deployment: Stop
+        displayName: Desasignar máquina virtual
+        environment: messageucolab-dev
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: none
+                - task: AzureCLI@2
+                  displayName: Eliminar acceso público y desasignar la máquina virtual
+                  inputs:
+                    azureSubscription: messageucolab-azure-wif
+                    scriptType: pscore
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      $ErrorActionPreference = 'Stop'
+                      $existingRules = @(az network nsg rule list `
+                        --resource-group "$(AZURE_RESOURCE_GROUP)" `
+                        --nsg-name "$(AZURE_NSG_NAME)" `
+                        --query '[].name' `
+                        --output tsv)
+                      if ($LASTEXITCODE -ne 0) { throw 'No se pudieron listar las reglas existentes del NSG.' }
+                      foreach ($ruleName in @('AllowPipelineDeployment', 'AllowApplicationDemo', 'AllowDemoGateway')) {
+                        if ($existingRules -contains $ruleName) {
+                          az network nsg rule delete `
+                            --resource-group "$(AZURE_RESOURCE_GROUP)" `
+                            --nsg-name "$(AZURE_NSG_NAME)" `
+                            --name $ruleName `
+                            --output none
+                          if ($LASTEXITCODE -ne 0) { throw "No se pudo eliminar la regla del NSG: $ruleName." }
+                        }
+                      }
+                      az vm deallocate `
+                        --resource-group "$(AZURE_RESOURCE_GROUP)" `
+                        --name "$(AZURE_VM_NAME)" `
+                        --no-wait
+                      if ($LASTEXITCODE -ne 0) { throw 'La solicitud para desasignar la máquina virtual falló.' }

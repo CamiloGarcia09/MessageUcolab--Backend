@@ -1,0 +1,25 @@
+{
+  "properties": [
+    {
+      "name": "messageucolab.url",
+      "type": "java.lang.String",
+      "description": "URL base de MessageUcoLab o de su gateway."
+    },
+    {
+      "name": "messageucolab.application-id",
+      "type": "java.lang.String",
+      "description": "UUID de la aplicación consumidora registrado en MessageUcoLab."
+    },
+    {
+      "name": "messageucolab.environment-id",
+      "type": "java.lang.String",
+      "description": "UUID del ambiente que pertenece a la aplicación consumidora."
+    },
+    {
+      "name": "messageucolab.timeout",
+      "type": "java.time.Duration",
+      "description": "Tiempo máximo de cada consulta HTTP.",
+      "defaultValue": "60s"
+    }
+  ]
+}

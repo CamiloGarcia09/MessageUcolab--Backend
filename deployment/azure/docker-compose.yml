@@ -1,0 +1,215 @@
+name: messageucolab
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    command:
+      [
+        "redis-server",
+        "--requirepass",
+        "${REDISPASSWORD}",
+        "--appendonly",
+        "yes",
+        "--maxmemory",
+        "192mb",
+        "--maxmemory-policy",
+        "allkeys-lru",
+      ]
+    environment:
+      REDISPASSWORD: ${REDISPASSWORD}
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", 'redis-cli -a "$$REDISPASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 256m
+    cpus: 0.25
+
+  redis-init:
+    image: redis:7.4-alpine
+    environment:
+      REDISHOST: ${REDISHOST}
+      REDISPORT: ${REDISPORT}
+      REDISPASSWORD: ${REDISPASSWORD}
+    volumes:
+      - ../docker/scripts/redis/CatalogMessageInit.sh:/init/CatalogMessageInit.sh:ro
+    entrypoint: ["/bin/sh", "/init/CatalogMessageInit.sh"]
+    restart: "no"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  surrealdb:
+    image: surrealdb/surrealdb:v3.1.4
+    user: "0:0"
+    command: start --bind 0.0.0.0:8005 --user ${SURREALDBUSER} --pass ${SURREALDBPASSWORD} surrealkv:/data/database.db
+    restart: unless-stopped
+    environment:
+      SURREAL_AUTH: "true"
+      SURREAL_USER: ${SURREALDBUSER}
+      SURREAL_PASS: ${SURREALDBPASSWORD}
+    volumes:
+      - surrealdb-data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "/surreal", "is-ready", "--endpoint", "ws://localhost:8005"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 768m
+    cpus: 0.50
+
+  surrealdb-init:
+    image: surrealdb/surrealdb:v3.1.4
+    entrypoint: ["/surreal"]
+    command:
+      - import
+      - --endpoint
+      - http://surrealdb:8005
+      - --username
+      - ${SURREALDBUSER}
+      - --password
+      - ${SURREALDBPASSWORD}
+      - --namespace
+      - ${SURREALDBNAMESPACE}
+      - --database
+      - ${SURREALDBDATABASE}
+      - /init/surreal-init.surql
+    volumes:
+      - ../docker/scripts/surreal/surreal-init.surql:/init/surreal-init.surql:ro
+    restart: "no"
+    depends_on:
+      surrealdb:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  pulsar:
+    image: apachepulsar/pulsar:3.2.2
+    hostname: pulsar
+    command: >-
+      /bin/bash -c "bin/apply-config-from-env.py conf/standalone.conf &&
+      bin/apply-config-from-env.py conf/client.conf &&
+      sed -i 's/^useHostNameAsBookieID=.*/useHostNameAsBookieID=true/' conf/bookkeeper.conf &&
+      bin/pulsar standalone -nss -nfw"
+    restart: unless-stopped
+    environment:
+      PULSAR_MEM: "-Xms256m -Xmx512m -XX:MaxDirectMemorySize=512m"
+      PULSAR_PREFIX_advertisedAddress: pulsar
+      PULSAR_PREFIX_allowAutoTopicCreationType: partitioned
+    volumes:
+      - pulsar-data:/pulsar/data
+      - pulsar-conf:/pulsar/conf
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "bin/pulsar-admin brokers healthcheck"]
+      interval: 20s
+      timeout: 20s
+      retries: 15
+      start_period: 45s
+    mem_limit: 1536m
+    cpus: 0.75
+
+  messageucolab:
+    image: ${ACR_LOGIN_SERVER}/messageucolab:${IMAGE_TAG}
+    pull_policy: always
+    restart: unless-stopped
+    expose:
+      - "8085"
+    environment:
+      TZ: UTC
+      SPRING_PROFILES_ACTIVE: azure
+      JAVA_OPTS: ${JAVA_OPTS:--Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200}
+      AZURE_KEYVAULT_UCOLAB_ENDPOINT: ${AZURE_KEYVAULT_UCOLAB_ENDPOINT}
+      DOPPLER_PROJECT: ${DOPPLER_PROJECT:-messageucolab}
+      DOPPLER_CONFIG: ${DOPPLER_CONFIG:-dev_azure}
+      REDISHOST: ${REDISHOST}
+      REDISPORT: ${REDISPORT}
+      REDISPASSWORD: ${REDISPASSWORD}
+      REDISDATABASE: ${REDISDATABASE:-0}
+      PULSARURL: ${PULSARURL}
+      PULSARTOPICNAME: ${PULSARTOPICNAME}
+      SURREALDBHOST: ${SURREALDBHOST}
+      SURREALDBPORT: ${SURREALDBPORT}
+      SURREALDBUSER: ${SURREALDBUSER}
+      SURREALDBPASSWORD: ${SURREALDBPASSWORD}
+      SURREALDBNAMESPACE: ${SURREALDBNAMESPACE}
+      SURREALDBDATABASE: ${SURREALDBDATABASE}
+      TRANSLATION_AI_ENABLED: ${TRANSLATION_AI_ENABLED:-false}
+      TRANSLATION_AI_PROVIDER: ${TRANSLATION_AI_PROVIDER:-ollama}
+      TRANSLATION_AI_API_KEY: ${TRANSLATION_AI_API_KEY:-}
+      TRANSLATION_AI_BASE_URL: ${TRANSLATION_AI_BASE_URL:-http://ollama:11434}
+      TRANSLATION_AI_MODEL_NAME: ${TRANSLATION_AI_MODEL_NAME:-llama3.2}
+    depends_on:
+      redis:
+        condition: service_healthy
+      surrealdb:
+        condition: service_healthy
+      pulsar:
+        condition: service_healthy
+      redis-init:
+        condition: service_completed_successfully
+      surrealdb-init:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "--fail",
+          "--silent",
+          "http://localhost:8085/actuator/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    mem_limit: 1024m
+    cpus: 0.75
+
+  kong:
+    image: kong/kong-gateway:3.5
+    restart: unless-stopped
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yaml
+      KONG_ADMIN_LISTEN: "off"
+      KONG_NGINX_WORKER_PROCESSES: "1"
+    volumes:
+      - ./kong.yaml:/etc/kong/kong.yaml:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      messageucolab:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    mem_limit: 256m
+    cpus: 0.25
+
+volumes:
+  redis-data:
+  surrealdb-data:
+  pulsar-data:
+  pulsar-conf:
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>{"correlationId":"%X{X-Correlation-ID}","timestamp":"%date{yyyy-MM-dd'T'HH:mm:ss.SSSXXX,UTC}","level":"%level","thread":"%thread","logger":"%logger","message":"%replace(%message){'\"','\\\"'}"}%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

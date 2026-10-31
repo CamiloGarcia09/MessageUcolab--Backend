@@ -1,0 +1,23 @@
+.git
+.github
+.idea
+.vscode
+.opencode
+.kilo
+.claude
+**/target
+logs
+*.log
+.env
+.env.*
+!.env.example
+README.md
+skills-lock.json
+azure-*.yml
+docs
+*.xlsx
+*.docx
+*.pdf
+# De deployment solo se usa el script de SurrealDB que se copia en la imagen
+deployment
+!deployment/docker/scripts/surreal/surreal-init.surql

@@ -1,0 +1,334 @@
+# MessageUcoLab para levantar en local sin el código fuente.
+# Uso: doppler run -- docker compose -p messageucolab up -d
+# La configuración sin secretos está en .env; las contraseñas vienen de Doppler.
+services:
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "${GRAFANAPORT}:${GRAFANAPORT}"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - observability-network
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    environment:
+      LOKIPORT: ${LOKIPORT}
+      LOKIPORTALERT: ${LOKIPORTALERT}
+    ports:
+      - "${LOKIPORT}:${LOKIPORT}"
+    command: -config.file=/etc/loki/config.yaml -config.expand-env=true
+    volumes:
+      - ./loki-config.yaml:/etc/loki/config.yaml
+      - loki-data:/loki
+    networks:
+      - observability-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.40.0
+    container_name: otel-collector
+    environment:
+      LOKIPORT: ${LOKIPORT}
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "14317:${GRPC_OTELPORT}"
+      - "14318:${HTTP_OTELPORT}"
+    networks:
+      - observability-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    environment:
+      MESSAGEUCOLAB_PORT: ${MESSAGEUCOLAB_PORT}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - "sed 's/$${MESSAGEUCOLAB_PORT}/'$$MESSAGEUCOLAB_PORT'/g' /etc/prometheus/prometheus.yaml.template > /tmp/prometheus.yaml && exec /bin/prometheus --config.file=/tmp/prometheus.yaml --storage.tsdb.path=/prometheus --web.console.libraries=/usr/share/prometheus/console_libraries --web.console.templates=/usr/share/prometheus/consoles"
+    volumes:
+      - ./prometheus.yaml:/etc/prometheus/prometheus.yaml.template:ro
+    ports:
+      - "${PROMETHEUSPORT}:${PROMETHEUSPORT}"
+    networks:
+      - observability-network
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "${REDISPORT}:${REDISPORT}"
+    volumes:
+      - redis_data:/data
+    command: [ "redis-server", "--requirepass", "${REDISPASSWORD}", "--appendonly", "yes" ]
+    networks:
+      - observability-network
+      - kong-network
+      - app-network
+
+  redis-init:
+    image: redis:latest
+    container_name: redis-message-catalog-init
+
+    depends_on:
+      redis:
+        condition: service_started
+
+    environment:
+      REDISHOST: ${REDISHOST}
+      REDISPORT: ${REDISPORT}
+      REDISPASSWORD: ${REDISPASSWORD}
+
+    volumes:
+      - ./scripts/redis/CatalogMessageInit.sh:/init/CatalogMessageInit.sh:ro
+
+    entrypoint:
+      - /bin/sh
+      - /init/CatalogMessageInit.sh
+
+    restart: "no"
+
+    networks:
+      - app-network
+
+  surrealdb:
+    image: surrealdb/surrealdb:v3.1.4
+    container_name: surrealdb
+    user: "0:0"
+    ports:
+      - "${SURREALDBPORT}:${SURREALDBPORT}"
+    environment:
+      SURREAL_AUTH: "true"
+      SURREAL_USER: ${SURREALDBUSER}
+      SURREAL_PASS: ${SURREALDBPASSWORD}
+    volumes:
+      - surrealdb-data:/data
+    command: start --bind 0.0.0.0:8005 --user ${SURREALDBUSER} --pass ${SURREALDBPASSWORD} surrealkv:/data/database.db
+    healthcheck:
+      test: ["CMD", "/surreal", "is-ready", "--endpoint", "ws://localhost:${SURREALDBPORT}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - observability-network
+      - app-network
+
+  surrealdb-init:
+    image: surrealdb/surrealdb:v3.1.4
+    container_name: surrealdb-message-structure-init
+    depends_on:
+      surrealdb:
+        condition: service_healthy
+    entrypoint: ["/surreal"]
+    command:
+      - import
+      - --endpoint
+      - http://surrealdb:${SURREALDBPORT}
+      - --username
+      - ${SURREALDBUSER}
+      - --password
+      - ${SURREALDBPASSWORD}
+      - --namespace
+      - ${SURREALDBNAMESPACE}
+      - --database
+      - ${SURREALDBDATABASE}
+      - /init/surreal/surreal-init.surql
+    volumes:
+      - ./scripts:/init:ro
+    restart: "no"
+    networks:
+      - app-network
+
+  # Explicit maintenance task: imports only the additive receipt schema, never the full seed.
+  surrealdb-import-schema:
+    profiles: [maintenance]
+    image: surrealdb/surrealdb:v3.1.4
+    entrypoint: ["/surreal"]
+    command:
+      - import
+      - --endpoint
+      - http://surrealdb:${SURREALDBPORT}
+      - --username
+      - ${SURREALDBUSER}
+      - --password
+      - ${SURREALDBPASSWORD}
+      - --namespace
+      - ${SURREALDBNAMESPACE}
+      - --database
+      - ${SURREALDBDATABASE}
+      - /init/surreal/message-import-schema.surql
+    volumes:
+      - ./scripts:/init:ro
+    restart: "no"
+    networks:
+      - app-network
+
+  kong:
+    image: kong/kong-gateway:3.5
+    container_name: api-gateway-kong
+    restart: always
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /tmp/kong.yaml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+      MESSAGEUCOLAB_PORT: ${MESSAGEUCOLAB_PORT}
+    entrypoint: ["/bin/sh", "-c", "sed 's/$${MESSAGEUCOLAB_PORT}/'$$MESSAGEUCOLAB_PORT'/g' /kong/kong.yaml.template > /tmp/kong.yaml && /entrypoint.sh kong docker-start"]
+    volumes:
+      - ./kong.yaml:/kong/kong.yaml.template:ro
+    ports:
+      - "${APIGATEWAY_PORT}:${APIGATEWAY_PORT}"
+      - "${KONGADMIN_PORT}:${KONGADMIN_PORT}"
+    networks:
+      - kong-network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "${OLLAMA_PORT}:${OLLAMA_PORT}"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app-network
+
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: ollama-model-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      - OLLAMA_HOST=http://ollama:${OLLAMA_PORT}
+    command: pull ${TRANSLATION_AI_MODEL_NAME}
+    restart: "no"
+    networks:
+      - app-network
+
+  messageucolab:
+    # Imagen publicada en Docker Hub: no hace falta el código ni compilar
+    image: ${MESSAGEUCOLAB_DOCKER_ORG:?Configure MESSAGEUCOLAB_DOCKER_ORG}/messageucolab:${MESSAGEUCOLAB_VERSION:?Configure MESSAGEUCOLAB_VERSION}
+    container_name: messageucolab-app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${MESSAGEUCOLAB_PORT}:${MESSAGEUCOLAB_PORT}"
+    environment:
+      - TZ=UTC
+      - SECURITY_PDP_URL=${SECURITY_PDP_URL}
+      - LOKI_URL=http://loki:${LOKIPORT}
+      - PEP_REGISTRATION_TOKEN=${PEP_REGISTRATION_TOKEN}
+      - SECURITY_PEP_ENFORCEMENT_PEP_URL=${SECURITY_PEP_ENFORCEMENT_PEP_URL}
+      - SECURITY_PEP_ENFORCEMENT_ENVIRONMENT=${SECURITY_PEP_ENFORCEMENT_ENVIRONMENT:-dev}
+      - AZURE_KEYVAULT_UCOLAB_ENDPOINT=${AZURE_KEYVAULT_UCOLAB_ENDPOINT}
+      - AZURE_KEYVAULT_ENABLED=${AZURE_KEYVAULT_ENABLED:-true}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - REDISHOST=${REDISHOST}
+      - REDISPORT=${REDISPORT}
+      - REDISPASSWORD=${REDISPASSWORD}
+      - REDISDATABASE=${REDISDATABASE:-0}
+      - PULSARURL=pulsar://pulsar:${PULSAR_PORTEXIT:-6650}
+      - PULSARTOPICNAME=${PULSARTOPICNAME}
+      - SURREALDBHOST=${SURREALDBHOST}
+      - SURREALDBPORT=${SURREALDBPORT}
+      - SURREALDBUSER=${SURREALDBUSER}
+      - SURREALDBPASSWORD=${SURREALDBPASSWORD}
+      - SURREALDBNAMESPACE=${SURREALDBNAMESPACE}
+      - SURREALDBDATABASE=${SURREALDBDATABASE}
+      - TRANSLATION_AI_ENABLED=${TRANSLATION_AI_ENABLED:-true}
+      - TRANSLATION_AI_PROVIDER=${TRANSLATION_AI_PROVIDER:-ollama}
+      - TRANSLATION_AI_API_KEY=${TRANSLATION_AI_API_KEY:-}
+      - TRANSLATION_AI_BASE_URL=${TRANSLATION_AI_BASE_URL:-http://ollama:11434}
+      - TRANSLATION_AI_MODEL_NAME=${TRANSLATION_AI_MODEL_NAME}
+      - TRANSLATION_AI_TEMPERATURE=${TRANSLATION_AI_TEMPERATURE:-0.1}
+      - TRANSLATION_AI_MAX_RETRIES=${TRANSLATION_AI_MAX_RETRIES:-0}
+      - TRANSLATION_AI_TIMEOUT_SECONDS=${TRANSLATION_AI_TIMEOUT_SECONDS:-30}
+    depends_on:
+      redis:
+        condition: service_started
+      pulsar:
+        condition: service_started
+      surrealdb:
+        condition: service_started
+      surrealdb-init:
+        condition: service_completed_successfully
+      ollama-init:
+        condition: service_completed_successfully
+      loki:
+        condition: service_started
+      redis-init:
+        condition: service_completed_successfully
+    networks:
+      - observability-network
+      - kong-network
+      - app-network
+      - pulsar-network
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:${MESSAGEUCOLAB_PORT}/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  pulsar:
+    image: apachepulsar/pulsar:3.2.2
+    container_name: pulsar
+    command: >
+      /bin/bash -c " 
+      bin/apply-config-from-env.py conf/standalone.conf && 
+      bin/apply-config-from-env.py conf/client.conf && 
+      bin/pulsar standalone -nss -nfw"
+    ports:
+      - "${PULSAR_PORT}:${PULSAR_PORTEXIT}"
+      - "${PULSAR_GENERALPORT}:${PULSAR_GENERALPORT}"
+    volumes:
+      - pulsar-data:/pulsar/data
+      - pulsar-conf:/pulsar/conf
+    environment:
+      PULSAR_MEM: "-Xms1g -Xmx1g -XX:MaxDirectMemorySize=2g"
+      PULSAR_PREFIX_allowAutoTopicCreationType: "partitioned"
+    networks:
+      - pulsar-network
+      - app-network
+
+
+volumes:
+  grafana-data:
+  redis_data:
+    driver: local
+  loki-data:
+  pulsar-data:
+    driver: local
+  pulsar-conf:
+    driver: local
+  surrealdb-data:
+    driver: local
+  ollama-data:
+    driver: local
+
+networks:
+  observability-network:
+    driver: bridge
+  kong-network:
+    driver: bridge
+  app-network:
+    driver: bridge
+  pulsar-network:
+    driver: bridge

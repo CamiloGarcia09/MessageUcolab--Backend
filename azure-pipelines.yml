@@ -1,0 +1,130 @@
+trigger:
+  branches:
+    include:
+      - develop
+
+pr:
+  branches:
+    include:
+      - develop
+
+pool:
+  vmImage: ubuntu-24.04
+
+variables:
+  MAVEN_CACHE_FOLDER: '$(Pipeline.Workspace)/.m2/repository'
+  IMAGE_REPOSITORY: messageucolab
+
+stages:
+  - stage: ValidateAndTest
+    displayName: Validar, probar y compilar
+    jobs:
+      - job: CI
+        displayName: Validación de Maven y contenedores
+        steps:
+          - checkout: self
+            clean: true
+
+          - task: PowerShell@2
+            displayName: Validar herramientas del agente
+            inputs:
+              targetType: inline
+              script: |
+                $ErrorActionPreference = 'Stop'
+                docker version
+                if ($LASTEXITCODE -ne 0) { throw 'Docker Engine no está disponible.' }
+                az version
+                if ($LASTEXITCODE -ne 0) { throw 'Azure CLI no está disponible.' }
+                ssh -V
+                if ($LASTEXITCODE -ne 0) { throw 'OpenSSH no está disponible.' }
+
+          - task: Cache@2
+            displayName: Almacenar en caché las dependencias de Maven
+            inputs:
+              key: 'maven | "$(Agent.OS)" | **/pom.xml'
+              restoreKeys: |
+                maven | "$(Agent.OS)"
+              path: $(MAVEN_CACHE_FOLDER)
+
+          - task: PowerShell@2
+            displayName: Compilar y probar con un contenedor de Java 25
+            inputs:
+              targetType: inline
+              script: |
+                $ErrorActionPreference = 'Stop'
+                & "$(Build.SourcesDirectory)/deployment/ci/Assert-GitHubPackagesCredentials.ps1"
+                New-Item -ItemType Directory -Force -Path '$(MAVEN_CACHE_FOLDER)' | Out-Null
+                docker run --rm `
+                  --env GITHUB_PACKAGES_USER `
+                  --env GITHUB_PACKAGES_TOKEN `
+                  --volume "$(Build.SourcesDirectory):/workspace" `
+                  --volume "$(MAVEN_CACHE_FOLDER):/root/.m2/repository" `
+                  --workdir /workspace `
+                  eclipse-temurin:25-jdk-noble `
+                  sh ./mvnw -s .mvn/settings.xml -U -B -ntp clean verify
+                if ($LASTEXITCODE -ne 0) { throw 'La compilación o las pruebas de Maven fallaron.' }
+            env:
+              GITHUB_PACKAGES_USER: $(GITHUB_PACKAGES_USER)
+              GITHUB_PACKAGES_TOKEN: $(GITHUB_PACKAGES_TOKEN)
+
+          - task: PublishTestResults@2
+            displayName: Publicar resultados de las pruebas
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: '**/surefire-reports/TEST-*.xml'
+              searchFolder: $(System.DefaultWorkingDirectory)
+              mergeTestResults: true
+              failTaskOnFailedTests: true
+              failTaskOnMissingResultsFile: true
+
+          - task: PublishCodeCoverageResults@2
+            displayName: Publicar cobertura de código
+            condition: succeededOrFailed()
+            inputs:
+              summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/target/site/jacoco/jacoco.xml'
+              pathToSources: '$(System.DefaultWorkingDirectory)'
+
+          - task: PowerShell@2
+            displayName: Validar Docker Compose de Azure
+            inputs:
+              targetType: inline
+              script: |
+                docker compose --file deployment/azure/docker-compose.yml config --quiet
+                if ($LASTEXITCODE -ne 0) { throw 'El archivo Docker Compose de Azure no es válido.' }
+            env:
+              ACR_LOGIN_SERVER: example.azurecr.io
+              IMAGE_TAG: validation
+              AZURE_KEYVAULT_UCOLAB_ENDPOINT: https://example.vault.azure.net
+              REDISPASSWORD: validation
+              PULSARTOPICNAME: persistent://public/default/validation
+              SURREALDBUSER: root
+              SURREALDBPASSWORD: validation
+              SURREALDBNAMESPACE: messageucolab
+              SURREALDBDATABASE: messageucolab
+
+          - task: PowerShell@2
+            displayName: Validar Bicep
+            inputs:
+              targetType: inline
+              script: |
+                az bicep build --file infrastructure/azure/main.bicep --stdout | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw 'La validación de Bicep falló.' }
+
+          - task: PowerShell@2
+            displayName: Validar imagen de la aplicación
+            inputs:
+              targetType: inline
+              script: |
+                $ErrorActionPreference = 'Stop'
+                & "$(Build.SourcesDirectory)/deployment/ci/Assert-GitHubPackagesCredentials.ps1"
+                docker build `
+                  --secret "id=maven_settings,src=$(Build.SourcesDirectory)/.mvn/settings.xml" `
+                  --secret id=github_packages_token,env=GITHUB_PACKAGES_TOKEN `
+                  --build-arg "GITHUB_PACKAGES_USER=$env:GITHUB_PACKAGES_USER" `
+                  --tag "$(IMAGE_REPOSITORY):ci-$(Build.BuildId)" .
+                if ($LASTEXITCODE -ne 0) { throw 'La compilación de la imagen de la aplicación falló.' }
+            env:
+              DOCKER_BUILDKIT: '1'
+              GITHUB_PACKAGES_USER: $(GITHUB_PACKAGES_USER)
+              GITHUB_PACKAGES_TOKEN: $(GITHUB_PACKAGES_TOKEN)

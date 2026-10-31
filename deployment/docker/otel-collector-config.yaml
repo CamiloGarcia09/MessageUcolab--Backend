@@ -18,7 +18,7 @@ processors:
 
 exporters:
   loki:
-    endpoint: http://loki:3100/loki/api/v1/push
+    endpoint: http://loki:${LOKIPORT}/loki/api/v1/push
     labels:
       attributes:
         job: "opentelemetry"
