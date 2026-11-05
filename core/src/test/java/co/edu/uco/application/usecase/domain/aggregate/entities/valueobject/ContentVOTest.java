@@ -3,7 +3,7 @@ package co.edu.uco.application.usecase.domain.aggregate.entities.valueobject;
 import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
 import co.edu.uco.application.crosscutting.exceptions.ContentCanNotBeEmptyException;
 import co.edu.uco.application.crosscutting.exceptions.SizeContentLessThanTenException;
-import co.edu.uco.application.crosscutting.exceptions.SizeContentMoreThanOneHundred;
+import co.edu.uco.application.crosscutting.exceptions.ContentExceedsMaximumLengthException;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,12 +38,12 @@ class ContentVOTest {
     }
 
     @Test
-    void constructor_acceptsOneHundredCharacterContent() {
-        String content = "a".repeat(100);
+    void constructor_acceptsFiveHundredCharacterContent() {
+        String content = "a".repeat(500);
 
         ContentVO vo = new ContentVO(content);
 
-        assertThat(vo.getContent()).hasSize(100);
+        assertThat(vo.getContent()).hasSize(500);
     }
 
     @Test
@@ -65,9 +65,9 @@ class ContentVOTest {
     }
 
     @Test
-    void constructor_rejectsContentLongerThanOneHundred() {
-        assertThatThrownBy(() -> new ContentVO("a".repeat(101)))
-                .isInstanceOf(SizeContentMoreThanOneHundred.class);
+    void constructor_rejectsContentLongerThanFiveHundred() {
+        assertThatThrownBy(() -> new ContentVO("a".repeat(501)))
+                .isInstanceOf(ContentExceedsMaximumLengthException.class);
     }
 
     @Test

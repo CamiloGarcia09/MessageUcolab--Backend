@@ -9,7 +9,7 @@ import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 
 public final class UpdateMessageTitleMaxLengthRule extends RuleValidator<UpdateMessageDTO> {
 
-    private static final int TITLE_MAX_LENGTH = 50;
+    private static final int TITLE_MAX_LENGTH = 200;
 
     public UpdateMessageTitleMaxLengthRule(CatalogPort catalogPort) {
         super(catalogPort,

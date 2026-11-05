@@ -36,9 +36,9 @@ class MessageExceptionsTest {
     }
 
     @Test
-    void sizeTitleMoreThanFifty_report_throwsBusinessRuleException() {
-        assertThatThrownBy(SizeTitleMoreThanFiftyException::report)
-                .isInstanceOf(SizeTitleMoreThanFiftyException.class)
+    void titleExceedsMaximumLength_report_throwsBusinessRuleException() {
+        assertThatThrownBy(TitleExceedsMaximumLengthException::report)
+                .isInstanceOf(TitleExceedsMaximumLengthException.class)
                 .isInstanceOf(CrossWordsException.class);
     }
 
@@ -57,9 +57,9 @@ class MessageExceptionsTest {
     }
 
     @Test
-    void sizeContentMoreThanOneHundred_report_throwsBusinessRuleException() {
-        assertThatThrownBy(SizeContentMoreThanOneHundred::report)
-                .isInstanceOf(SizeContentMoreThanOneHundred.class)
+    void contentExceedsMaximumLength_report_throwsBusinessRuleException() {
+        assertThatThrownBy(ContentExceedsMaximumLengthException::report)
+                .isInstanceOf(ContentExceedsMaximumLengthException.class)
                 .isInstanceOf(CrossWordsException.class);
     }
 
