@@ -37,7 +37,7 @@ class UpdateMessageContentMaxLengthRuleTest {
 
     @Test
     void validate_throwsBusinessRuleException_whenContentExceedsMaximum() {
-        UpdateMessageDTO dto = UpdateMessageDTO.builder().content("a".repeat(101)).build();
+        UpdateMessageDTO dto = UpdateMessageDTO.builder().content("a".repeat(501)).build();
 
         assertThrows(BusinessRuleException.class, () -> rule.validate(dto));
     }

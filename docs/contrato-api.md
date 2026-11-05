@@ -111,11 +111,25 @@ La creación requiere:
 Reglas principales:
 
 - `code` es el sufijo; el servidor genera el prefijo `MSG_`.
-- El sufijo admite hasta 10 caracteres alfanuméricos o espacios.
-- `title` admite entre 10 y 50 caracteres.
-- `content` admite entre 10 y 100 caracteres.
+- El sufijo admite entre 1 y 50 caracteres alfanuméricos o espacios; el código final puede tener hasta 54 caracteres con `MSG_`.
+- `title` admite entre 10 y 200 caracteres, tanto al crear como al editar.
+- `content` admite entre 10 y 500 caracteres, tanto al crear como al editar.
 - La funcionalidad debe estar activa y pertenecer a la aplicación.
 - Los ambientes no se repiten y deben pertenecer a la aplicación.
+
+### Activación de los nuevos límites
+
+El aumento de longitudes no requiere migrar datos ni modificar el esquema de SurrealDB: los tres campos son de tipo `string` sin restricciones de longitud en la base. Los mensajes existentes siguen siendo válidos.
+
+Desplegar el backend, el frontend y el minifront de mensajes actualizados. Para actualizar únicamente los tres errores de longitud y las instrucciones de Excel del catálogo Redis existente, ejecutar desde `deployment/docker`:
+
+```bash
+doppler run --project messageucolab --config dev -- docker compose run --rm --no-deps redis-init --message-limits-only
+```
+
+Este modo actualiza solo `FUN_019`, `FUN_021`, `FUN_198` e `IMP_012`; no vacía Redis ni recarga otras entradas. Las nuevas plantillas Excel usarán las instrucciones actualizadas. Las plantillas V2 existentes conservan su estructura y sus filas se validan con los nuevos límites al importar y confirmar.
+
+### Edición de ambientes
 
 Para reemplazar exclusivamente los ambientes:
 

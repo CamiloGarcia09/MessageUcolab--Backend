@@ -8,10 +8,10 @@ import co.edu.uco.crosscutting.exceptions.enumeration.ExceptionType;
 
 import java.io.Serial;
 
-public final class SizeContentMoreThanOneHundred extends CrossWordsException {
+public final class ContentExceedsMaximumLengthException extends CrossWordsException {
     @Serial
     private static final long serialVersionUID = -4177616618105416722L;
-    private SizeContentMoreThanOneHundred() {
+    private ContentExceedsMaximumLengthException() {
         super(
             CatalogPortStaticRef.getTitle(MessageCatalogCodeEnum.FUN_019.getCode()),
             CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.FUN_019.getCode()),
@@ -21,6 +21,6 @@ public final class SizeContentMoreThanOneHundred extends CrossWordsException {
         );
     }
     public static void report() {
-        throw new SizeContentMoreThanOneHundred();
+        throw new ContentExceedsMaximumLengthException();
     }
 }

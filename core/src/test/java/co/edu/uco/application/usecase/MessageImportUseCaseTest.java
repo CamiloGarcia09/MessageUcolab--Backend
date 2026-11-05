@@ -99,6 +99,23 @@ class MessageImportUseCaseTest {
     }
 
     @Test
+    void validate_appliesNewTitleAndContentLimitsToImportedRows() {
+        var boundary = new ImportRow(2, "BOUNDARY", "Function", "Type", "Category", "Active",
+                "t".repeat(200), "c".repeat(500));
+        var overLimit = new ImportRow(3, "OVER_LIMIT", "Function", "Type", "Category", "Active",
+                "t".repeat(201), "c".repeat(501));
+        when(codes.findExistingCodes(anySet(), eq(APP))).thenReturn(Set.of());
+
+        var result = useCase.validate(List.of(boundary, overLimit), List.of(ENV), CONTEXT);
+
+        assertThat(result.rows().getFirst().issues()).noneMatch(issue ->
+                "title".equals(issue.field()) || "content".equals(issue.field()));
+        assertThat(result.rows().get(1).issues()).extracting(ImportIssue::field)
+                .contains("title", "content");
+        verify(drafts).save(result);
+    }
+
+    @Test
     void validate_reportsAmbiguousOrUnknownReferenceWithoutLosingOtherRows() {
         var ambiguous = new ImportRow(2, "FIRST", "Duplicate", TYPE, CATEGORY, STATE, "A valid title", "A valid content");
         var secondFunction = "123e4567-e89b-12d3-a456-426614175113";

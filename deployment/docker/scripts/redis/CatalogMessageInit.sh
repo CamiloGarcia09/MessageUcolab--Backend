@@ -24,6 +24,23 @@ redis_hset() {
     >/dev/null
 }
 
+message_import_instructions() {
+  redis_hset "IMP_012" "Instrucciones de importación" "Completa solo la hoja Mensajes: una fila por mensaje, hasta 500. El código se escribe sin MSG_, con 1 a 50 letras, números o espacios. Título: 10 a 200 caracteres. Contenido: 10 a 500. Usa los nombres exactos de los desplegables, sin agregar identificadores. Los nombres deben identificar una única referencia. Descarga la plantilla actual: no se admiten versiones anteriores. No se crean funcionalidades ni se actualizan mensajes existentes. La plantilla corresponde a la aplicación seleccionada; los ambientes se eligen al importar. No cambies los metadatos técnicos ocultos. Elimina las filas de ejemplo antes de validar. No uses fórmulas ni enlaces externos." "FUNCTIONAL" "INFORMATION"
+}
+
+message_length_errors() {
+  redis_hset "FUN_019" "Contenido demasiado largo" "El contenido no puede superar los 500 caracteres." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_021" "Título demasiado largo" "El título no puede superar los 200 caracteres." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_198" "Sufijo del código demasiado largo" "El sufijo del código del mensaje no puede superar los 50 caracteres." "FUNCTIONAL" "ERROR"
+}
+
+if [ "${1:-}" = "--message-limits-only" ]; then
+  message_import_instructions
+  message_length_errors
+  echo "Catálogo de límites de mensajes actualizado."
+  exit 0
+fi
+
 # =============================================================
 # Technical Messages
 # =============================================================
@@ -40,7 +57,7 @@ redis_hset "IMP_008" "Importación con errores" "El lote contiene errores o camb
 redis_hset "IMP_009" "Confirmación de producción" "Confirma expresamente que deseas crear estos mensajes en Produccion." "FUNCTIONAL" "ERROR"
 redis_hset "IMP_010" "Conflicto de importación" "No se pudo confirmar el lote. Reintenta la misma confirmación para recuperar su resultado; si persiste, vuelve a validar las referencias y los códigos." "FUNCTIONAL" "ERROR"
 redis_hset "IMP_011" "Columnas de importación" "Código|Funcionalidad|Tipo|Categoría|Estado|Título|Contenido" "FUNCTIONAL" "INFORMATION"
-redis_hset "IMP_012" "Instrucciones de importación" "Completa solo la hoja Mensajes: una fila por mensaje, hasta 500. El código se escribe sin MSG_, con 1 a 10 letras, números o espacios. Título: 10 a 50 caracteres. Contenido: 10 a 100. Usa los nombres exactos de los desplegables, sin agregar identificadores. Los nombres deben identificar una única referencia. Descarga la plantilla actual: no se admiten versiones anteriores. No se crean funcionalidades ni se actualizan mensajes existentes. La plantilla corresponde a la aplicación seleccionada; los ambientes se eligen al importar. No cambies los metadatos técnicos ocultos. Elimina las filas de ejemplo antes de validar. No uses fórmulas ni enlaces externos." "FUNCTIONAL" "INFORMATION"
+message_import_instructions
 redis_hset "IMP_013" "Columnas del reporte" "Fila original|Campo|Error y corrección" "FUNCTIONAL" "INFORMATION"
 redis_hset "IMP_014" "Columnas de referencias" "Funcionalidades activas|Tipos|Categorías|Estados" "FUNCTIONAL" "INFORMATION"
 redis_hset "IMP_015" "Ejemplo de importación" "BIENVENIDA|Bienvenida al sistema|Te damos la bienvenida a nuestra aplicación." "FUNCTIONAL" "INFORMATION"
@@ -123,9 +140,8 @@ redis_hset "FUN_011" "Aplicación no encontrada" "No fue posible obtener los men
 redis_hset "FUN_012" "Mensaje no encontrado" "No existe un mensaje con el código %s para la aplicación %s." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_017" "Contenido vacío" "El contenido no puede estar vacío." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_018" "Contenido demasiado corto" "El contenido debe tener al menos 10 caracteres." "FUNCTIONAL" "ERROR"
-redis_hset "FUN_019" "Contenido demasiado largo" "El contenido no puede superar los 100 caracteres." "FUNCTIONAL" "ERROR"
+message_length_errors
 redis_hset "FUN_020" "Título demasiado corto" "El título debe tener al menos 10 caracteres." "FUNCTIONAL" "ERROR"
-redis_hset "FUN_021" "Título demasiado largo" "El título no puede superar los 50 caracteres." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_022" "Título vacío" "El título no puede estar vacío." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_024" "Información consultada" "%s" "FUNCTIONAL" "CONFIRMATION"
 redis_hset "FUN_027" "Información consultada" "%s" "FUNCTIONAL" "CONFIRMATION"
@@ -295,7 +311,6 @@ redis_hset "FUN_194" "Estado de mensaje obligatorio" "El estado del mensaje es o
 redis_hset "FUN_195" "Estado de mensaje no encontrado" "El estado del mensaje no existe." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_196" "Estado de mensaje por ambiente obligatorio" "El estado del mensaje en el ambiente es obligatorio." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_197" "Estado de mensaje por ambiente no encontrado" "El estado del mensaje en el ambiente no existe." "FUNCTIONAL" "ERROR"
-redis_hset "FUN_198" "Sufijo del código demasiado largo" "El sufijo del código del mensaje no puede superar los 10 caracteres." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_199" "Sufijo del código inválido" "El sufijo del código del mensaje solo puede contener letras sin tilde, números y espacios." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_200" "Código de mensaje duplicado" "Ya existe un mensaje con el mismo código para la aplicación." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_201" "Instrucciones del sistema de traducción" "Actúa como traductor. Traduce los CINCO campos de texto legibles al idioma targetLanguage:

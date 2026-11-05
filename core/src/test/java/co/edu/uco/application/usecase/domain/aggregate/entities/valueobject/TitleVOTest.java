@@ -2,7 +2,7 @@ package co.edu.uco.application.usecase.domain.aggregate.entities.valueobject;
 
 import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
 import co.edu.uco.application.crosscutting.exceptions.SizeTitleLessThanTenException;
-import co.edu.uco.application.crosscutting.exceptions.SizeTitleMoreThanFiftyException;
+import co.edu.uco.application.crosscutting.exceptions.TitleExceedsMaximumLengthException;
 import co.edu.uco.application.crosscutting.exceptions.TitleCanNotBeEmptyException;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,12 +38,12 @@ class TitleVOTest {
     }
 
     @Test
-    void constructor_acceptsFiftyCharacterTitle() {
-        String title = "a".repeat(50);
+    void constructor_acceptsTwoHundredCharacterTitle() {
+        String title = "a".repeat(200);
 
         TitleVO vo = new TitleVO(title);
 
-        assertThat(vo.getTitle()).hasSize(50);
+        assertThat(vo.getTitle()).hasSize(200);
     }
 
     @Test
@@ -65,10 +65,10 @@ class TitleVOTest {
     }
 
     @Test
-    void constructor_rejectsTitleLongerThanFifty() {
-        String title = "a".repeat(51);
+    void constructor_rejectsTitleLongerThanTwoHundred() {
+        String title = "a".repeat(201);
         assertThatThrownBy(() -> new TitleVO(title))
-                .isInstanceOf(SizeTitleMoreThanFiftyException.class);
+                .isInstanceOf(TitleExceedsMaximumLengthException.class);
     }
 
     @Test

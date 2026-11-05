@@ -1834,18 +1834,18 @@ components:
           type: string
           description: Sufijo para construir MSG_{sufijo}; los espacios se normalizan a guiones bajos. No enviar el prefijo MSG_.
           minLength: 1
-          maxLength: 10
+          maxLength: 50
           pattern: '^[A-Za-z0-9 ]+$'
           example: BIENVENIDA
         title:
           type: string
           minLength: 10
-          maxLength: 50
+          maxLength: 200
           example: Mensaje de bienvenida
         content:
           type: string
           minLength: 10
-          maxLength: 100
+          maxLength: 500
           example: Te damos la bienvenida a MessageUcoLab.
         typeId:
           type: string
@@ -1905,10 +1905,10 @@ components:
               enum: [false]
             title:
               minLength: 10
-              maxLength: 50
+              maxLength: 200
             content:
               minLength: 10
-              maxLength: 100
+              maxLength: 500
             typeId:
               format: uuid
             categoryId:

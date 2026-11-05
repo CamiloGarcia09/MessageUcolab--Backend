@@ -78,9 +78,9 @@ La presencia del ambiente `Produccion` exige `productionConfirmed: true`. La con
 
 La importación reutiliza las reglas de creación individual:
 
-- Código obligatorio, formato y longitud.
-- Título de 10 a 50 caracteres.
-- Contenido de 10 a 100 caracteres.
+- Código obligatorio de 1 a 50 caracteres alfanuméricos o espacios, sin el prefijo `MSG_` (hasta 54 caracteres en el código final).
+- Título de 10 a 200 caracteres.
+- Contenido de 10 a 500 caracteres.
 - Tipo, categoría y estado existentes.
 - Funcionalidad activa y perteneciente a la aplicación.
 - Ambientes existentes, sin repetidos y pertenecientes a la aplicación.
