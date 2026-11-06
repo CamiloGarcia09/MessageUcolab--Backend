@@ -1,6 +1,6 @@
 package co.edu.uco.application.usecase.domain.aggregate.entities.valueobject;
 
-import co.edu.uco.application.crosscutting.exceptions.SizeTitleLessThanTenException;
+import co.edu.uco.application.crosscutting.exceptions.TitleBelowMinimumLengthException;
 import co.edu.uco.application.crosscutting.exceptions.TitleExceedsMaximumLengthException;
 import co.edu.uco.application.crosscutting.exceptions.TitleCanNotBeEmptyException;
 import co.edu.uco.crosscutting.helpers.UtilNumeric;
@@ -17,7 +17,7 @@ public final class TitleVO {
     public void setTitle(String title) {
         validateTitle(title);
         validateMaximumLength(title);
-        validateSizeLessThanTen(title);
+        validateMinimumLength(title);
         this.title = title;
     }
     private void validateTitle(String title) {
@@ -26,13 +26,13 @@ public final class TitleVO {
         }
     }
     private void validateMaximumLength(String title) {
-        if (UtilNumeric.isGreaterThan(title.length(), 200)) {
+        if (UtilNumeric.isGreaterThan(title.length(), 1000)) {
             TitleExceedsMaximumLengthException.report();
         }
     }
-    private void validateSizeLessThanTen(String title) {
-        if (UtilNumeric.isLessThan(title.length(), 10)) {
-            SizeTitleLessThanTenException.report();
+    private void validateMinimumLength(String title) {
+        if (UtilNumeric.isLessThan(title.length(), 5)) {
+            TitleBelowMinimumLengthException.report();
         }
     }
 }

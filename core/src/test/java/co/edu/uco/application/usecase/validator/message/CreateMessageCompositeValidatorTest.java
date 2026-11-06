@@ -324,11 +324,11 @@ class CreateMessageCompositeValidatorTest {
     }
 
     @Test
-    void validate_throwsBusinessRule_whenTitleIsShorterThanTen() {
+    void validate_throwsBusinessRule_whenTitleIsShorterThanFive() {
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_020.getCode()))
                 .thenReturn("The message title is too short");
         CreateMessageDTO dto = validDto();
-        dto.setTitle("Short");
+        dto.setTitle("abcd");
 
         assertThatThrownBy(() -> validator.validate(dto, APPLICATION_ID_TEXT))
                 .isInstanceOf(BusinessRuleException.class)
@@ -343,7 +343,7 @@ class CreateMessageCompositeValidatorTest {
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_021.getCode()))
                 .thenReturn("The message title is too long");
         CreateMessageDTO dto = validDto();
-        dto.setTitle("a".repeat(201));
+        dto.setTitle("a".repeat(1001));
 
         assertThatThrownBy(() -> validator.validate(dto, APPLICATION_ID_TEXT))
                 .isInstanceOf(BusinessRuleException.class)
@@ -369,11 +369,11 @@ class CreateMessageCompositeValidatorTest {
     }
 
     @Test
-    void validate_throwsBusinessRule_whenContentIsShorterThanTen() {
+    void validate_throwsBusinessRule_whenContentIsShorterThanFive() {
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_018.getCode()))
                 .thenReturn("The message content is too short");
         CreateMessageDTO dto = validDto();
-        dto.setContent("Short");
+        dto.setContent("abcd");
 
         assertThatThrownBy(() -> validator.validate(dto, APPLICATION_ID_TEXT))
                 .isInstanceOf(BusinessRuleException.class)
@@ -388,7 +388,7 @@ class CreateMessageCompositeValidatorTest {
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_019.getCode()))
                 .thenReturn("The message content is too long");
         CreateMessageDTO dto = validDto();
-        dto.setContent("a".repeat(501));
+        dto.setContent("a".repeat(2001));
 
         assertThatThrownBy(() -> validator.validate(dto, APPLICATION_ID_TEXT))
                 .isInstanceOf(BusinessRuleException.class)
@@ -417,7 +417,7 @@ class CreateMessageCompositeValidatorTest {
     void validate_throwsBusinessRuleUsingFun198_whenCodeSuffixExceedsFiftyCharacters() {
         when(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_198.getCode()))
                 .thenReturn(CODE_TOO_LONG_MESSAGE);
-        CreateMessageDTO dto = validDtoBuilder().code("A".repeat(51)).build();
+        CreateMessageDTO dto = validDtoBuilder().code("A".repeat(501)).build();
 
         assertThatThrownBy(() -> validator.validate(dto, APPLICATION_ID_TEXT))
                 .isInstanceOf(BusinessRuleException.class)

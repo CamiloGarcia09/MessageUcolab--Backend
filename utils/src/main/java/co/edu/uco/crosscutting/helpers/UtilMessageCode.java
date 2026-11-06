@@ -4,7 +4,7 @@ import java.util.Locale;
 
 public final class UtilMessageCode {
 
-    public static final int MAX_SUFFIX_LENGTH = 50;
+    public static final int MAX_SUFFIX_LENGTH = 500;
     public static final String SUFFIX_PATTERN = "^[A-Za-z0-9 ]+$";
 
     private static final String PREFIX = "MSG_";

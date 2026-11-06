@@ -101,9 +101,9 @@ class MessageImportUseCaseTest {
     @Test
     void validate_appliesNewTitleAndContentLimitsToImportedRows() {
         var boundary = new ImportRow(2, "BOUNDARY", "Function", "Type", "Category", "Active",
-                "t".repeat(200), "c".repeat(500));
+                "t".repeat(1000), "c".repeat(2000));
         var overLimit = new ImportRow(3, "OVER_LIMIT", "Function", "Type", "Category", "Active",
-                "t".repeat(201), "c".repeat(501));
+                "t".repeat(1001), "c".repeat(2001));
         when(codes.findExistingCodes(anySet(), eq(APP))).thenReturn(Set.of());
 
         var result = useCase.validate(List.of(boundary, overLimit), List.of(ENV), CONTEXT);

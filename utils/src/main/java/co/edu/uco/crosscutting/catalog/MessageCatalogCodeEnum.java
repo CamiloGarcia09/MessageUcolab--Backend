@@ -255,16 +255,16 @@ public enum MessageCatalogCodeEnum {
     /** El contenido no puede estar vacío. */
     FUN_017("FUN_017"),
 
-    /** El tamaño del contenido no debe ser menor a 10. */
+    /** El contenido debe tener al menos 5 caracteres. */
     FUN_018("FUN_018"),
 
-    /** El tamaño del contenido no puede ser mayor a 100. */
+    /** El contenido no puede superar los 2000 caracteres. */
     FUN_019("FUN_019"),
 
-    /** El tamaño del título no puede ser menor a 10. */
+    /** El título debe tener al menos 5 caracteres. */
     FUN_020("FUN_020"),
 
-    /** El tamaño del título no puede ser mayor a 50. */
+    /** El título no puede superar los 1000 caracteres. */
     FUN_021("FUN_021"),
 
     /** El título no puede estar vacío. */

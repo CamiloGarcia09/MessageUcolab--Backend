@@ -37,7 +37,7 @@ class UpdateMessageTitleMaxLengthRuleTest {
 
     @Test
     void validate_throwsBusinessRuleException_whenTitleExceedsMaximum() {
-        UpdateMessageDTO dto = UpdateMessageDTO.builder().title("a".repeat(201)).build();
+        UpdateMessageDTO dto = UpdateMessageDTO.builder().title("a".repeat(1001)).build();
 
         assertThrows(BusinessRuleException.class, () -> rule.validate(dto));
     }

@@ -59,7 +59,7 @@ class UtilMessageCodeTest {
     void normalize_preservesSuffixAtMaximumLengthAndAllowsFourCharacterPrefix() {
         String suffix = "A".repeat(MAX_SUFFIX_LENGTH);
 
-        assertThat(normalize(suffix)).isEqualTo("MSG_" + suffix).hasSize(54);
+        assertThat(normalize(suffix)).isEqualTo("MSG_" + suffix).hasSize(504);
     }
 
     @Test
