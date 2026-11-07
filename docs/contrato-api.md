@@ -114,7 +114,7 @@ Cookie: SECURITY_BASELINE_SESSION=<sesion>
 - Reactivar la funcionalidad **no reactiva mensajes**. Después pueden activarse individualmente; no se permite activar mensajes mientras su funcionalidad esté inactiva.
 - La respuesta `200` conserva el envelope `data: ["Estado de funcionalidad actualizado correctamente."], errors: []`. Los UUID inválidos se rechazan con `422`, el acceso a una aplicación ajena con `403` y una funcionalidad inexistente o ajena a la aplicación indicada con `404`.
 - Se invalida la caché de los mensajes modificados; los eventos normales de actualización alimentan proyecciones y SSE. El consumo comprueba también el estado actual de la funcionalidad, incluso si existe caché anterior.
-- La pantalla de funcionalidades de `MessageUcolab--Frontend` incorpora Activar/Inactivar y confirmación explícita del impacto. El minifront `Minifronts/mensajes-ui` conserva su contrato de consulta/creación; no incorpora esta acción en esta intervención.
+- La pantalla de funcionalidades de `MessageUcolab--Frontend` y la sección Configuración de `Minifronts/mensajes-ui` incorporan Activar/Inactivar y confirmación explícita del impacto, usando la misma ruta PATCH y las mismas reglas del backend.
 
 ### Activación del contrato
 
@@ -207,7 +207,8 @@ La ruta conserva autenticación BFF, permiso PEP y comprobación de propiedad. E
 - El campo `applicationId` es aditivo; puede estar vacío en eventos anteriores por ambiente. Un evento con aplicación explícita solo se entrega a suscripciones de esa aplicación autorizada.
 - El frontend principal agrupa notificaciones, vuelve a consultar datos y totales del servidor sin recargar la página y resincroniza al reconectar. No se infiere el nuevo estado solo por recibir un evento.
 - Los cambios de funcionalidad se guardan primero en la transacción fuente. El listado y su notificación se actualizan mediante el procesador asíncrono de proyecciones: el intervalo configurado de 2 segundos no garantiza una latencia máxima, pues hay cola y tiempo de procesamiento.
-- No hay replay duradero ni sincronización SSE entre réplicas. El minifront de mensajes mantiene su contrato anterior; no se modifican sus archivos en esta intervención.
+- No hay replay duradero ni sincronización SSE entre réplicas. La administración de `Minifronts/mensajes-ui` también escucha este canal, agrupa avisos, resincroniza al conectar o reconectar y conserva la búsqueda, el ambiente y la paginación válida sin reemplazar los formularios que se están llenando. Al cambiar de contexto o desmontarse cierra la conexión y descarta respuestas anteriores.
+- El cliente público `createMessageClient` del minifront conserva su caché con TTL. No abre SSE administrativo ni adquiere con este cambio el futuro contrato de sincronización persistente de aplicaciones consumidoras.
 
 La clasificación colectiva se registra en el campo flexible `metadata.notification_type` de los eventos nuevos dentro de la misma transacción de inactivación. No cambia el esquema ni requiere recargar seeds; los eventos antiguos sin esa marca se clasifican por su tipo de origen y no se reetiquetan retrospectivamente. Al desplegar el ajuste puede aparecer `MessageUpdated` al procesar una cascada antigua que aún estuviera pendiente.
 
