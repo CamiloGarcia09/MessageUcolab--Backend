@@ -194,9 +194,10 @@ public class UseCaseRuleConfig {
             CatalogPort catalogPort,
             RecordExistsCatalogPort recordExistsCatalogPort,
             FunctionalityCatalogRepository functionalityCatalogRepository,
+            MessageStateCatalogRepository messageStates,
             MessageEnvironmentSelectionCompositeValidator messageEnvironmentSelectionValidator) {
         return new UpdateMessageCompositeValidator(
-                catalogPort, recordExistsCatalogPort, functionalityCatalogRepository,
+                catalogPort, recordExistsCatalogPort, functionalityCatalogRepository, messageStates,
                 messageEnvironmentSelectionValidator);
     }
 

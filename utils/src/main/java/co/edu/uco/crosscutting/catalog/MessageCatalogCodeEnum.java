@@ -789,6 +789,14 @@ public enum MessageCatalogCodeEnum {
     FUN_224("FUN_224"),
     /** Faltan parametros obligatorios o el cuerpo no se puede leer. */
     FUN_225("FUN_225"),
+    /** La funcionalidad no existe en la aplicacion indicada. */
+    FUN_226("FUN_226"),
+    /** Estado de funcionalidad actualizado. */
+    FUN_227("FUN_227"),
+    /** Falta el estado inactivo de mensajes en el catalogo. */
+    FUN_228("FUN_228"),
+    /** No se puede activar un mensaje bajo una funcionalidad inactiva. */
+    FUN_229("FUN_229"),
     TCH_076("TCH_076"),
     TCH_077("TCH_077"),
     /** Error al consultar mensajes por aplicacion en SurrealDB. */
@@ -836,7 +844,9 @@ public enum MessageCatalogCodeEnum {
     TCH_102("TCH_102"),
     TCH_103("TCH_103"),
     TCH_104("TCH_104"),
-    TCH_105("TCH_105");
+    TCH_105("TCH_105"),
+    /** Error al actualizar el estado de una funcionalidad y sus mensajes. */
+    TCH_106("TCH_106");
 
     // =========================================================================
 

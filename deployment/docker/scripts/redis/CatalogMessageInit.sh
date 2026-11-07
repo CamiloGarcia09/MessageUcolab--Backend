@@ -36,6 +36,20 @@ message_length_errors() {
   redis_hset "FUN_198" "Sufijo del código demasiado largo" "El sufijo del código del mensaje no puede superar los 500 caracteres." "FUNCTIONAL" "ERROR"
 }
 
+functionality_state_messages() {
+  redis_hset "FUN_226" "Funcionalidad no encontrada" "La funcionalidad no existe en la aplicación indicada." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_227" "Estado de funcionalidad actualizado" "Estado de funcionalidad actualizado correctamente." "FUNCTIONAL" "INFORMATION"
+  redis_hset "FUN_228" "Estado inactivo de mensajes no disponible" "No está configurado el estado inactivo de mensajes. No se realizó el cambio." "TECHNICAL" "ERROR"
+  redis_hset "FUN_229" "Funcionalidad inactiva" "No se puede activar un mensaje mientras su funcionalidad esté inactiva." "FUNCTIONAL" "ERROR"
+  redis_hset "TCH_106" "Error al cambiar el estado de funcionalidad" "No fue posible actualizar el estado de la funcionalidad y sus mensajes." "TECHNICAL" "ERROR"
+}
+
+if [ "${1:-}" = "--functionality-states-only" ]; then
+  functionality_state_messages
+  echo "Catálogo de estados de funcionalidades actualizado."
+  exit 0
+fi
+
 if [ "${1:-}" = "--message-limits-only" ]; then
   message_import_instructions
   message_length_errors
@@ -78,6 +92,7 @@ redis_hset "FUN_214" "Organización inválida" "El identificador de organizació
 redis_hset "FUN_215" "Acceso a la organización denegado" "La organización no existe o no pertenece al usuario autenticado." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_216" "Aplicación creada" "Aplicación creada correctamente." "FUNCTIONAL" "INFORMATION"
 redis_hset "FUN_217" "Se requiere una funcionalidad activa" "Selecciona una funcionalidad activa de la aplicación para crear el mensaje." "FUNCTIONAL" "ERROR"
+functionality_state_messages
 
 redis_hset "TCH_010" "Código obligatorio" "El código es obligatorio." "TECHNICAL" "ERROR"
 redis_hset "TCH_011" "Contenido obligatorio" "El contenido es obligatorio." "TECHNICAL" "ERROR"

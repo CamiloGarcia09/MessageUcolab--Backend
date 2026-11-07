@@ -3,6 +3,7 @@ package co.edu.uco.infraestructure.secondaryadapters.event;
 import co.edu.uco.application.secondaryports.event.*;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Sinks;
+import reactor.adapter.JdkFlowAdapter;
 import java.util.Set;
 import java.util.concurrent.Flow;
 
@@ -15,19 +16,24 @@ public final class InMemoryMessageEventAdapter implements Publisher<MessageEvent
     }
     public Flow.Publisher<MessageEvent> subscribe(Set<String> environmentIds) {
         Set<String> filter = environmentIds == null ? Set.of() : Set.copyOf(environmentIds);
-        return subscriber -> {
-            reactor.core.publisher.BaseSubscriber<MessageEvent> bridge = new reactor.core.publisher.BaseSubscriber<>() {
-                protected void hookOnNext(MessageEvent event) { subscriber.onNext(event); }
-                protected void hookOnComplete() { subscriber.onComplete(); }
-                protected void hookOnError(Throwable throwable) { subscriber.onError(throwable); }
-            };
-            subscriber.onSubscribe(new Flow.Subscription() {
-                public void request(long count) { bridge.request(count); }
-                public void cancel() { bridge.cancel(); }
-            });
-            sink.asFlux()
-                    .filter(event -> event.environmentId() != null && filter.contains(event.environmentId()))
-                    .subscribe(bridge);
-        };
+        return JdkFlowAdapter.publisherToFlowPublisher(sink.asFlux()
+                .filter(event -> event.environmentId() != null && filter.contains(event.environmentId())));
+    }
+
+    @Override
+    public Flow.Publisher<MessageEvent> subscribeToApplication(String applicationId, Set<String> environmentIds) {
+        Set<String> filter = environmentIds == null ? Set.of() : Set.copyOf(environmentIds);
+        return JdkFlowAdapter.publisherToFlowPublisher(sink.asFlux()
+                .filter(event -> belongsToApplication(event, applicationId, filter)));
+    }
+
+    private static boolean belongsToApplication(MessageEvent event, String applicationId, Set<String> environments) {
+        if (applicationId == null || applicationId.isBlank()) {
+            return false;
+        }
+        if (event.applicationId() != null && !event.applicationId().isBlank()) {
+            return applicationId.equals(event.applicationId());
+        }
+        return event.environmentId() != null && environments.contains(event.environmentId());
     }
 }

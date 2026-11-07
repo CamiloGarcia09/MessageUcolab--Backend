@@ -12,6 +12,7 @@ import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import com.surrealdb.Surreal;
+import com.surrealdb.Response;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,12 +56,17 @@ class CreateMessageSurrealAdapterTest {
     private LoggingPort log;
     @Mock
     private CatalogPort catalogPort;
+    private Response response;
 
     private CreateMessageSurrealAdapter adapter;
 
     @BeforeEach
     void setUp() {
         when(loggerFactory.getLogger(CreateMessageSurrealAdapter.class)).thenReturn(log);
+        response = org.mockito.Mockito.mock(Response.class);
+        lenient().when(response.size()).thenReturn(0);
+        lenient().when(surreal.query(anyString())).thenReturn(response);
+        lenient().when(catalogPort.getMessage(anyString())).thenReturn("catalog message");
         lenient().when(catalogPort.getMessage("TCH_099"))
                 .thenReturn("Creando el mensaje y su relación con ambientes de forma atómica: {}");
         CatalogPortStaticRef.set(catalogPort);

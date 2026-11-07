@@ -74,8 +74,12 @@ class UpdateMessageSurrealAdapterTest {
     @BeforeEach
     void setUp() {
         when(loggerFactory.getLogger(UpdateMessageSurrealAdapter.class)).thenReturn(log);
+        lenient().when(catalogPort.getMessage(anyString())).thenReturn("catalog message");
         lenient().when(catalogPort.getMessage("TCH_095"))
                 .thenReturn("Mensaje actualizado correctamente con el identificador: {}");
+        Response emptyResponse = mock(Response.class);
+        lenient().when(emptyResponse.size()).thenReturn(0);
+        lenient().when(surreal.query(anyString())).thenReturn(emptyResponse);
         CatalogPortStaticRef.set(catalogPort);
         adapter = new UpdateMessageSurrealAdapter(surreal, loggerFactory);
     }
@@ -118,7 +122,8 @@ class UpdateMessageSurrealAdapterTest {
                 + "category_id: message_category:`" + CATEGORY_ID + "`, "
                 + "status_id: message_state:`" + STATUS_ID + "`, "
                 + "functionality_id: functionality:`" + FUNCTIONALITY_ID + "` };";
-        assertThat(queries.getValue()).isEqualTo(expectedSql);
+        assertThat(queries.getValue()).contains(expectedSql).startsWith("BEGIN TRANSACTION;")
+                .endsWith("COMMIT TRANSACTION;");
         verify(log).info("Mensaje actualizado correctamente con el identificador: {}", MESSAGE_ID.toString());
     }
 
@@ -131,7 +136,7 @@ class UpdateMessageSurrealAdapterTest {
 
         assertAll(
                 () -> assertThat(queries.getValue()).doesNotContain("code:"),
-                () -> assertThat(queries.getValue()).doesNotContain("application_id"));
+                () -> assertThat(queries.getValue()).doesNotContain("application_id:", "code:"));
     }
 
     @Test
@@ -167,7 +172,7 @@ class UpdateMessageSurrealAdapterTest {
         verify(surreal, times(2)).query(queries.capture());
         String transaction = queries.getAllValues().get(1);
         assertAll(
-                () -> assertThat(transaction).startsWith("BEGIN TRANSACTION;UPDATE message:`" + MESSAGE_ID + "`"),
+                () -> assertThat(transaction).startsWith("BEGIN TRANSACTION;IF string::lowercase("),
                 () -> assertThat(transaction).endsWith("COMMIT TRANSACTION;"),
                 () -> assertThat(transaction).contains("DELETE message_environment:`" + RELATION_TESTING + "`;"),
                 () -> assertThat(transaction).doesNotContain(RELATION_DEVELOP),

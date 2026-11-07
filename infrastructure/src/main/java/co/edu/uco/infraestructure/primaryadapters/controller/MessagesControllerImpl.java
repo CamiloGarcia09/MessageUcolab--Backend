@@ -68,7 +68,7 @@ final class MessagesControllerImpl implements MessagesController {
         exchange.getResponse().getHeaders().setCacheControl("no-cache");
         exchange.getResponse().getHeaders().set("Connection", "keep-alive");
         exchange.getResponse().getHeaders().set("X-Accel-Buffering", "no");
-        Flux<ServerSentEvent<MessageEvent>> events = Flux.<ServerSentEvent<MessageEvent>>create(emitter -> eventStream.subscribe(environments).subscribe(new java.util.concurrent.Flow.Subscriber<>() {
+        Flux<ServerSentEvent<MessageEvent>> events = Flux.<ServerSentEvent<MessageEvent>>create(emitter -> eventStream.subscribeToApplication(application, environments).subscribe(new java.util.concurrent.Flow.Subscriber<>() {
             public void onSubscribe(java.util.concurrent.Flow.Subscription subscription) {
                 emitter.onDispose(subscription::cancel);
                 subscription.request(Long.MAX_VALUE);
@@ -86,7 +86,10 @@ final class MessagesControllerImpl implements MessagesController {
                             "", "");
                     return ServerSentEvent.<MessageEvent>builder(event).id(event.id()).event(event.type()).build();
                 });
-        return Flux.merge(events, heartbeat);
+        MessageEvent connected = new MessageEvent(UUID.randomUUID().toString(), "connected", "", "", application);
+        // Subscribe to changes before sending readiness; a client can then resynchronize without a startup gap.
+        return Flux.merge(events, Flux.just(ServerSentEvent.<MessageEvent>builder(connected)
+                .id(connected.id()).event(connected.type()).build()), heartbeat);
     }
     public Mono<Void> findMessagesByApplication(String page, String size, String sort, String columnSort,
                                                    String filterCode, String filterTitle, String filterCategory,
