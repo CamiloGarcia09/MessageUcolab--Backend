@@ -4,6 +4,7 @@ import co.edu.uco.application.primaryports.dto.message.UpdateMessageDTO;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.repository.FunctionalityCatalogRepository;
 import co.edu.uco.application.secondaryports.repository.RecordExistsCatalogPort;
+import co.edu.uco.application.secondaryports.repository.MessageStateCatalogRepository;
 import co.edu.uco.application.usecase.validator.CompositeValidator;
 import co.edu.uco.application.usecase.validator.Validator;
 import co.edu.uco.application.usecase.validator.message.environment.MessageEnvironmentSelectionCompositeValidator;
@@ -19,6 +20,7 @@ import co.edu.uco.application.usecase.validator.message.rule.UpdateMessageFuncti
 import co.edu.uco.application.usecase.validator.message.rule.UpdateMessageTitleMaxLengthRule;
 import co.edu.uco.application.usecase.validator.message.rule.UpdateMessageTitleMinLengthRule;
 import co.edu.uco.application.usecase.validator.message.rule.UpdateMessageTitleRequiredRule;
+import co.edu.uco.application.usecase.validator.message.rule.UpdateMessageActiveFunctionalityRule;
 
 import java.util.List;
 
@@ -38,8 +40,9 @@ public final class UpdateMessageCompositeValidator extends CompositeValidator<Up
 
     public UpdateMessageCompositeValidator(CatalogPort catalogPort,
                                            RecordExistsCatalogPort recordExistsCatalogPort,
-                                           FunctionalityCatalogRepository functionalityCatalogRepository,
-                                           MessageEnvironmentSelectionCompositeValidator environmentSelectionValidator) {
+                                            FunctionalityCatalogRepository functionalityCatalogRepository,
+                                            MessageStateCatalogRepository messageStates,
+                                            MessageEnvironmentSelectionCompositeValidator environmentSelectionValidator) {
         super(List.of(
                 forDto(new UpdateMessageTitleRequiredRule(catalogPort)),
                 forDto(new UpdateMessageTitleMinLengthRule(catalogPort)),
@@ -62,7 +65,8 @@ public final class UpdateMessageCompositeValidator extends CompositeValidator<Up
                 forDto(new UpdateMessageCatalogIdExistsRule(catalogPort, recordExistsCatalogPort,
                         UpdateMessageDTO::getStatusId, MESSAGE_STATE, FUN_195)),
                 forEnvironments(environmentSelectionValidator),
-                new UpdateMessageFunctionalityBelongsApplicationRule(catalogPort, functionalityCatalogRepository)
+                new UpdateMessageFunctionalityBelongsApplicationRule(catalogPort, functionalityCatalogRepository),
+                new UpdateMessageActiveFunctionalityRule(catalogPort, functionalityCatalogRepository, messageStates)
         ), catalogPort);
         this.environmentSelectionValidator = environmentSelectionValidator;
     }

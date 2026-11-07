@@ -109,10 +109,16 @@ Las reglas de formato se ejecutan antes de consultas de existencia, pertenencia 
 
 La capa HTTP usa WebFlux. El acceso actual a SurrealDB y parte del acceso a Redis pueden ser síncronos; esas operaciones deben mantenerse fuera del event loop.
 
-SSE ofrece actualizaciones administrativas por aplicación. Su implementación en memoria tiene límites explícitos:
+SSE ofrece actualizaciones administrativas por aplicación mediante `GET /messageucolab/v1/messages/events`, con sesión BFF, permiso PEP y `X-Application-Id` autorizado. La suscripción admite notificaciones por aplicación además de las existentes por ambiente. Después de confirmar las escrituras de la proyección, el backend emite `MessageCreated`, `MessageUpdated` o `MessageDeleted` según el evento de origen, con aplicación y código de mensaje; la señal por aplicación no depende de que ya exista una proyección por ambiente. Añadir, cambiar o quitar una asociación de ambiente es `MessageUpdated` si el mensaje sigue existiendo, nunca una creación o eliminación del mensaje completo.
+
+`MessagesChanged` se reserva para la inactivación colectiva de mensajes de una funcionalidad. La transacción de cascada marca `metadata.notification_type` en los eventos nuevos que genera, preservando los eventos pendientes anteriores; el proyector reconoce el origen sin deducirlo por el estado actual del mensaje. Se usa el objeto flexible de metadatos existente, sin migración de esquema ni cambio de triggers. El lote puede producir varias invalidaciones conforme se proyectan sus mensajes; el frontend las agrupa. SSE no garantiza un único evento por acción.
+
+El frontend agrupa ráfagas de eventos y consulta nuevamente el listado, conservando filtros y orden y ajustando una página que haya dejado de existir. Cada conexión o reconexión provoca también esa resincronización. No se usan recargas de página ni esperas fijas para adivinar cuándo terminó una proyección. El procesador de proyecciones sigue siendo asíncrono (intervalo configurado de 2 segundos más el tiempo de procesamiento y la cola).
+
+La implementación en memoria tiene límites explícitos:
 
 - Los eventos no son duraderos.
-- Una reconexión no recupera eventos perdidos.
+- Una reconexión no reproduce eventos perdidos: el cliente recupera el estado actual consultando el listado tras conectarse.
 - Varias réplicas no comparten automáticamente el flujo.
 - No reemplaza Pulsar ni constituye una garantía de entrega.
 
