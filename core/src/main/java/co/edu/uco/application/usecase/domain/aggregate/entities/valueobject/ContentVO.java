@@ -1,7 +1,7 @@
 package co.edu.uco.application.usecase.domain.aggregate.entities.valueobject;
 
 import co.edu.uco.application.crosscutting.exceptions.ContentCanNotBeEmptyException;
-import co.edu.uco.application.crosscutting.exceptions.SizeContentLessThanTenException;
+import co.edu.uco.application.crosscutting.exceptions.ContentBelowMinimumLengthException;
 import co.edu.uco.application.crosscutting.exceptions.ContentExceedsMaximumLengthException;
 import co.edu.uco.crosscutting.helpers.UtilNumeric;
 import lombok.Getter;
@@ -16,7 +16,7 @@ public final class ContentVO {
     }
     public void setContent(String content) {
         validateContent(content);
-        validateSizeLessThanTen(content);
+        validateMinimumLength(content);
         validateMaximumLength(content);
         this.content = content;
     }
@@ -26,13 +26,13 @@ public final class ContentVO {
         }
     }
     private void validateMaximumLength(String content) {
-        if (UtilNumeric.isGreaterThan(content.length(), 500)) {
+        if (UtilNumeric.isGreaterThan(content.length(), 2000)) {
             ContentExceedsMaximumLengthException.report();
         }
     }
-    private void validateSizeLessThanTen(String content) {
-        if (UtilNumeric.isLessThan(content.length(), 10)) {
-            SizeContentLessThanTenException.report();
+    private void validateMinimumLength(String content) {
+        if (UtilNumeric.isLessThan(content.length(), 5)) {
+            ContentBelowMinimumLengthException.report();
         }
     }
 }

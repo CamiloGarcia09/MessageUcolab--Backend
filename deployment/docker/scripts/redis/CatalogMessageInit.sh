@@ -25,13 +25,15 @@ redis_hset() {
 }
 
 message_import_instructions() {
-  redis_hset "IMP_012" "Instrucciones de importación" "Completa solo la hoja Mensajes: una fila por mensaje, hasta 500. El código se escribe sin MSG_, con 1 a 50 letras, números o espacios. Título: 10 a 200 caracteres. Contenido: 10 a 500. Usa los nombres exactos de los desplegables, sin agregar identificadores. Los nombres deben identificar una única referencia. Descarga la plantilla actual: no se admiten versiones anteriores. No se crean funcionalidades ni se actualizan mensajes existentes. La plantilla corresponde a la aplicación seleccionada; los ambientes se eligen al importar. No cambies los metadatos técnicos ocultos. Elimina las filas de ejemplo antes de validar. No uses fórmulas ni enlaces externos." "FUNCTIONAL" "INFORMATION"
+  redis_hset "IMP_012" "Instrucciones de importación" "Completa solo la hoja Mensajes: una fila por mensaje, hasta 500. El código se escribe sin MSG_, con 1 a 500 letras, números o espacios. Título: 5 a 1000 caracteres. Contenido: 5 a 2000. Usa los nombres exactos de los desplegables, sin agregar identificadores. Los nombres deben identificar una única referencia. Descarga la plantilla actual: no se admiten versiones anteriores. No se crean funcionalidades ni se actualizan mensajes existentes. La plantilla corresponde a la aplicación seleccionada; los ambientes se eligen al importar. No cambies los metadatos técnicos ocultos. Elimina las filas de ejemplo antes de validar. No uses fórmulas ni enlaces externos." "FUNCTIONAL" "INFORMATION"
 }
 
 message_length_errors() {
-  redis_hset "FUN_019" "Contenido demasiado largo" "El contenido no puede superar los 500 caracteres." "FUNCTIONAL" "ERROR"
-  redis_hset "FUN_021" "Título demasiado largo" "El título no puede superar los 200 caracteres." "FUNCTIONAL" "ERROR"
-  redis_hset "FUN_198" "Sufijo del código demasiado largo" "El sufijo del código del mensaje no puede superar los 50 caracteres." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_018" "Contenido demasiado corto" "El contenido debe tener al menos 5 caracteres." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_019" "Contenido demasiado largo" "El contenido no puede superar los 2000 caracteres." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_020" "Título demasiado corto" "El título debe tener al menos 5 caracteres." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_021" "Título demasiado largo" "El título no puede superar los 1000 caracteres." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_198" "Sufijo del código demasiado largo" "El sufijo del código del mensaje no puede superar los 500 caracteres." "FUNCTIONAL" "ERROR"
 }
 
 if [ "${1:-}" = "--message-limits-only" ]; then
@@ -139,9 +141,7 @@ redis_hset "FUN_010" "Dato obligatorio" "El dato %s es obligatorio." "FUNCTIONAL
 redis_hset "FUN_011" "Aplicación no encontrada" "No fue posible obtener los mensajes de la aplicación. Verifica que exista." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_012" "Mensaje no encontrado" "No existe un mensaje con el código %s para la aplicación %s." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_017" "Contenido vacío" "El contenido no puede estar vacío." "FUNCTIONAL" "ERROR"
-redis_hset "FUN_018" "Contenido demasiado corto" "El contenido debe tener al menos 10 caracteres." "FUNCTIONAL" "ERROR"
 message_length_errors
-redis_hset "FUN_020" "Título demasiado corto" "El título debe tener al menos 10 caracteres." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_022" "Título vacío" "El título no puede estar vacío." "FUNCTIONAL" "ERROR"
 redis_hset "FUN_024" "Información consultada" "%s" "FUNCTIONAL" "CONFIRMATION"
 redis_hset "FUN_027" "Información consultada" "%s" "FUNCTIONAL" "CONFIRMATION"

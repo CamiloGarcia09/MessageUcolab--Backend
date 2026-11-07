@@ -1,7 +1,7 @@
 package co.edu.uco.application.usecase.domain.aggregate.entities.valueobject;
 
 import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
-import co.edu.uco.application.crosscutting.exceptions.SizeTitleLessThanTenException;
+import co.edu.uco.application.crosscutting.exceptions.TitleBelowMinimumLengthException;
 import co.edu.uco.application.crosscutting.exceptions.TitleExceedsMaximumLengthException;
 import co.edu.uco.application.crosscutting.exceptions.TitleCanNotBeEmptyException;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
@@ -31,19 +31,19 @@ class TitleVOTest {
     }
 
     @Test
-    void constructor_acceptsTenCharacterTitle() {
-        TitleVO vo = new TitleVO("1234567890");
+    void constructor_acceptsFiveCharacterTitle() {
+        TitleVO vo = new TitleVO("12345");
 
-        assertThat(vo.getTitle()).hasSize(10);
+        assertThat(vo.getTitle()).hasSize(5);
     }
 
     @Test
-    void constructor_acceptsTwoHundredCharacterTitle() {
-        String title = "a".repeat(200);
+    void constructor_acceptsOneThousandCharacterTitle() {
+        String title = "a".repeat(1000);
 
         TitleVO vo = new TitleVO(title);
 
-        assertThat(vo.getTitle()).hasSize(200);
+        assertThat(vo.getTitle()).hasSize(1000);
     }
 
     @Test
@@ -59,14 +59,14 @@ class TitleVOTest {
     }
 
     @Test
-    void constructor_rejectsTitleShorterThanTen() {
-        assertThatThrownBy(() -> new TitleVO("corta"))
-                .isInstanceOf(SizeTitleLessThanTenException.class);
+    void constructor_rejectsTitleShorterThanFive() {
+        assertThatThrownBy(() -> new TitleVO("abcd"))
+                .isInstanceOf(TitleBelowMinimumLengthException.class);
     }
 
     @Test
-    void constructor_rejectsTitleLongerThanTwoHundred() {
-        String title = "a".repeat(201);
+    void constructor_rejectsTitleLongerThanOneThousand() {
+        String title = "a".repeat(1001);
         assertThatThrownBy(() -> new TitleVO(title))
                 .isInstanceOf(TitleExceedsMaximumLengthException.class);
     }

@@ -9,7 +9,7 @@ import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 
 public final class UpdateMessageTitleMinLengthRule extends RuleValidator<UpdateMessageDTO> {
 
-    private static final int TITLE_MIN_LENGTH = 10;
+    private static final int TITLE_MIN_LENGTH = 5;
 
     public UpdateMessageTitleMinLengthRule(CatalogPort catalogPort) {
         super(catalogPort,

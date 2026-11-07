@@ -85,7 +85,7 @@ class MessageCodeMaxLengthRuleTest {
     @Test
     void validate_throwsBusinessRuleUsingFun198_whenSuffixExceedsFiftyCharacters() {
         stubFun198Message();
-        CreateMessageDTO dto = CreateMessageDTO.builder().code("A".repeat(51)).build();
+        CreateMessageDTO dto = CreateMessageDTO.builder().code("A".repeat(501)).build();
 
         assertThatThrownBy(() -> rule.validate(dto))
                 .satisfies(MessageCodeMaxLengthRuleTest::assertFun198Failure);

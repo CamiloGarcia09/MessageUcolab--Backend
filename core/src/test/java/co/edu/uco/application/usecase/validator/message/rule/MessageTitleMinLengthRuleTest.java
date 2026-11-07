@@ -37,7 +37,7 @@ class MessageTitleMinLengthRuleTest {
 
     @Test
     void validate_throwsBusinessRuleException_whenTitleIsShorterThanMinimum() {
-        CreateMessageDTO dto = CreateMessageDTO.builder().title("Short").build();
+        CreateMessageDTO dto = CreateMessageDTO.builder().title("abcd").build();
 
         assertThrows(BusinessRuleException.class, () -> rule.validate(dto));
     }
