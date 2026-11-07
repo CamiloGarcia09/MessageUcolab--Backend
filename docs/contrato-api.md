@@ -1,12 +1,12 @@
 # Contrato de la API de MessageUcoLab
 
-> **Última actualización:** 31 de octubre de 2026
+> **Última actualización:** 7 de noviembre de 2026
 > **Estado:** Documento oficial vigente
 > **Fuente de verdad:** `infrastructure/src/main/resources/static/openapi.yaml`
 
 ## Alcance
 
-La especificación OpenAPI 3.0.3 define las operaciones públicas y protegidas, parámetros, cuerpos, respuestas y esquemas de MessageUcoLab. En la fecha de actualización contiene 28 operaciones HTTP.
+La especificación OpenAPI 3.0.3 define las operaciones públicas y protegidas, parámetros, cuerpos, respuestas y esquemas de MessageUcoLab. Incluye el cambio de estado de funcionalidades descrito en este documento.
 
 Con la aplicación en ejecución:
 
@@ -54,7 +54,9 @@ Todas las rutas usan el prefijo `/messageucolab/v1`.
 |---|---|---|
 | `POST` | `/application` | Crear aplicación y ambientes |
 | `POST` | `/application/functionality` | Crear funcionalidad |
+| `PATCH` | `/application/functionality/{functionalityId}/state` | Activar o inactivar funcionalidad y desactivar sus mensajes |
 | `GET` | `/messages` | Consultar por código o listar mensajes |
+| `GET` | `/messages/events` | Recibir notificaciones SSE de la aplicación autorizada |
 | `POST` | `/messages` | Crear mensaje |
 | `PUT` | `/messages/{messageCode}` | Editar mensaje o solo sus ambientes |
 | `POST` | `/messages/{messageCode}/translations` | Traducir un mensaje administrativo |
@@ -90,6 +92,41 @@ Todas las rutas usan el prefijo `/messageucolab/v1`.
 | `GET` | `/catalog/message-categories` |
 | `GET` | `/catalog/message-states` |
 | `GET` | `/catalog/message-environment-states` |
+
+## Cambio de estado de funcionalidades
+
+```http
+PATCH /messageucolab/v1/application/functionality/{functionalityId}/state
+Content-Type: application/json
+Cookie: SECURITY_BASELINE_SESSION=<sesion>
+```
+
+```json
+{
+  "applicationId": "<uuid-aplicacion-propia>",
+  "stateId": "<uuid-estado-funcionalidad>"
+}
+```
+
+- El backend valida propiedad mediante la sesión BFF, nunca mediante correo o propietario enviados por el navegador. La funcionalidad debe pertenecer a la aplicación indicada.
+- `stateId` debe identificar el estado Activo o Inactivo de `functionality_state`; no se admite el UUID de un estado de mensaje.
+- Inactivar cambia el estado global de **todos** los mensajes asociados a Inactivo en la misma transacción, sin borrar mensajes, traducciones ni relaciones de ambientes. Afecta su disponibilidad en todos los ambientes.
+- Reactivar la funcionalidad **no reactiva mensajes**. Después pueden activarse individualmente; no se permite activar mensajes mientras su funcionalidad esté inactiva.
+- La respuesta `200` conserva el envelope `data: ["Estado de funcionalidad actualizado correctamente."], errors: []`. Los UUID inválidos se rechazan con `422`, el acceso a una aplicación ajena con `403` y una funcionalidad inexistente o ajena a la aplicación indicada con `404`.
+- Se invalida la caché de los mensajes modificados; los eventos normales de actualización alimentan proyecciones y SSE. El consumo comprueba también el estado actual de la funcionalidad, incluso si existe caché anterior.
+- La pantalla de funcionalidades de `MessageUcolab--Frontend` y la sección Configuración de `Minifronts/mensajes-ui` incorporan Activar/Inactivar y confirmación explícita del impacto, usando la misma ruta PATCH y las mismas reglas del backend.
+
+### Activación del contrato
+
+El responsable de seguridad debe habilitar el permiso de **PATCH `/messageucolab/v1/application/functionality/{functionalityId}/state`** en el PEP existente. No basta con el permiso POST de creación. Sin ese permiso puede responder `403`; no se debe excluir la ruta de autenticación ni modificar seguridad desde este repositorio.
+
+Actualizar solo los cinco textos nuevos del catálogo, sin vaciar Redis ni recargar entradas ajenas, desde `deployment/docker`:
+
+```bash
+doppler run --project messageucolab --config dev -- docker compose run --rm --no-deps redis-init --functionality-states-only
+```
+
+No se requiere migración de esquema. El cambio se aplica a una funcionalidad al ejecutar su inactivación; no modifica retrospectivamente datos por desplegar el backend. Desplegar también el frontend actualizado. El CORS de MessageUcoLab admite PATCH; no se modifica el CORS ni el despliegue de seguridad.
 
 ## Creación y edición de mensajes
 
@@ -148,6 +185,35 @@ Content-Type: application/json
 
 Esta modalidad no modifica código, título, contenido, clasificación, estado ni funcionalidad. La operación masiva del frontend envía una solicitud por mensaje y puede producir resultados parciales.
 
+## Actualización administrativa en tiempo real
+
+```http
+GET /messageucolab/v1/messages/events
+Accept: text/event-stream
+X-Application-Id: <uuid-aplicacion-propia>
+Cookie: SECURITY_BASELINE_SESSION=<sesion>
+```
+
+La ruta conserva autenticación BFF, permiso PEP y comprobación de propiedad. El permiso GET de esta ruta es independiente del PATCH de funcionalidades. No se excluye SSE del PEP ni se modifica seguridad.
+
+- `connected`: confirma apertura del canal; el cliente consulta el listado actual también al reconectar.
+- `MessageCreated`: se proyectó la creación de un mensaje; incluye `applicationId` y `messageCode` en la notificación por aplicación, aunque todavía no haya filas por ambiente.
+- `MessageUpdated`: se proyectó una edición individual o un cambio de sus asociaciones de ambientes. Incluye aplicación y código en la señal por aplicación; quitar un ambiente no elimina el mensaje completo.
+- `MessageDeleted`: se proyectó la eliminación del mensaje completo y de sus proyecciones por ambiente. El código y la aplicación se recuperan del evento de borrado, aunque la fila original ya no exista.
+- `MessagesChanged`: notifica un cambio colectivo, actualmente la inactivación de los mensajes de una funcionalidad. Incluye `applicationId`; `environmentId` y `messageCode` están vacíos en la señal por aplicación. Ya no se emite como aviso general de toda edición individual.
+- `MessageChanged`: señal individual genérica para un evento de origen no reconocido; no equivale a la invalidación colectiva `MessagesChanged`.
+- `heartbeat`: mantiene el canal abierto aproximadamente cada 15 segundos, sin anunciar cambios de datos.
+- Se conservan notificaciones por ambiente con el tipo correspondiente. Una acción puede producir varias señales por aplicación y ambientes; no hay garantía de un solo evento por acción. El frontend agrupa las ráfagas y vuelve a consultar el estado actual.
+- El campo `applicationId` es aditivo; puede estar vacío en eventos anteriores por ambiente. Un evento con aplicación explícita solo se entrega a suscripciones de esa aplicación autorizada.
+- El frontend principal agrupa notificaciones, vuelve a consultar datos y totales del servidor sin recargar la página y resincroniza al reconectar. No se infiere el nuevo estado solo por recibir un evento.
+- Los cambios de funcionalidad se guardan primero en la transacción fuente. El listado y su notificación se actualizan mediante el procesador asíncrono de proyecciones: el intervalo configurado de 2 segundos no garantiza una latencia máxima, pues hay cola y tiempo de procesamiento.
+- No hay replay duradero ni sincronización SSE entre réplicas. La administración de `Minifronts/mensajes-ui` también escucha este canal, agrupa avisos, resincroniza al conectar o reconectar y conserva la búsqueda, el ambiente y la paginación válida sin reemplazar los formularios que se están llenando. Al cambiar de contexto o desmontarse cierra la conexión y descarta respuestas anteriores.
+- El cliente público `createMessageClient` del minifront conserva su caché con TTL. No abre SSE administrativo ni adquiere con este cambio el futuro contrato de sincronización persistente de aplicaciones consumidoras.
+
+La clasificación colectiva se registra en el campo flexible `metadata.notification_type` de los eventos nuevos dentro de la misma transacción de inactivación. No cambia el esquema ni requiere recargar seeds; los eventos antiguos sin esa marca se clasifican por su tipo de origen y no se reetiquetan retrospectivamente. Al desplegar el ajuste puede aparecer `MessageUpdated` al procesar una cascada antigua que aún estuviera pendiente.
+
+Si se pierde la conexión, el frontend lo indica y reintenta con espera progresiva. Si la ruta devuelve `403`, muestra que falta autorización y permite reabrir el canal sin recargar cuando el responsable haya corregido el permiso. Una respuesta HTML `200` no se interpreta como un canal SSE válido.
+
 ## Consulta administrativa
 
 `GET /messages` admite consulta exacta por `code` o listado paginado. Los filtros del listado se combinan con AND antes de contar y paginar.
@@ -189,7 +255,7 @@ Los rechazos generados directamente por Spring, Kong o el PEP pueden usar otra e
 
 ## Desviaciones conocidas del contrato
 
-La implementación contiene operaciones de eliminación de mensajes y SSE que no aparecen actualmente entre las 28 operaciones del OpenAPI. Hasta que la especificación se actualice y valide, no deben presentarse como parte estable del contrato externo oficial.
+La implementación contiene una operación de eliminación de mensajes que no aparece actualmente en el OpenAPI. Hasta que la especificación se actualice y valide, no debe presentarse como parte estable del contrato externo oficial. El canal SSE sí se documenta en la especificación actual.
 
 ## Documentos relacionados
 

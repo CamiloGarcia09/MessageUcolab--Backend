@@ -41,9 +41,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.atLeastOnce;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 @ExtendWith(MockitoExtension.class)
 class SurrealDomainEventProjectionConsumerTest {
@@ -123,10 +125,18 @@ class SurrealDomainEventProjectionConsumerTest {
         doReturn(stringValue(aggregateId)).when(obj).get("aggregate_id");
         doReturn(stringValue(aggregateType)).when(obj).get("aggregate_type");
         doReturn(longValue(version)).when(obj).get("version");
-        when(obj.get("payload")).thenReturn(null);
-        when(obj.get("metadata")).thenReturn(null);
-        when(obj.get("created_at")).thenReturn(null);
+        lenient().when(obj.get("created_at")).thenReturn(null);
         return obj;
+    }
+
+    private Object collectiveEventObject() {
+        Object event = eventObject("bulk-1", "MESSAGE_UPDATED", "message:msg-1", "message", 3);
+        Object metadata = mock(Object.class);
+        when(metadata.iterator()).thenReturn(List.<Entry>of().iterator());
+        doReturn(stringValue("MessagesChanged")).when(metadata).get("notification_type");
+        Value metadataValue = valueOf(metadata);
+        lenient().doReturn(metadataValue).when(event).get("metadata");
+        return event;
     }
 
     private void stubEvents(Object... events) {
@@ -144,6 +154,19 @@ class SurrealDomainEventProjectionConsumerTest {
         Object obj = mock(Object.class);
         doReturn(stringValue(name)).when(obj).get("name");
         return obj;
+    }
+
+    private Object messageRecord(String applicationId) {
+        Object message = mock(Object.class);
+        doReturn(stringValue("type:t-1")).when(message).get("type_id");
+        doReturn(stringValue("category:c-1")).when(message).get("category_id");
+        doReturn(stringValue("status:s-1")).when(message).get("status_id");
+        doReturn(stringValue(applicationId)).when(message).get("application_id");
+        doReturn(stringValue("functionality:f-1")).when(message).get("functionality_id");
+        doReturn(stringValue("CODE")).when(message).get("code");
+        doReturn(stringValue("Title")).when(message).get("title");
+        doReturn(stringValue("Content")).when(message).get("content");
+        return message;
     }
 
     private Object applicationRecord() {
@@ -292,6 +315,60 @@ class SurrealDomainEventProjectionConsumerTest {
     }
 
     @Test
+    void consumePendingDomainEvents_publishesApplicationInvalidationAfterWrites_withoutEnvironmentRows() {
+        Object message = messageRecord("application:app-77");
+        stubEvents(eventObject("event-1", "MESSAGE_UPDATED", "message:msg-1", "message", 2));
+        stubRecord("message:msg-1", message);
+        stubRecord("type:t-1", catalogRecord("MESSAGE_TYPE"));
+        stubRecord("category:c-1", catalogRecord("CATEGORY"));
+        stubRecord("status:s-1", catalogRecord("ACTIVE"));
+        stubRecord("application:app-77", applicationRecord());
+        stubRecord("functionality:f-1", catalogRecord("FUNC"));
+        doReturn(responseWith()).when(surreal)
+                .query(contains("SELECT environment_id FROM message_environment_readmodel"));
+
+        consumer.consumePendingDomainEvents();
+
+        InOrder writesBeforeNotification = inOrder(surreal, publisher);
+        writesBeforeNotification.verify(surreal).query(contains("UPSERT message_data_collection:`msg-1`"));
+        writesBeforeNotification.verify(surreal).query(contains("UPDATE message_environment_readmodel"));
+        ArgumentCaptor<MessageEvent> eventCaptor = ArgumentCaptor.forClass(MessageEvent.class);
+        writesBeforeNotification.verify(publisher).publish(eventCaptor.capture());
+        MessageEvent event = eventCaptor.getValue();
+        assertAll(
+                () -> assertThat(event.type()).isEqualTo("MessageUpdated"),
+                () -> assertThat(event.applicationId()).isEqualTo("app-77"),
+                () -> assertThat(event.environmentId()).isEmpty(),
+                () -> assertThat(event.messageCode()).isEqualTo("CODE"));
+    }
+
+    @Test
+    void consumePendingDomainEvents_marksFailedAndDoesNotNotify_whenProjectionWriteFailsOnDeferredResponseTake() {
+        Object message = messageRecord("application:app-77");
+        stubEvents(eventObject("event-1", "MESSAGE_UPDATED", "message:msg-1", "message", 2));
+        stubRecord("message:msg-1", message);
+        stubRecord("type:t-1", catalogRecord("MESSAGE_TYPE"));
+        stubRecord("category:c-1", catalogRecord("CATEGORY"));
+        stubRecord("status:s-1", catalogRecord("ACTIVE"));
+        stubRecord("application:app-77", applicationRecord());
+        stubRecord("functionality:f-1", catalogRecord("FUNC"));
+        Response deferredFailure = mock(Response.class);
+        Value successfulStatement = mock(Value.class);
+        when(deferredFailure.size()).thenReturn(2);
+        when(deferredFailure.take(0)).thenReturn(successfulStatement);
+        when(deferredFailure.take(1)).thenThrow(new IllegalStateException("deferred projection write failure"));
+        doReturn(deferredFailure).when(surreal)
+                .query(contains("UPDATE message_environment_readmodel"));
+
+        consumer.consumePendingDomainEvents();
+
+        verify(surreal).query(contains("projection_status = 'failed'"));
+        verify(surreal).query(contains("projection_error = 'deferred projection write failure'"));
+        verify(publisher, never()).publish(org.mockito.ArgumentMatchers.argThat(
+                event -> "MessagesChanged".equals(event.type())));
+    }
+
+    @Test
     void consumePendingDomainEvents_projectsMessageEnvironmentReadModel() {
         Object message = mock(Object.class);
         doReturn(stringValue("type:t-1")).when(message).get("type_id");
@@ -309,8 +386,6 @@ class SurrealDomainEventProjectionConsumerTest {
         doReturn(stringValue("message:msg-1")).when(readModel).get("message_id");
         doReturn(stringValue("environment:e-1")).when(readModel).get("environment_id");
         doReturn(stringValue("state:st-1")).when(readModel).get("state_data_id");
-        when(readModel.get("created_at")).thenReturn(null);
-        when(readModel.get("updated_at")).thenReturn(null);
 
         stubEvents(eventObject("event-1", "MESSAGE_ENVIRONMENT_CREATED",
                 "message_environment:me-1", "message_environment", 1));
@@ -350,8 +425,6 @@ class SurrealDomainEventProjectionConsumerTest {
         doReturn(stringValue("message:msg-1")).when(readModel).get("message_id");
         doReturn(stringValue("environment:e-1")).when(readModel).get("environment_id");
         doReturn(stringValue("state:st-1")).when(readModel).get("state_data_id");
-        when(readModel.get("created_at")).thenReturn(null);
-        when(readModel.get("updated_at")).thenReturn(null);
 
         stubEvents(eventObject("event-1", "MESSAGE_ENVIRONMENT_CREATED",
                 "message_environment:me-1", "message_environment", 1));
@@ -369,13 +442,33 @@ class SurrealDomainEventProjectionConsumerTest {
         consumer.consumePendingDomainEvents();
 
         ArgumentCaptor<MessageEvent> eventCaptor = ArgumentCaptor.forClass(MessageEvent.class);
-        verify(publisher).publish(eventCaptor.capture());
-        MessageEvent event = eventCaptor.getValue();
+        verify(publisher, times(2)).publish(eventCaptor.capture());
+        MessageEvent event = eventCaptor.getAllValues().get(1);
         assertAll(
-                () -> assertThat(event.type()).isEqualTo("MessageCreated"),
+                () -> assertThat(event.type()).isEqualTo("MessageUpdated"),
                 () -> assertThat(event.environmentId()).isEqualTo("e-1"),
                 () -> assertThat(event.messageCode()).isEqualTo("CODE"),
                 () -> assertThat(event.id()).isNotBlank());
+    }
+
+    @Test
+    void consumePendingDomainEvents_publishesCollectiveInvalidationOnlyWhenMetadataMarksIt() {
+        stubEvents(collectiveEventObject());
+        stubRecord("message:msg-1", messageRecord("application:app-77"));
+        stubRecord("type:t-1", catalogRecord("MESSAGE_TYPE"));
+        stubRecord("category:c-1", catalogRecord("CATEGORY"));
+        stubRecord("status:s-1", catalogRecord("ACTIVE"));
+        stubRecord("application:app-77", applicationRecord());
+        stubRecord("functionality:f-1", catalogRecord("FUNC"));
+
+        consumer.consumePendingDomainEvents();
+
+        ArgumentCaptor<MessageEvent> eventCaptor = ArgumentCaptor.forClass(MessageEvent.class);
+        verify(publisher).publish(eventCaptor.capture());
+        assertAll(
+                () -> assertThat(eventCaptor.getValue().type()).isEqualTo("MessagesChanged"),
+                () -> assertThat(eventCaptor.getValue().applicationId()).isEqualTo("app-77"),
+                () -> assertThat(eventCaptor.getValue().messageCode()).isEmpty());
     }
 
     @Test
@@ -428,27 +521,83 @@ class SurrealDomainEventProjectionConsumerTest {
         assertThat(documentQuery("UPSERT message_data_collection:`msg-1`"))
                 .contains("application: 'APP'")
                 .doesNotContain("'DENORM_APP'");
+        ArgumentCaptor<MessageEvent> eventCaptor = ArgumentCaptor.forClass(MessageEvent.class);
+        verify(publisher).publish(eventCaptor.capture());
+        assertAll(
+                () -> assertThat(eventCaptor.getValue().type()).isEqualTo("MessageCreated"),
+                () -> assertThat(eventCaptor.getValue().applicationId()).isEqualTo("a-1"),
+                () -> assertThat(eventCaptor.getValue().messageCode()).isEqualTo("CODE"));
     }
 
     @Test
-    void consumePendingDomainEvents_projectsReferences_whenMessageAndEnvironmentAreMissing() {
+    void consumePendingDomainEvents_publishesDeletionFromPayloadAfterRemovingReadModels_whenSourceIsGone() {
+        Object deletion = eventObject("delete-1", "MESSAGE_DELETED", "message:gone-1", "message", 4);
+        Object before = mock(Object.class);
+        when(before.iterator()).thenReturn(List.<Entry>of().iterator());
+        doReturn(stringValue("application:app-77")).when(before).get("application_id");
+        doReturn(stringValue("GONE_CODE")).when(before).get("code");
+        lenient().doReturn(valueOf(before)).when(deletion).get("payload");
+        stubEvents(deletion);
+        doReturn(responseWith()).when(surreal).query(contains("SELECT environment_id FROM message_environment_readmodel"));
+
+        consumer.consumePendingDomainEvents();
+
+        ArgumentCaptor<MessageEvent> eventCaptor = ArgumentCaptor.forClass(MessageEvent.class);
+        verify(publisher).publish(eventCaptor.capture());
+        assertAll(
+                () -> assertThat(eventCaptor.getValue().type()).isEqualTo("MessageDeleted"),
+                () -> assertThat(eventCaptor.getValue().applicationId()).isEqualTo("app-77"),
+                () -> assertThat(eventCaptor.getValue().messageCode()).isEqualTo("GONE_CODE"));
+        InOrder ordering = inOrder(surreal, publisher);
+        ordering.verify(surreal).query(contains("DELETE message_data_collection:`gone-1`"));
+        ordering.verify(surreal).query(contains("DELETE message_environment_readmodel WHERE message_id"));
+        ordering.verify(publisher).publish(any(MessageEvent.class));
+    }
+
+    @Test
+    void consumePendingDomainEvents_notifiesUpdatedForAssociationDeletion_withoutDeletingMessage() {
+        Object deletion = eventObject("relation-delete", "MESSAGE_ENVIRONMENT_DELETED",
+                "message_environment:me-1", "message_environment", 2);
+        Object before = mock(Object.class);
+        when(before.iterator()).thenReturn(List.<Entry>of().iterator());
+        doReturn(stringValue("message:msg-1")).when(before).get("message_id");
+        doReturn(stringValue("environment:e-1")).when(before).get("environment_id");
+        lenient().doReturn(valueOf(before)).when(deletion).get("payload");
+        stubEvents(deletion);
+        Object sourceMessage = mock(Object.class);
+        doReturn(stringValue("application:app-77")).when(sourceMessage).get("application_id");
+        doReturn(stringValue("CODE")).when(sourceMessage).get("code");
+        stubRecord("message:msg-1", sourceMessage);
+
+        consumer.consumePendingDomainEvents();
+
+        ArgumentCaptor<MessageEvent> eventCaptor = ArgumentCaptor.forClass(MessageEvent.class);
+        verify(publisher, times(2)).publish(eventCaptor.capture());
+        assertAll(
+                () -> assertThat(eventCaptor.getAllValues()).allSatisfy(event ->
+                        assertThat(event.type()).isEqualTo("MessageUpdated")),
+                () -> assertThat(eventCaptor.getAllValues().get(0).applicationId()).isEqualTo("app-77"),
+                () -> assertThat(eventCaptor.getAllValues().get(0).messageCode()).isEqualTo("CODE"),
+                () -> assertThat(eventCaptor.getAllValues().get(1).environmentId()).isEqualTo("e-1"));
+        verify(surreal).query(contains("DELETE message_environment_readmodel:`me-1`"));
+        verify(surreal, never()).query(contains("DELETE message_data_collection:`msg-1`"));
+        verify(publisher, never()).publish(org.mockito.ArgumentMatchers.argThat(
+                event -> "MessageDeleted".equals(event.type())));
+    }
+
+    @Test
+    void consumePendingDomainEvents_removesOrphanedEnvironmentProjection_whenSourceMessageIsMissing() {
         Object readModel = mock(Object.class);
         doReturn(stringValue("message:missing-1")).when(readModel).get("message_id");
-        doReturn(stringValue("environment:e-1")).when(readModel).get("environment_id");
-        doReturn(stringValue("state:st-1")).when(readModel).get("state_data_id");
-        when(readModel.get("created_at")).thenReturn(null);
-        when(readModel.get("updated_at")).thenReturn(null);
 
         stubEvents(eventObject("event-1", "MESSAGE_ENVIRONMENT_CREATED",
                 "message_environment:me-1", "message_environment", 1));
         stubRecord("message_environment:me-1", readModel);
-        stubRecord("state:st-1", catalogRecord("ACTIVE"));
 
         consumer.consumePendingDomainEvents();
 
-        assertThat(documentQuery("UPSERT message_environment_readmodel:`me-1`"))
-                .contains("environment: { id: 'environment:e-1', name: NONE }")
-                .contains("message: { id: 'message:missing-1' }");
+        verify(surreal).query(contains("DELETE message_environment_readmodel:`me-1`"));
+        verify(publisher, never()).publish(any(MessageEvent.class));
     }
 
     @Test

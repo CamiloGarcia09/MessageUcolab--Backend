@@ -86,6 +86,7 @@ public class ResolveMessageSurrealRepositoryAdapter extends SurrealCatalogSuppor
         return " WHERE environment_id = " + recordIdLiteral("environment", environmentId)
                 + " AND message_id.application_id = environment_id.application_id"
                 + " AND string::lowercase(message_id.status_id.name) IN ['activo', 'active']"
+                + " AND string::lowercase(message_id.functionality_id.state_id.name) IN ['activo', 'active']"
                 + " AND string::lowercase(state_data_id.name) IN ['activo', 'active']";
     }
 

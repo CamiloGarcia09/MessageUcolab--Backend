@@ -715,6 +715,70 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /messageucolab/v1/application/functionality/{functionalityId}/state:
+    patch:
+      tags: [Administracion]
+      summary: Activar o inactivar una funcionalidad
+      description: |
+        Valida que applicationId pertenezca al usuario de la sesion BFF y que la funcionalidad
+        pertenezca a esa aplicacion. Requiere el permiso de la nueva ruta en el PEP.
+        Al inactivar, cambia el estado global de todos sus mensajes a Inactivo en la misma
+        transaccion; conservan sus ambientes y dejan de estar disponibles para consumo.
+        Al activar, los mensajes conservan su estado: no se reactivan automaticamente.
+        Repetir la solicitud no duplica mensajes ni relaciones.
+      operationId: updateFunctionalityState
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: functionalityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFunctionalityStateRequest'
+      responses:
+        '200':
+          description: Estado actualizado; la inactivacion incluye todos los mensajes asociados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+              example:
+                data: [Estado de funcionalidad actualizado correctamente.]
+                errors: []
+            application/yaml:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+            text/plain:
+              schema:
+                type: string
+            text/html:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /messageucolab/v1/messages:
     post:
       tags: [Mensajes]
@@ -874,6 +938,62 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /messageucolab/v1/messages/events:
+    get:
+      tags: [Mensajes]
+      summary: Recibir cambios del listado por SSE
+      description: |
+        Requiere sesion BFF, permiso PEP GET de esta ruta y propiedad de la aplicacion.
+        Emite connected al abrir y heartbeat para mantener el canal.
+        Las operaciones individuales emiten MessageCreated, MessageUpdated o MessageDeleted
+        con applicationId y messageCode despues de confirmar las escrituras de la proyeccion.
+        Un cambio de ambientes de un mensaje existente es MessageUpdated, no MessageDeleted.
+        MessagesChanged se reserva para cambios colectivos, como inactivar los mensajes de una
+        funcionalidad; en la senal por aplicacion environmentId y messageCode estan vacios.
+        MessageChanged es una senal individual generica para un tipo de origen desconocido.
+        Conserva notificaciones por ambiente; una accion puede producir varias senales.
+        El campo applicationId es aditivo y puede estar vacio en eventos por ambiente.
+        El cliente debe consultar GET /messages al conectar, reconectar y recibir cambios.
+        No hay replay de eventos ni garantia de entrega entre replicas. La proyeccion es asincrona.
+      operationId: messageEvents
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: X-Application-Id
+          in: header
+          required: true
+          description: UUID de una aplicacion propia validada contra la sesion BFF.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Flujo SSE; cada campo data contiene un objeto MessageEvent en JSON.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-cache
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |
+                event: MessageUpdated
+                id: 1f37237a-13fa-4386-b328-d00265244541
+                data: {"id":"1f37237a-13fa-4386-b328-d00265244541","type":"MessageUpdated","environmentId":"","messageCode":"MSG_BIENVENIDA","applicationId":"123e4567-e89b-12d3-a456-426614174000"}
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '406':
           $ref: '#/components/responses/NotAcceptable'
         '422':
@@ -1399,6 +1519,24 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
+    MessageEvent:
+      type: object
+      required: [id, type, environmentId, messageCode]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [connected, heartbeat, MessagesChanged, MessageCreated, MessageUpdated, MessageDeleted, MessageChanged]
+        applicationId:
+          type: string
+          description: UUID de la aplicacion; puede estar vacio en eventos anteriores por ambiente.
+        environmentId:
+          type: string
+          description: UUID del ambiente o cadena vacia para eventos por aplicacion.
+        messageCode:
+          type: string
+          description: Codigo del mensaje o cadena vacia para invalidar el listado completo.
     MessageImportPreview:
       type: object
       required: [importId, applicationId, environmentIds, rows, expiresAt]
@@ -1815,6 +1953,21 @@ components:
         stateId:
           type: string
           format: uuid
+    UpdateFunctionalityStateRequest:
+      type: object
+      required: [applicationId, stateId]
+      properties:
+        applicationId:
+          type: string
+          format: uuid
+          description: Aplicacion propia a la que pertenece la funcionalidad.
+        stateId:
+          type: string
+          format: uuid
+          description: UUID del catalogo functionality_state correspondiente a Activo o Inactivo.
+      example:
+        applicationId: 123e4567-e89b-12d3-a456-426614174000
+        stateId: 505cde87-96f2-4926-8dc6-b04529469bd3
     CreateMessageRequest:
       type: object
       required: [code, title, content, typeId, categoryId, statusId, functionalityId, environmentIds]
