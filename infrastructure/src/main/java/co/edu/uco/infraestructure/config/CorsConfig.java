@@ -13,9 +13,11 @@ import java.util.List;
 class CorsConfig {
 
     @Bean
-    CorsWebFilter corsWebFilter(@Value("${messageucolab.cors.public-origins}") List<String> publicOrigins) {
+    CorsWebFilter corsWebFilter(
+            @Value("${messageucolab.cors.admin-origins}") List<String> adminOrigins,
+            @Value("${messageucolab.cors.public-origins}") List<String> publicOrigins) {
         CorsConfiguration cors = new CorsConfiguration();
-        cors.setAllowedOrigins(List.of("http://localhost:5174"));
+        cors.setAllowedOrigins(adminOrigins);
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("Content-Type", "X-Correlation-Id", "X-Application-Id", "X-Environment-Id"));
         cors.setExposedHeaders(List.of("X-Decision-Id"));
