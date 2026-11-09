@@ -797,6 +797,10 @@ public enum MessageCatalogCodeEnum {
     FUN_228("FUN_228"),
     /** No se puede activar un mensaje bajo una funcionalidad inactiva. */
     FUN_229("FUN_229"),
+    /** Aplicacion eliminada junto con sus datos dependientes. */
+    FUN_230("FUN_230"),
+    /** La aplicacion no existe o no pertenece al usuario autenticado. */
+    FUN_231("FUN_231"),
     TCH_076("TCH_076"),
     TCH_077("TCH_077"),
     /** Error al consultar mensajes por aplicacion en SurrealDB. */
@@ -846,7 +850,11 @@ public enum MessageCatalogCodeEnum {
     TCH_104("TCH_104"),
     TCH_105("TCH_105"),
     /** Error al actualizar el estado de una funcionalidad y sus mensajes. */
-    TCH_106("TCH_106");
+    TCH_106("TCH_106"),
+    /** Error al eliminar una aplicacion y sus datos en SurrealDB. */
+    TCH_107("TCH_107"),
+    /** Aplicacion eliminada; no se pudo completar la limpieza de su cache. */
+    TCH_108("TCH_108");
 
     // =========================================================================
 
