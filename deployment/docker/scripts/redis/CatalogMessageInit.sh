@@ -36,6 +36,19 @@ message_length_errors() {
   redis_hset "FUN_198" "Sufijo del código demasiado largo" "El sufijo del código del mensaje no puede superar los 500 caracteres." "FUNCTIONAL" "ERROR"
 }
 
+application_deletion_messages() {
+  redis_hset "FUN_230" "Aplicación eliminada" "La aplicación y sus funcionalidades, mensajes y ambientes se eliminaron correctamente." "FUNCTIONAL" "INFORMATION"
+  redis_hset "FUN_231" "Aplicación no accesible" "La aplicación no existe o no pertenece al usuario autenticado." "FUNCTIONAL" "ERROR"
+  redis_hset "TCH_107" "Error al eliminar la aplicación" "No fue posible eliminar la aplicación y sus datos dependientes." "TECHNICAL" "ERROR"
+  redis_hset "TCH_108" "Limpieza de caché pendiente" "La aplicación fue eliminada, pero no se pudo completar la limpieza de su caché temporal." "TECHNICAL" "ERROR"
+}
+
+if [ "${1:-}" = "--application-deletion-only" ]; then
+  application_deletion_messages
+  echo "Catálogo de eliminación de aplicaciones actualizado."
+  exit 0
+fi
+
 functionality_state_messages() {
   redis_hset "FUN_226" "Funcionalidad no encontrada" "La funcionalidad no existe en la aplicación indicada." "FUNCTIONAL" "ERROR"
   redis_hset "FUN_227" "Estado de funcionalidad actualizado" "Estado de funcionalidad actualizado correctamente." "FUNCTIONAL" "INFORMATION"
@@ -397,5 +410,7 @@ redis_hset "TCH_103" "Guardado de organización" "Ejecutando el guardado de la o
 
 redis_hset "TCH_104" "Contexto de SurrealDB" "Se utiliza el espacio de nombres {} y la base de datos {}." "TECHNICAL" "INFORMATION"
 redis_hset "TCH_105" "Solicitud completada" "Solicitud completada con estado {}" "TECHNICAL" "INFORMATION"
+
+application_deletion_messages
 
 echo "Catálogo de mensajes cargado correctamente."
