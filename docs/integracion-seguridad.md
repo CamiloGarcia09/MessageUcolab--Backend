@@ -81,11 +81,11 @@ El paquete se descarga desde GitHub Packages. El build necesita `GITHUB_PACKAGES
 
 Spring Boot 4.1.1 y Spring Framework 7 son obligatorios para esta versión del starter. No se debe intentar compatibilidad mezclando Spring 6, Boot 3 o excluyendo WebClient.
 
-## Rutas públicas
+## Rutas públicas y consumo entre aplicaciones
 
-`/actuator/health` y `/messageucolab/v1/public/**` están excluidas del PEP en la configuración actual. La segunda exclusión es temporal mientras no exista autorización aplicación-a-aplicación.
+Solo `/actuator/health` está excluida del PEP. Las aplicaciones consumidoras usan `/messages/consumer` con el Bearer de su identidad de servicio (`client_credentials`); MessageUcoLab concede esas rutas a cada identidad en el componente de seguridad (Solicitar acceso y Aprobaciones). Después del PEP se valida que la aplicación exista y que el ambiente le pertenezca.
 
-Esto no convierte las rutas administrativas en públicas. La API pública valida aplicación, ambiente y disponibilidad del mensaje, pero no autentica al consumidor. El puerto 8085 no debe exponerse públicamente para evadir los controles de Kong.
+El puerto 8085 no debe exponerse públicamente para evadir los controles de Kong.
 
 ## Manejo de respuestas
 

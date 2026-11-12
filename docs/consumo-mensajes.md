@@ -17,26 +17,39 @@ Un mensaje solo se entrega cuando:
 
 Las respuestas de consumo usan `Cache-Control: no-store` para evitar reutilización HTTP entre contextos.
 
-## API pública
+## API de consumo con identidad de servicio
 
-La opción recomendada para el cliente Java actual usa rutas públicas temporales:
+Las aplicaciones consumidoras llaman a las rutas de consumo con el token de su **identidad de servicio** (`client_credentials`), nunca con el token de un usuario:
 
 ```http
-GET /messageucolab/v1/public/messages
-GET /messageucolab/v1/public/messages/{code}?language=en
-X-Application-Id: <uuid-aplicacion>
-X-Environment-Id: <uuid-ambiente>
+GET  /messageucolab/v1/messages/consumer
+GET  /messageucolab/v1/messages/consumer?code=MSG_PRODSAVED
+POST /messageucolab/v1/messages/consumer/translations?code=MSG_PRODSAVED
+Authorization: Bearer <token-de-la-identidad-de-servicio>
 ```
 
-No requieren cookie BFF ni pasan por el PEP. Esta excepción existe mientras seguridad no ofrezca autorización aplicación-a-aplicación. Kong limita la ruta a 120 solicitudes por minuto y por IP.
+El consumidor no envía la aplicación ni el ambiente: MessageUcoLab los deduce del `client_id` del token (claim `azp`). Para que una identidad pueda usar las rutas:
 
-Ejemplo de listado:
+1. La aplicación consumidora crea una identidad de servicio por ambiente en el componente de seguridad.
+2. Solicita acceso a los recursos de consumo de MessageUcoLab, o al rol técnico que los agrupa.
+3. MessageUcoLab aprueba la solicitud.
+4. El propietario de la aplicación en MessageUcoLab asocia el `client_id` de esa identidad al ambiente que consume, en **Identidades de servicio** de la pantalla de aplicaciones. Cada `client_id` consume un solo ambiente.
 
-```bash
-curl -H "X-Application-Id: <uuid-aplicacion>" \
-     -H "X-Environment-Id: <uuid-ambiente>" \
-     http://localhost:8000/messageucolab/v1/public/messages
+Sin token válido la respuesta es `401` (PEP); con una identidad sin permiso para la ruta, `403` (PEP); con una identidad que no está asociada a ningún ambiente, `403` (`FUN_232`). Una identidad solo lee los mensajes del ambiente al que fue asociada, aunque tenga permiso sobre la ruta. Kong limita estas rutas a 120 solicitudes por minuto y por IP.
+
+### Registro de identidades por el propietario
+
+Con la sesión BFF del propietario:
+
+```http
+GET    /messageucolab/v1/application/{applicationId}/service-identities
+POST   /messageucolab/v1/application/{applicationId}/service-identities
+DELETE /messageucolab/v1/application/{applicationId}/service-identities/{clientId}
 ```
+
+El cuerpo del `POST` es `{"environmentId": "<uuid-ambiente>", "clientId": "<client_id>"}`. Si el `client_id` ya está asociado a otro ambiente la respuesta es `409` (`FUN_235`). Al eliminar una aplicación se eliminan sus asociaciones.
+
+Sin `code`, `GET /messages/consumer` devuelve todos los mensajes disponibles del ambiente en el idioma base:
 
 ```json
 {
@@ -57,11 +70,11 @@ curl -H "X-Application-Id: <uuid-aplicacion>" \
 }
 ```
 
-Sin `language`, la consulta individual devuelve el idioma base. Con otro idioma, traduce el mensaje y guarda temporalmente el resultado en Redis. Una edición cambia la huella y obliga a generar una traducción nueva.
+La traducción (`POST /consumer/translations` con `{"targetLanguage": "en"}`) guarda temporalmente el resultado en Redis. Una edición cambia la huella y obliga a generar una traducción nueva.
 
 ## API de consumo con sesión
 
-El contrato protegido permite consultar y traducir con sesión BFF:
+Las mismas rutas aceptan la sesión BFF del propietario de la aplicación, por ejemplo desde la pantalla de administración:
 
 ```http
 GET /messageucolab/v1/messages/consumer?code=MSG_WELCOME
@@ -132,13 +145,25 @@ El starter requiere Java 25 y Spring Boot 4.1.1:
 
 Las credenciales de GitHub Packages pertenecen al `settings.xml` o gestor de secretos del consumidor, nunca al POM.
 
+El consumidor también necesita el starter de seguridad con su identidad de servicio:
+
+```properties
+# Identidad de servicio de la aplicación consumidora (los valores llegan desde el gestor de secretos)
+security.pep.service-identity.enabled=true
+security.pep.service-identity.token-uri=${KEYCLOAK_TOKEN_URI}
+security.pep.service-identity.client-id=${MESSAGEUCOLAB_CLIENT_ID}
+security.pep.service-identity.client-secret=${MESSAGEUCOLAB_CLIENT_SECRET}
+```
+
+El starter de MessageUcoLab obtiene el token con el `ServiceAccessTokenProvider` del starter de seguridad, que lo guarda en caché y lo renueva antes de vencer. Si la aplicación obtiene el token de otra forma, puede registrar su propio bean `MessageUcoLabAccessTokenProvider`.
+
 ```yaml
 messageucolab:
   url: ${MESSAGEUCOLAB_URL:http://localhost:8000}
-  application-id: ${MESSAGEUCOLAB_APPLICATION_ID}
-  environment-id: ${MESSAGEUCOLAB_ENVIRONMENT_ID}
   timeout: 60s
 ```
+
+El consumidor no configura identificadores de aplicación ni de ambiente: MessageUcoLab los deduce del `client_id` de su identidad.
 
 Uso:
 
@@ -155,7 +180,7 @@ Un bean opcional `MessageFallbackPort` puede resolver un respaldo ante `404`, re
 | Estado | Significado | Acción |
 |---|---|---|
 | `400` / `422` | Entrada, código o idioma inválido | Corregir solicitud |
-| `401` | Sesión requerida inválida | Revisar autenticación |
+| `401` | Token o sesión ausente o inválido | Revisar la identidad de servicio |
 | `403` | Falta permiso o autorización del consumidor | Revisar integración |
 | `404` | Mensaje no disponible | Revisar código y ambiente |
 | `409` | Ambiente ajeno o cambio concurrente | Recargar y reintentar |
@@ -169,7 +194,7 @@ Un bean opcional `MessageFallbackPort` puede resolver un respaldo ante `404`, re
 - Sustituir marcadores como `{nombre}` en la aplicación consumidora.
 - No almacenar credenciales en JavaScript, URLs o logs.
 - No exponer directamente el puerto 8085 en entornos públicos.
-- Acordar con seguridad un contrato máquina-a-máquina antes de retirar la excepción pública.
+- Guardar el secreto de la identidad de servicio solo en el gestor de secretos; nunca en el front.
 
 ## Documentos relacionados
 
