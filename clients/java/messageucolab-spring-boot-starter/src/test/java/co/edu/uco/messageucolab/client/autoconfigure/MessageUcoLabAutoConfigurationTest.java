@@ -22,8 +22,7 @@ class MessageUcoLabAutoConfigurationTest {
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(MessageUcoLabAutoConfiguration.class,
                     WebClientAutoConfiguration.class))
-            .withPropertyValues("messageucolab.url=https://messages.example",
-                    "messageucolab.application-id=app-test", "messageucolab.environment-id=env-test");
+            .withPropertyValues("messageucolab.url=https://messages.example");
 
     @Test
     @DisplayName("registra adaptador, fallback vacío y facade con propiedades enlazadas")
@@ -34,8 +33,7 @@ class MessageUcoLabAutoConfigurationTest {
             assertThat(context).hasSingleBean(WebClient.Builder.class);
             assertThat(context.getBean(MessageQueryPort.class)).isInstanceOf(MessageUcoLabHttpAdapter.class);
             MessageUcoLabProperties properties = context.getBean(MessageUcoLabProperties.class);
-            assertAll(() -> assertThat(properties.applicationId()).isEqualTo("app-test"),
-                    () -> assertThat(properties.environmentId()).isEqualTo("env-test"),
+            assertAll(() -> assertThat(properties.url()).isEqualTo("https://messages.example"),
                     () -> assertThat(properties.timeout()).isEqualTo(java.time.Duration.ofSeconds(60)));
         });
     }

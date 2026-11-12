@@ -9,10 +9,11 @@ services:
           - /messageucolab/v1
         strip_path: false
 
-      # Consulta publica de mensajes: sin sesion y con limite de peticiones por cliente.
-      - name: messageucolab-public
+      # Consumo de mensajes por las aplicaciones consumidoras (identidad de servicio):
+      # limite de peticiones por cliente, porque una traduccion nueva llama al modelo de IA.
+      - name: messageucolab-consumer
         paths:
-          - /messageucolab/v1/public
+          - /messageucolab/v1/messages/consumer
         strip_path: false
         plugins:
           - name: rate-limiting

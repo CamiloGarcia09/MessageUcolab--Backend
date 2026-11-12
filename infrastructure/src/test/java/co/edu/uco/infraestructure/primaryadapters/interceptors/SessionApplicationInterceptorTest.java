@@ -77,6 +77,31 @@ class SessionApplicationInterceptorTest {
         verifyNoInteractions(facade);
     }
 
+    @ParameterizedTest(name = "path={0}")
+    @ValueSource(strings = {"/messageucolab/v1/messages/consumer", "/messageucolab/v1/messages/consumer/translations"})
+    void filter_letsServiceIdentityConsumersPassWithoutSessionOrHeaders(String path) {
+        MockServerWebExchange exchange = exchange(MockServerHttpRequest.get(path)
+                .header("Authorization", "Bearer token-de-servicio")
+                .header("X-Application-Id", APPLICATION_ID));
+
+        interceptor.filter(exchange, chain).block();
+
+        assertThat(chainInvoked).isTrue();
+        assertThat((Object) exchange.getAttribute(APPLICATION_ID_ATTRIBUTE)).isNull();
+        verifyNoInteractions(facade, workspace);
+    }
+
+    @Test
+    void filter_treatsBlankSessionCookieOnConsumerPathAsServiceIdentity() {
+        MockServerWebExchange exchange = exchange(MockServerHttpRequest.get("/messageucolab/v1/messages/consumer")
+                .cookie(new HttpCookie("SECURITY_BASELINE_SESSION", " ")));
+
+        interceptor.filter(exchange, chain).block();
+
+        assertThat(chainInvoked).isTrue();
+        verifyNoInteractions(facade, workspace);
+    }
+
     @Test
     void filter_resolvesSelectedApplicationWithoutEnvironment_forMessageOperations() {
         when(workspace.openSession(SESSION)).thenReturn(workspaceSession());

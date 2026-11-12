@@ -18,4 +18,6 @@ public class TranslationAiProperties {
     private double temperature = 0.1;
     private int maxRetries = 0;
     private long timeoutSeconds = 30;
+    /** Traducciones que pueden estar en curso a la vez; las que excedan este número reciben el texto original. */
+    private int maxConcurrentRequests = 2;
 }

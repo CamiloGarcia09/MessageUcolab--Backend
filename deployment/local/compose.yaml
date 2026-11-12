@@ -191,7 +191,10 @@ services:
     networks:
       - kong-network
 
+  # Opcional: solo se levanta con el perfil "ollama" (COMPOSE_PROFILES=ollama en el .env). Sin él, el kit no
+  # descarga Ollama ni el modelo y la traducción entrega el texto original.
   ollama:
+    profiles: [ollama]
     image: ollama/ollama:latest
     container_name: ollama
     ports:
@@ -208,6 +211,7 @@ services:
       - app-network
 
   ollama-init:
+    profiles: [ollama]
     image: ollama/ollama:latest
     container_name: ollama-model-init
     depends_on:
@@ -252,7 +256,8 @@ services:
       - SURREALDBPASSWORD=${SURREALDBPASSWORD}
       - SURREALDBNAMESPACE=${SURREALDBNAMESPACE}
       - SURREALDBDATABASE=${SURREALDBDATABASE}
-      - TRANSLATION_AI_ENABLED=${TRANSLATION_AI_ENABLED:-true}
+      # La traducción es opcional y viene apagada. Para encenderla se activa el perfil "ollama" del kit
+      - TRANSLATION_AI_ENABLED=${TRANSLATION_AI_ENABLED:-false}
       - TRANSLATION_AI_PROVIDER=${TRANSLATION_AI_PROVIDER:-ollama}
       - TRANSLATION_AI_API_KEY=${TRANSLATION_AI_API_KEY:-}
       - TRANSLATION_AI_BASE_URL=${TRANSLATION_AI_BASE_URL:-http://ollama:11434}
@@ -260,6 +265,7 @@ services:
       - TRANSLATION_AI_TEMPERATURE=${TRANSLATION_AI_TEMPERATURE:-0.1}
       - TRANSLATION_AI_MAX_RETRIES=${TRANSLATION_AI_MAX_RETRIES:-0}
       - TRANSLATION_AI_TIMEOUT_SECONDS=${TRANSLATION_AI_TIMEOUT_SECONDS:-30}
+      - TRANSLATION_AI_MAX_CONCURRENT_REQUESTS=${TRANSLATION_AI_MAX_CONCURRENT_REQUESTS:-2}
     depends_on:
       redis:
         condition: service_started
@@ -268,8 +274,6 @@ services:
       surrealdb:
         condition: service_started
       surrealdb-init:
-        condition: service_completed_successfully
-      ollama-init:
         condition: service_completed_successfully
       loki:
         condition: service_started

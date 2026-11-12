@@ -1,9 +1,9 @@
 package co.edu.uco.application.secondaryports.authorization;
 
 /**
- * Decide si una aplicacion consumidora puede consultar los mensajes publicos de un ambiente.
- * Mientras seguridad no resuelva la autorizacion entre aplicaciones el acceso es abierto;
- * despues este puerto consultara a seguridad sin cambiar el contrato de los consumidores.
+ * Decide si una aplicacion consumidora puede consultar los mensajes de un ambiente.
+ * La identidad de servicio ya fue autorizada por el PEP para la ruta; este puerto permite agregar
+ * despues una restriccion por aplicacion sin cambiar el contrato de los consumidores.
  */
 public interface ConsumerAuthorizationPort {
 

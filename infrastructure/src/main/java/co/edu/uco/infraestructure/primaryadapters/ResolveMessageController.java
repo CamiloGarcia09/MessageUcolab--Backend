@@ -10,6 +10,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 public interface ResolveMessageController {
 
     @GetMapping(value = "/consumer", produces = "application/json")
-    Mono<Void> resolve(@RequestParam("code") String code,
+    Mono<Void> resolve(@RequestParam(value = "code", required = false) String code,
                        ServerWebExchange exchange);
 }

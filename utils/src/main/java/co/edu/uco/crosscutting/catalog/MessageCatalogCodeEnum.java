@@ -797,6 +797,24 @@ public enum MessageCatalogCodeEnum {
     FUN_228("FUN_228"),
     /** No se puede activar un mensaje bajo una funcionalidad inactiva. */
     FUN_229("FUN_229"),
+    /** Aplicacion eliminada junto con sus datos dependientes. */
+    FUN_230("FUN_230"),
+    /** La aplicacion no existe o no pertenece al usuario autenticado. */
+    FUN_231("FUN_231"),
+    /** La identidad de servicio del token no esta asociada a ningun ambiente. */
+    FUN_232("FUN_232"),
+    /** El client_id de la identidad de servicio es obligatorio. */
+    FUN_233("FUN_233"),
+    /** El client_id de la identidad de servicio tiene un formato invalido. */
+    FUN_234("FUN_234"),
+    /** La identidad de servicio ya esta asociada a un ambiente. */
+    FUN_235("FUN_235"),
+    /** Identidad de servicio asociada al ambiente. */
+    FUN_236("FUN_236"),
+    /** La identidad de servicio no esta asociada a la aplicacion. */
+    FUN_237("FUN_237"),
+    /** Identidad de servicio retirada del ambiente. */
+    FUN_238("FUN_238"),
     TCH_076("TCH_076"),
     TCH_077("TCH_077"),
     /** Error al consultar mensajes por aplicacion en SurrealDB. */
@@ -847,11 +865,11 @@ public enum MessageCatalogCodeEnum {
     TCH_105("TCH_105"),
     /** Error al actualizar el estado de una funcionalidad y sus mensajes. */
     TCH_106("TCH_106"),
-    /** Error al publicar un aviso de cambio de mensaje en el broker. */
+    /** Error al eliminar una aplicacion y sus datos en SurrealDB. */
     TCH_107("TCH_107"),
-    /** Error al crear el productor de avisos de cambios de mensajes. */
+    /** Aplicacion eliminada; no se pudo completar la limpieza de su cache. */
     TCH_108("TCH_108"),
-    /** Un publicador de avisos fallo y se aislo para no afectar a los demas. */
+    /** Error al gestionar las identidades de servicio en SurrealDB. */
     TCH_109("TCH_109");
 
     // =========================================================================

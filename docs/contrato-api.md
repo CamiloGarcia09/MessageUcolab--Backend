@@ -1,6 +1,6 @@
 # Contrato de la API de MessageUcoLab
 
-> **Última actualización:** 7 de noviembre de 2026
+> **Última actualización:** 8 de noviembre de 2026
 > **Estado:** Documento oficial vigente
 > **Fuente de verdad:** `infrastructure/src/main/resources/static/openapi.yaml`
 
@@ -32,7 +32,7 @@ X-Application-Id: <uuid-aplicacion>
 X-Environment-Id: <uuid-ambiente>
 ```
 
-Las dos rutas bajo `/messageucolab/v1/public` declaran `security: []` y no pasan actualmente por el PEP.
+Las rutas de consumo aceptan la sesión BFF o el Bearer de una identidad de servicio autorizada en el PEP; ninguna ruta de mensajes queda fuera del PEP. Con identidad de servicio no se envían `X-Application-Id` ni `X-Environment-Id`: la aplicación y el ambiente salen del `client_id` del token, asociado por el propietario a un ambiente.
 
 ## Operaciones oficiales
 
@@ -53,8 +53,12 @@ Todas las rutas usan el prefijo `/messageucolab/v1`.
 | Método | Ruta | Operación |
 |---|---|---|
 | `POST` | `/application` | Crear aplicación y ambientes |
+| `DELETE` | `/application/{applicationId}` | Eliminar una aplicación propia y todos sus datos de gestión |
 | `POST` | `/application/functionality` | Crear funcionalidad |
 | `PATCH` | `/application/functionality/{functionalityId}/state` | Activar o inactivar funcionalidad y desactivar sus mensajes |
+| `GET` | `/application/{applicationId}/service-identities` | Listar las identidades de servicio asociadas a los ambientes |
+| `POST` | `/application/{applicationId}/service-identities` | Asociar el `client_id` de una identidad a un ambiente |
+| `DELETE` | `/application/{applicationId}/service-identities/{clientId}` | Retirar una identidad de servicio |
 | `GET` | `/messages` | Consultar por código o listar mensajes |
 | `GET` | `/messages/events` | Recibir notificaciones SSE de la aplicación autorizada |
 | `POST` | `/messages` | Crear mensaje |
@@ -65,10 +69,8 @@ Todas las rutas usan el prefijo `/messageucolab/v1`.
 
 | Método | Ruta | Operación |
 |---|---|---|
-| `GET` | `/messages/consumer` | Consultar un mensaje disponible con sesión |
-| `POST` | `/messages/consumer/translations` | Traducir un mensaje disponible con sesión |
-| `GET` | `/public/messages` | Listar mensajes públicos disponibles |
-| `GET` | `/public/messages/{code}` | Consultar o traducir un mensaje público |
+| `GET` | `/messages/consumer` | Listar los mensajes disponibles del ambiente (sin `code`) o consultar uno (`?code=`) |
+| `POST` | `/messages/consumer/translations` | Traducir un mensaje disponible |
 
 ### Importación
 
@@ -92,6 +94,34 @@ Todas las rutas usan el prefijo `/messageucolab/v1`.
 | `GET` | `/catalog/message-categories` |
 | `GET` | `/catalog/message-states` |
 | `GET` | `/catalog/message-environment-states` |
+
+## Eliminación de aplicaciones
+
+```http
+DELETE /messageucolab/v1/application/{applicationId}
+Cookie: SECURITY_BASELINE_SESSION=<sesion>
+Accept: application/json
+```
+
+- Sin cuerpo ni cabeceras de selección de aplicación o ambiente: se elimina la aplicación identificada en la ruta, nunca una selección implícita del navegador.
+- Exige permiso PEP y propiedad actual del usuario BFF. La comprobación se repite dentro de la transacción; una aplicación ajena o inexistente devuelve `403` sin distinguir ambos casos. Un UUID inválido devuelve `422`.
+- Una transacción SurrealDB borra la aplicación, funcionalidades, mensajes, relaciones mensaje/ambiente, ambientes, recibos de importación y proyecciones documentales asociadas. No se tocan la organización, otras aplicaciones ni los catálogos compartidos. Los eventos y documentos de auditoría se conservan deliberadamente.
+- Las traducciones actuales son temporales en Redis, no registros de traducción en SurrealDB. Tras el commit se limpian sus claves administrativas y de consumo, los mensajes cacheados por UUID y los borradores de importación de esa aplicación. Se usa SCAN acotado, sin vaciar Redis ni invalidar por códigos compartidos con otras aplicaciones.
+- Redis no forma parte de la transacción. Una caída durante la limpieza se registra como `TCH_108`, sin presentar como fallido un borrado ya confirmado. Los restos temporales caducan según sus TTL y la propiedad/existencia se valida antes de acceder a caché. Una respuesta perdida tampoco prueba que el borrado haya fallado: volver a consultar el listado antes de reintentar, nunca repetir automáticamente.
+- Respuesta `200`: envelope `data: ["La aplicación y sus funcionalidades, mensajes y ambientes se eliminaron correctamente."], errors: []`.
+- `MessageUcolab--Frontend` incorpora el botón en «Mis aplicaciones», con nombre exacto y confirmación explícita del impacto en todos los ambientes. Tras confirmar la respuesta quita la aplicación de los listados y limpia el contexto activo si corresponde. El minifront de mensajes no administra organizaciones/aplicaciones y no añade otra operación de borrado.
+
+### Activación del borrado
+
+El responsable de seguridad debe registrar y autorizar **DELETE `/messageucolab/v1/application/{applicationId}`** en el PEP existente. Los permisos POST o PATCH no sustituyen este permiso. No se debe excluir la ruta del PEP ni modificar seguridad desde este repositorio.
+
+Desplegar backend y frontend y cargar únicamente los cuatro textos nuevos desde `deployment/docker`:
+
+```bash
+doppler run --project messageucolab --config dev -- docker compose run --rm --no-deps redis-init --application-deletion-only
+```
+
+No requiere migración de esquema ni ejecución del seed completo de SurrealDB. Desplegar no elimina aplicaciones: el borrado solo ocurre al invocar expresamente el endpoint. El CORS administrativo ya admite DELETE.
 
 ## Cambio de estado de funcionalidades
 

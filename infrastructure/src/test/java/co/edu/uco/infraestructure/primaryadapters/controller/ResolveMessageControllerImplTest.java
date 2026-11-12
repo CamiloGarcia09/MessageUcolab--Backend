@@ -1,6 +1,12 @@
 package co.edu.uco.infraestructure.primaryadapters.controller;
 
+import co.edu.uco.application.usecase.security.ConsumerMessageAccessResolver;
+import co.edu.uco.infraestructure.primaryadapters.consumer.ConsumerRequestAccess;
+import co.edu.uco.infraestructure.primaryadapters.consumer.ServiceIdentityClientIdReader;
+import static org.mockito.Mockito.mock;
+
 import co.edu.uco.application.primaryports.dto.message.ResolvedMessageDTO;
+import co.edu.uco.application.primaryports.facade.message.ListConsumerMessagesUseCaseFacade;
 import co.edu.uco.application.primaryports.facade.message.ResolveMessageUseCaseFacade;
 import co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.SerializerRegistry;
 import co.edu.uco.infraestructure.secondaryadapters.presenter.serializer.SerializerType;
@@ -35,6 +41,7 @@ class ResolveMessageControllerImplTest {
 
     @Mock
     private ResolveMessageUseCaseFacade facade;
+    @Mock private ListConsumerMessagesUseCaseFacade listFacade;
     @Mock private SerializerRegistry serializers;
     @Mock private SerializerType serializer;
 
@@ -42,7 +49,8 @@ class ResolveMessageControllerImplTest {
 
     @BeforeEach
     void setUp() {
-        controller = new ResolveMessageControllerImpl(facade, serializers);
+        controller = new ResolveMessageControllerImpl(facade, listFacade, serializers,
+                new ConsumerRequestAccess(mock(ConsumerMessageAccessResolver.class), new ServiceIdentityClientIdReader()));
     }
 
     private void stubRender() {
