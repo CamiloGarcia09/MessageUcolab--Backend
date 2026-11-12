@@ -43,6 +43,23 @@ application_deletion_messages() {
   redis_hset "TCH_108" "Limpieza de caché pendiente" "La aplicación fue eliminada, pero no se pudo completar la limpieza de su caché temporal." "TECHNICAL" "ERROR"
 }
 
+service_identity_messages() {
+  redis_hset "FUN_232" "Identidad de servicio no registrada" "La identidad de servicio no está asociada a ningún ambiente de MessageUcoLab. Pide al propietario de la aplicación que la registre." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_233" "Client ID obligatorio" "Ingresa el Client ID de la identidad de servicio." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_234" "Client ID inválido" "El Client ID solo admite letras, números y los caracteres . _ : @ -, con un máximo de 255 caracteres." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_235" "Identidad de servicio ya registrada" "La identidad de servicio ya está asociada a un ambiente. Cada identidad consume un solo ambiente." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_236" "Identidad de servicio registrada" "La identidad de servicio quedó asociada al ambiente." "FUNCTIONAL" "INFORMATION"
+  redis_hset "FUN_237" "Identidad de servicio no encontrada" "La identidad de servicio no está asociada a esta aplicación." "FUNCTIONAL" "ERROR"
+  redis_hset "FUN_238" "Identidad de servicio retirada" "La identidad de servicio ya no puede consumir mensajes del ambiente." "FUNCTIONAL" "INFORMATION"
+  redis_hset "TCH_109" "Error con las identidades de servicio" "No fue posible consultar o guardar las identidades de servicio en SurrealDB." "TECHNICAL" "ERROR"
+}
+
+if [ "${1:-}" = "--service-identities-only" ]; then
+  service_identity_messages
+  echo "Catálogo de identidades de servicio actualizado."
+  exit 0
+fi
+
 if [ "${1:-}" = "--application-deletion-only" ]; then
   application_deletion_messages
   echo "Catálogo de eliminación de aplicaciones actualizado."
@@ -412,5 +429,6 @@ redis_hset "TCH_104" "Contexto de SurrealDB" "Se utiliza el espacio de nombres {
 redis_hset "TCH_105" "Solicitud completada" "Solicitud completada con estado {}" "TECHNICAL" "INFORMATION"
 
 application_deletion_messages
+service_identity_messages
 
 echo "Catálogo de mensajes cargado correctamente."

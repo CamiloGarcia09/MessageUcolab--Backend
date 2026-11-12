@@ -66,6 +66,7 @@ public class DeleteApplicationSurrealAdapter extends SurrealCatalogSupport imple
                 + "DELETE message WHERE application_id = $app RETURN NONE;"
                 + "DELETE functionality WHERE application_id = $app RETURN NONE;"
                 + "DELETE message_import_receipt WHERE application_id = $app RETURN NONE;"
+                + "DELETE environment_service_identity WHERE application_id = $app RETURN NONE;"
                 + "DELETE environment WHERE application_id = $app RETURN NONE;"
                 + "DELETE $app RETURN NONE;"
                 + "RETURN $messages;"

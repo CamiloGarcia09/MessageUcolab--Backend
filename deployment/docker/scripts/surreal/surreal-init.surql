@@ -367,6 +367,32 @@ THEN (
 );
 
 -- =============================================================
+-- ENVIRONMENT SERVICE IDENTITY
+-- Identidades de servicio (client_id del componente de seguridad) que consumen cada ambiente.
+-- Un client_id pertenece a un solo ambiente.
+-- =============================================================
+
+DEFINE TABLE IF NOT EXISTS environment_service_identity SCHEMAFULL;
+
+DEFINE FIELD IF NOT EXISTS client_id
+ON environment_service_identity TYPE string;
+
+DEFINE FIELD IF NOT EXISTS application_id
+ON environment_service_identity TYPE record<application>;
+
+DEFINE FIELD IF NOT EXISTS environment_id
+ON environment_service_identity TYPE record<environment>;
+
+DEFINE FIELD OVERWRITE created_at
+ON environment_service_identity TYPE datetime DEFAULT time::now() READONLY;
+
+DEFINE INDEX IF NOT EXISTS environment_service_identity_client_idx
+ON environment_service_identity FIELDS client_id UNIQUE;
+
+DEFINE INDEX IF NOT EXISTS environment_service_identity_application_idx
+ON environment_service_identity FIELDS application_id;
+
+-- =============================================================
 -- FUNCTIONALITY STATE
 -- =============================================================
 

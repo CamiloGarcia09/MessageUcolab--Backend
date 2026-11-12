@@ -4,6 +4,7 @@ import co.edu.uco.application.primaryports.facade.session.SessionApplicationUseC
 import co.edu.uco.application.primaryports.facade.workspace.PersonalWorkspaceUseCaseFacade;
 import co.edu.uco.application.secondaryports.presenter.PresenterPort;
 import co.edu.uco.infraestructure.primaryadapters.interceptors.SessionApplicationInterceptor;
+import co.edu.uco.application.usecase.security.ConsumerMessageAccessResolver;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -28,6 +29,7 @@ class DefaultSessionSecurityRegistrationTest {
             })
             .withBean(SessionApplicationUseCaseFacade.class, () -> mock(SessionApplicationUseCaseFacade.class))
             .withBean(PersonalWorkspaceUseCaseFacade.class, () -> mock(PersonalWorkspaceUseCaseFacade.class))
+            .withBean(ConsumerMessageAccessResolver.class, () -> mock(ConsumerMessageAccessResolver.class))
             .withBean(PresenterPort.class, () -> mock(PresenterPort.class))
             .withPropertyValues("components.security.session.pdp-url=http://localhost:18080")
             .withUserConfiguration(SessionApplicationInterceptor.class, SessionApplicationControllerImpl.class);
