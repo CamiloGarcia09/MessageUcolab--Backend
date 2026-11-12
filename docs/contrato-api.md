@@ -32,7 +32,7 @@ X-Application-Id: <uuid-aplicacion>
 X-Environment-Id: <uuid-ambiente>
 ```
 
-Las dos rutas bajo `/messageucolab/v1/public` declaran `security: []` y no pasan actualmente por el PEP.
+Las rutas de consumo aceptan la sesión BFF o el Bearer de una identidad de servicio autorizada en el PEP; ninguna ruta de mensajes queda fuera del PEP. Con identidad de servicio no se envían `X-Application-Id` ni `X-Environment-Id`: la aplicación y el ambiente salen del `client_id` del token, asociado por el propietario a un ambiente.
 
 ## Operaciones oficiales
 
@@ -56,6 +56,9 @@ Todas las rutas usan el prefijo `/messageucolab/v1`.
 | `DELETE` | `/application/{applicationId}` | Eliminar una aplicación propia y todos sus datos de gestión |
 | `POST` | `/application/functionality` | Crear funcionalidad |
 | `PATCH` | `/application/functionality/{functionalityId}/state` | Activar o inactivar funcionalidad y desactivar sus mensajes |
+| `GET` | `/application/{applicationId}/service-identities` | Listar las identidades de servicio asociadas a los ambientes |
+| `POST` | `/application/{applicationId}/service-identities` | Asociar el `client_id` de una identidad a un ambiente |
+| `DELETE` | `/application/{applicationId}/service-identities/{clientId}` | Retirar una identidad de servicio |
 | `GET` | `/messages` | Consultar por código o listar mensajes |
 | `GET` | `/messages/events` | Recibir notificaciones SSE de la aplicación autorizada |
 | `POST` | `/messages` | Crear mensaje |
@@ -66,10 +69,8 @@ Todas las rutas usan el prefijo `/messageucolab/v1`.
 
 | Método | Ruta | Operación |
 |---|---|---|
-| `GET` | `/messages/consumer` | Consultar un mensaje disponible con sesión |
-| `POST` | `/messages/consumer/translations` | Traducir un mensaje disponible con sesión |
-| `GET` | `/public/messages` | Listar mensajes públicos disponibles |
-| `GET` | `/public/messages/{code}` | Consultar o traducir un mensaje público |
+| `GET` | `/messages/consumer` | Listar los mensajes disponibles del ambiente (sin `code`) o consultar uno (`?code=`) |
+| `POST` | `/messages/consumer/translations` | Traducir un mensaje disponible |
 
 ### Importación
 

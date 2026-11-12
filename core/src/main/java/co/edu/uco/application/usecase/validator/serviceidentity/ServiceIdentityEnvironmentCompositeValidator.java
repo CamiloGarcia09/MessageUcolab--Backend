@@ -1,4 +1,4 @@
-package co.edu.uco.application.usecase.validator.consumer;
+package co.edu.uco.application.usecase.validator.serviceidentity;
 
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.repository.ApplicationRepository;
@@ -16,12 +16,12 @@ import co.edu.uco.application.usecase.validator.session.rule.SessionEnvironmentI
 import java.util.List;
 
 /**
- * Aplicacion y ambiente que envia una aplicacion consumidora sin sesion BFF.
- * Reutiliza las reglas de la sesion salvo la propiedad: no hay un usuario del que comprobarla.
+ * Ambiente al que el propietario asocia una identidad de servicio: debe existir y pertenecer a la aplicacion.
+ * La propiedad de la aplicacion ya la valido la sesion BFF.
  */
-public final class PublicMessageAccessCompositeValidator extends CompositeValidator<SessionApplicationValidationContext> {
+public final class ServiceIdentityEnvironmentCompositeValidator extends CompositeValidator<SessionApplicationValidationContext> {
 
-    public PublicMessageAccessCompositeValidator(final CatalogPort catalogPort,
+    public ServiceIdentityEnvironmentCompositeValidator(final CatalogPort catalogPort,
                                                  final ApplicationRepository applicationRepository,
                                                  final EnvironmentRepository environmentRepository) {
         super(List.of(

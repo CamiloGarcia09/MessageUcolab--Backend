@@ -95,7 +95,7 @@ class SurrealInitScriptContractTest {
 
     private static final Set<String> TABLES_WITH_IMMUTABLE_CREATED_AT = Set.of(
             "domain_events", "organization", "application", "environment", "functionality", "message",
-            "message_environment", "message_import_receipt");
+            "message_environment", "message_import_receipt", "environment_service_identity");
 
     private static final Set<String> TABLES_WITH_MUTABLE_UPDATED_AT = Set.of(
             "organization", "application", "environment", "functionality", "message", "message_environment");

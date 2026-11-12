@@ -1,5 +1,10 @@
 package co.edu.uco.infraestructure.primaryadapters.controller;
 
+import co.edu.uco.application.usecase.security.ConsumerMessageAccessResolver;
+import co.edu.uco.infraestructure.primaryadapters.consumer.ConsumerRequestAccess;
+import co.edu.uco.infraestructure.primaryadapters.consumer.ServiceIdentityClientIdReader;
+import static org.mockito.Mockito.mock;
+
 import co.edu.uco.application.primaryports.dto.message.ConsumerTranslatedMessageDTO;
 import co.edu.uco.application.primaryports.dto.message.ConsumerTranslationRequestDTO;
 import co.edu.uco.application.primaryports.dto.message.ResolvedMessageDTO;
@@ -37,7 +42,8 @@ class ConsumerMessageTranslationControllerImplTest {
 
     @BeforeEach
     void setUp() {
-        controller = new ConsumerMessageTranslationControllerImpl(facade, serializers);
+        controller = new ConsumerMessageTranslationControllerImpl(facade, serializers,
+                new ConsumerRequestAccess(mock(ConsumerMessageAccessResolver.class), new ServiceIdentityClientIdReader()));
     }
 
     @Test

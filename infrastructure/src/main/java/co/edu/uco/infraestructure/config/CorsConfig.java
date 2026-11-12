@@ -14,8 +14,7 @@ class CorsConfig {
 
     @Bean
     CorsWebFilter corsWebFilter(
-            @Value("${messageucolab.cors.admin-origins}") List<String> adminOrigins,
-            @Value("${messageucolab.cors.public-origins}") List<String> publicOrigins) {
+            @Value("${messageucolab.cors.admin-origins}") List<String> adminOrigins) {
         CorsConfiguration cors = new CorsConfiguration();
         cors.setAllowedOrigins(adminOrigins);
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
@@ -23,17 +22,8 @@ class CorsConfig {
         cors.setExposedHeaders(List.of("X-Decision-Id"));
         cors.setAllowCredentials(true);
 
-        // CORS solo limita a los navegadores: los backends consumidores leen la ruta publica sin el.
-        // Los fronts que la leen desde el navegador se declaran uno a uno, sin comodin.
-        CorsConfiguration publicCors = new CorsConfiguration();
-        publicCors.setAllowedOrigins(publicOrigins);
-        publicCors.setAllowedMethods(List.of("GET", "OPTIONS"));
-        publicCors.setAllowedHeaders(List.of("Accept", "X-Correlation-Id", "X-Application-Id", "X-Environment-Id"));
-        publicCors.setAllowCredentials(false);
-
+        // Los backends consumidores llaman con su identidad de servicio y no usan CORS.
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        // El primer patron que coincide gana: la ruta publica va antes que la general.
-        source.registerCorsConfiguration("/messageucolab/v1/public/**", publicCors);
         source.registerCorsConfiguration("/**", cors);
         return new CorsWebFilter(source);
     }

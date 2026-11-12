@@ -7,8 +7,6 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "messageucolab")
 public record MessageUcoLabProperties(
         String url,
-        String applicationId,
-        String environmentId,
         Duration timeout
 ) {
 
