@@ -51,9 +51,12 @@ class MessageUcoLabHttpAdapterTest {
                     () -> assertEquals("es", result.targetLanguage()),
                     () -> assertEquals(Instant.parse("2025-01-01T00:00:00Z"), result.createdAt()),
                     () -> assertEquals(Instant.parse("2025-01-02T00:00:00Z"), result.updatedAt()),
-                    () -> assertEquals("app-1", request.get().headers().getFirst("X-Application-Id")),
-                    () -> assertEquals("env-1", request.get().headers().getFirst("X-Environment-Id")),
-                    () -> assertEquals("language=es", request.get().url().getRawQuery()));
+                    () -> assertNull(request.get().headers().getFirst("X-Application-Id")),
+                    () -> assertNull(request.get().headers().getFirst("X-Environment-Id")),
+                    () -> assertEquals(org.springframework.http.HttpMethod.POST, request.get().method()),
+                    () -> assertEquals("/messageucolab/v1/messages/consumer/translations", request.get().url().getPath()),
+                    () -> assertEquals("Bearer token-test", request.get().headers().getFirst("Authorization")),
+                    () -> assertEquals("code=WELCOME", request.get().url().getRawQuery()));
         }
 
         @Test
@@ -67,7 +70,8 @@ class MessageUcoLabHttpAdapterTest {
 
             adapter.findByCode("WELCOME").block();
 
-            assertNull(request.get().url().getRawQuery());
+            assertEquals(org.springframework.http.HttpMethod.GET, request.get().method());
+            assertEquals("code=WELCOME", request.get().url().getRawQuery());
         }
 
         @Test
@@ -81,7 +85,8 @@ class MessageUcoLabHttpAdapterTest {
 
             adapter.findByCode("WELCOME", "  ").block();
 
-            assertNull(request.get().url().getRawQuery());
+            assertEquals(org.springframework.http.HttpMethod.GET, request.get().method());
+            assertEquals("code=WELCOME", request.get().url().getRawQuery());
         }
 
         @Test
@@ -133,7 +138,8 @@ class MessageUcoLabHttpAdapterTest {
 
     private static MessageUcoLabHttpAdapter adapter(ExchangeFunction exchange, Duration timeout) {
         WebClient.Builder builder = WebClient.builder().exchangeFunction(exchange);
-        return new MessageUcoLabHttpAdapter(builder, new MessageUcoLabProperties("https://messages.example", "app-1", "env-1", timeout));
+        return new MessageUcoLabHttpAdapter(builder, new MessageUcoLabProperties("https://messages.example", timeout),
+                () -> Mono.just("token-test"));
     }
 
     private static Mono<ClientResponse> response(HttpStatus status, String body) {
