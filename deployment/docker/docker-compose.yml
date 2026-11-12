@@ -293,6 +293,7 @@ services:
   pulsar:
     image: apachepulsar/pulsar:3.2.2
     container_name: pulsar
+    hostname: pulsar
     command: >
       /bin/bash -c " 
       bin/apply-config-from-env.py conf/standalone.conf && 
@@ -307,6 +308,7 @@ services:
     environment:
       PULSAR_MEM: "-Xms1g -Xmx1g -XX:MaxDirectMemorySize=2g"
       PULSAR_PREFIX_allowAutoTopicCreationType: "partitioned"
+      PULSAR_PREFIX_useHostNameAsBookieID: "true"
     networks:
       - pulsar-network
       - app-network

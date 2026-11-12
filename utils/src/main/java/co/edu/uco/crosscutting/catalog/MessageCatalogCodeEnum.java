@@ -846,7 +846,13 @@ public enum MessageCatalogCodeEnum {
     TCH_104("TCH_104"),
     TCH_105("TCH_105"),
     /** Error al actualizar el estado de una funcionalidad y sus mensajes. */
-    TCH_106("TCH_106");
+    TCH_106("TCH_106"),
+    /** Error al publicar un aviso de cambio de mensaje en el broker. */
+    TCH_107("TCH_107"),
+    /** Error al crear el productor de avisos de cambios de mensajes. */
+    TCH_108("TCH_108"),
+    /** Un publicador de avisos fallo y se aislo para no afectar a los demas. */
+    TCH_109("TCH_109");
 
     // =========================================================================
 

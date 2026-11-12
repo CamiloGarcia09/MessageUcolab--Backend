@@ -343,6 +343,60 @@ class SurrealDomainEventProjectionConsumerTest {
     }
 
     @Test
+    void consumePendingDomainEvents_publishesEnvironmentEvent_whenAggregateIdComesQuotedWithBackticks() {
+        // SurrealDB entrega aggregate_id como message:`uuid`, pero la proyeccion guarda message:uuid.
+        Object message = messageRecord("application:app-77");
+        Object environmentRow = mock(Object.class);
+        doReturn(stringValue("environment:env-9")).when(environmentRow).get("environment_id");
+        stubEvents(eventObject("event-1", "MESSAGE_UPDATED", "message:`msg-1`", "message", 2));
+        stubRecord("message:msg-1", message);
+        stubRecord("type:t-1", catalogRecord("MESSAGE_TYPE"));
+        stubRecord("category:c-1", catalogRecord("CATEGORY"));
+        stubRecord("status:s-1", catalogRecord("ACTIVE"));
+        stubRecord("application:app-77", applicationRecord());
+        stubRecord("functionality:f-1", catalogRecord("FUNC"));
+        doReturn(responseWith(environmentRow)).when(surreal).query(contains(
+                "SELECT environment_id FROM message_environment_readmodel WHERE message_id = 'message:msg-1'"));
+
+        consumer.consumePendingDomainEvents();
+
+        ArgumentCaptor<MessageEvent> eventCaptor = ArgumentCaptor.forClass(MessageEvent.class);
+        verify(publisher, org.mockito.Mockito.times(2)).publish(eventCaptor.capture());
+        assertThat(eventCaptor.getAllValues()).anySatisfy(event -> assertAll(
+                () -> assertThat(event.type()).isEqualTo("MessageUpdated"),
+                () -> assertThat(event.environmentId()).isEqualTo("env-9"),
+                () -> assertThat(event.messageCode()).isEqualTo("CODE")));
+        verify(surreal).query(org.mockito.ArgumentMatchers.argThat((String sql) ->
+                sql.startsWith("UPDATE message_environment_readmodel")
+                        && sql.contains("WHERE message_id = 'message:msg-1'")));
+    }
+
+    @Test
+    void consumePendingDomainEvents_deletesReadModelByNormalizedId_whenAggregateIdComesQuotedWithBackticks() {
+        Object deletion = eventObject("delete-1", "MESSAGE_DELETED", "message:`gone-1`", "message", 4);
+        Object before = mock(Object.class);
+        when(before.iterator()).thenReturn(List.<Entry>of().iterator());
+        doReturn(stringValue("application:app-77")).when(before).get("application_id");
+        doReturn(stringValue("GONE_CODE")).when(before).get("code");
+        lenient().doReturn(valueOf(before)).when(deletion).get("payload");
+        stubEvents(deletion);
+        Object environmentRow = mock(Object.class);
+        doReturn(stringValue("environment:env-9")).when(environmentRow).get("environment_id");
+        doReturn(responseWith(environmentRow)).when(surreal).query(contains(
+                "SELECT environment_id FROM message_environment_readmodel WHERE message_id = 'message:gone-1'"));
+
+        consumer.consumePendingDomainEvents();
+
+        verify(surreal).query(contains("DELETE message_environment_readmodel WHERE message_id = 'message:gone-1'"));
+        ArgumentCaptor<MessageEvent> eventCaptor = ArgumentCaptor.forClass(MessageEvent.class);
+        verify(publisher, org.mockito.Mockito.times(2)).publish(eventCaptor.capture());
+        assertThat(eventCaptor.getAllValues()).anySatisfy(event -> assertAll(
+                () -> assertThat(event.type()).isEqualTo("MessageDeleted"),
+                () -> assertThat(event.environmentId()).isEqualTo("env-9"),
+                () -> assertThat(event.messageCode()).isEqualTo("GONE_CODE")));
+    }
+
+    @Test
     void consumePendingDomainEvents_marksFailedAndDoesNotNotify_whenProjectionWriteFailsOnDeferredResponseTake() {
         Object message = messageRecord("application:app-77");
         stubEvents(eventObject("event-1", "MESSAGE_UPDATED", "message:msg-1", "message", 2));
@@ -583,6 +637,49 @@ class SurrealDomainEventProjectionConsumerTest {
         verify(surreal, never()).query(contains("DELETE message_data_collection:`msg-1`"));
         verify(publisher, never()).publish(org.mockito.ArgumentMatchers.argThat(
                 event -> "MessageDeleted".equals(event.type())));
+    }
+
+    @Test
+    void consumePendingDomainEvents_notifiesDeletedForEnvironment_whenRelationIsRemovedBecauseMessageWasDeleted() {
+        // Al borrar un mensaje, MESSAGE_ENVIRONMENT_DELETED se procesa antes que MESSAGE_DELETED y retira la
+        // fila del ambiente; sin este aviso, el consumidor de ese ambiente nunca se entera del borrado.
+        Object deletion = eventObject("relation-delete", "MESSAGE_ENVIRONMENT_DELETED",
+                "message_environment:`me-1`", "message_environment", 2);
+        Object before = mock(Object.class);
+        when(before.iterator()).thenReturn(List.<Entry>of().iterator());
+        doReturn(stringValue("message:`msg-1`")).when(before).get("message_id");
+        doReturn(stringValue("environment:`e-1`")).when(before).get("environment_id");
+        lenient().doReturn(valueOf(before)).when(deletion).get("payload");
+        stubEvents(deletion);
+        Object projectedMessage = mock(Object.class);
+        doReturn(stringValue("GONE_CODE")).when(projectedMessage).get("code");
+        stubRecord("message_data_collection:msg-1", projectedMessage);
+
+        consumer.consumePendingDomainEvents();
+
+        ArgumentCaptor<MessageEvent> eventCaptor = ArgumentCaptor.forClass(MessageEvent.class);
+        verify(publisher).publish(eventCaptor.capture());
+        assertAll(
+                () -> assertThat(eventCaptor.getValue().type()).isEqualTo("MessageDeleted"),
+                () -> assertThat(eventCaptor.getValue().environmentId()).isEqualTo("e-1"),
+                () -> assertThat(eventCaptor.getValue().messageCode()).isEqualTo("GONE_CODE"));
+        verify(surreal).query(contains("DELETE message_environment_readmodel:`me-1`"));
+    }
+
+    @Test
+    void consumePendingDomainEvents_doesNotNotify_whenRelationIsRemovedAndNeitherMessageNorProjectionExist() {
+        Object deletion = eventObject("relation-delete", "MESSAGE_ENVIRONMENT_DELETED",
+                "message_environment:me-1", "message_environment", 2);
+        Object before = mock(Object.class);
+        when(before.iterator()).thenReturn(List.<Entry>of().iterator());
+        doReturn(stringValue("message:msg-1")).when(before).get("message_id");
+        doReturn(stringValue("environment:e-1")).when(before).get("environment_id");
+        lenient().doReturn(valueOf(before)).when(deletion).get("payload");
+        stubEvents(deletion);
+
+        consumer.consumePendingDomainEvents();
+
+        verify(publisher, never()).publish(any(MessageEvent.class));
     }
 
     @Test

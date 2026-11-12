@@ -214,6 +214,69 @@ La clasificación colectiva se registra en el campo flexible `metadata.notificat
 
 Si se pierde la conexión, el frontend lo indica y reintenta con espera progresiva. Si la ruta devuelve `403`, muestra que falta autorización y permite reabrir el canal sin recargar cuando el responsable haya corregido el permiso. Una respuesta HTML `200` no se interpreta como un canal SSE válido.
 
+## Avisos de cambios para aplicaciones consumidoras
+
+Canal asíncrono (Pulsar) para que una aplicación consumidora sepa que cambió un mensaje de su ambiente. No forma parte del OpenAPI HTTP y no sustituye las consultas de consumo: el aviso no lleva contenido.
+
+### Topic y aislamiento
+
+```text
+<pulsar.events-topic-prefix>-<environmentId>
+persistent://public/default/message-events-<environmentId>   (prefijo por defecto)
+```
+
+Hay un topic por ambiente. El consumidor se suscribe únicamente al topic del ambiente que consume; nunca recibe avisos de otros ambientes ni de otras aplicaciones. Si cambia de ambiente, debe cambiar de topic y refrescar su caché de ese ambiente.
+
+### Configuración
+
+| Propiedad | Variable | Valor por defecto |
+|---|---|---|
+| `pulsar.events-topic-prefix` | `PULSAREVENTSTOPICPREFIX` | `persistent://public/default/message-events` |
+| `pulsar.events-enabled` | `PULSAREVENTSENABLED` | `true` |
+
+Ninguna es obligatoria. El servicio de Pulsar se configura con `pulsar.service-url` (`PULSARURL`), como hasta ahora.
+
+### Mensaje (versión 1)
+
+```json
+{
+  "eventId": "3f1c2a7e-0b1d-4c55-9a1e-6b2f0c8d9e11",
+  "eventType": "MessageUpdated",
+  "schemaVersion": 1,
+  "environmentId": "…",
+  "messageCode": "MSG_001",
+  "occurredAt": "2026-11-07T10:00:00Z"
+}
+```
+
+| Campo | Descripción |
+|---|---|
+| `eventId` | Identificador único del aviso; sirve para ignorar duplicados. |
+| `eventType` | `MessageCreated`, `MessageUpdated`, `MessageDeleted`, `MessagesChanged` o `MessageChanged`. |
+| `schemaVersion` | Versión del contrato. Los cambios compatibles solo añaden campos. |
+| `environmentId` | Ambiente afectado; coincide con el topic. |
+| `messageCode` | Código del mensaje. Vacío en `MessagesChanged`. |
+| `occurredAt` | Instante UTC en que se emitió el aviso (ISO-8601). |
+
+La clave del mensaje de Pulsar es `messageCode`, por lo que los avisos de un mismo mensaje conservan su orden. En `MessagesChanged` (inactivación colectiva de los mensajes de una funcionalidad) no hay clave ni código: el consumidor debe refrescar todo su ambiente.
+
+### Semántica
+
+- `MessageCreated`, `MessageUpdated`: volver a consultar el mensaje. Si ya no está disponible para el ambiente (`404`), retirarlo de la caché.
+- `MessageDeleted`: retirar el mensaje de la caché.
+- Añadir, cambiar o quitar la asociación de un mensaje a un ambiente es `MessageUpdated` para ese ambiente, nunca una creación o eliminación del mensaje completo.
+- Una acción puede producir varios avisos. No hay garantía de un único aviso por acción.
+- No se infiere el nuevo estado solo por recibir un aviso.
+
+### Garantías y límites
+
+- **Mejor esfuerzo:** si Pulsar no está disponible cuando se proyecta el cambio, el aviso se pierde. El consumidor debe refrescar su caché al arrancar y de forma periódica y ligera.
+- **Duplicados y desorden posibles:** deduplicar por `eventId` y tolerar avisos fuera de orden.
+- **Retraso:** el aviso se emite después de proyectar el cambio, con el intervalo del procesador (2 segundos) más cola y procesamiento.
+- **Suscripciones:** una *subscription* por consumidor. Si cada instancia mantiene su propia caché, cada instancia necesita su propia suscripción; si comparten una caché distribuida, basta una suscripción compartida.
+- **Autorización:** la API no controla quién se suscribe a un topic. Para impedir que un consumidor lea el topic de otro ambiente hay que conceder permisos por topic en Pulsar (dependencia operativa, fuera de este repositorio).
+- Los textos de log nuevos (`TCH_107` a `TCH_109`) se cargan con `CatalogMessageInit.sh`.
+
 ## Consulta administrativa
 
 `GET /messages` admite consulta exacta por `code` o listado paginado. Los filtros del listado se combinan con AND antes de contar y paginar.

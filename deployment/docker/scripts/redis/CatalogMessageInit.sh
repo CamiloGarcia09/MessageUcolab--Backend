@@ -397,5 +397,8 @@ redis_hset "TCH_103" "Guardado de organización" "Ejecutando el guardado de la o
 
 redis_hset "TCH_104" "Contexto de SurrealDB" "Se utiliza el espacio de nombres {} y la base de datos {}." "TECHNICAL" "INFORMATION"
 redis_hset "TCH_105" "Solicitud completada" "Solicitud completada con estado {}" "TECHNICAL" "INFORMATION"
+redis_hset "TCH_107" "Error al publicar aviso de mensaje" "No fue posible publicar en el broker el aviso {} del mensaje {}." "TECHNICAL" "ERROR"
+redis_hset "TCH_108" "Error al crear productor de avisos" "No fue posible crear el productor de avisos de mensajes para el topic configurado." "TECHNICAL" "ERROR"
+redis_hset "TCH_109" "Publicador de avisos fallido" "El publicador {} falló al emitir el aviso y se aisló para no afectar a los demás." "TECHNICAL" "ERROR"
 
 echo "Catálogo de mensajes cargado correctamente."
