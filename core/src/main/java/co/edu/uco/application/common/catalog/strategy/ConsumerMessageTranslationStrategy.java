@@ -5,6 +5,7 @@ import co.edu.uco.application.secondaryports.entity.MessageTranslationRequestDat
 import co.edu.uco.application.secondaryports.entity.MessageTranslationResponseData;
 import co.edu.uco.application.secondaryports.translation.MessageTranslationCachePort;
 import co.edu.uco.application.secondaryports.translation.MessageTranslationPort;
+import co.edu.uco.application.usecase.validator.message.rule.ConsumerLanguageCodeKnownRule;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import co.edu.uco.crosscutting.exceptions.BusinessException;
 import co.edu.uco.crosscutting.exceptions.enumeration.ExceptionLocation;
@@ -21,12 +22,14 @@ public final class ConsumerMessageTranslationStrategy {
     private final MessageTranslationCachePort cache;
     private final MessageTranslationPort translator;
     private final CatalogPort catalog;
+    private final ConsumerLanguageCodeKnownRule knownLanguage;
 
     public ConsumerMessageTranslationStrategy(MessageTranslationCachePort cache,
                                                MessageTranslationPort translator, CatalogPort catalog) {
         this.cache = cache;
         this.translator = translator;
         this.catalog = catalog;
+        this.knownLanguage = new ConsumerLanguageCodeKnownRule(catalog, MessageCatalogCodeEnum.FUN_045);
     }
 
     public MessageTranslationResponseData translate(ConsumerTranslationSnapshot snapshot, String applicationId,
@@ -36,6 +39,7 @@ public final class ConsumerMessageTranslationStrategy {
             return MessageTranslationResponseData.create(message.getTitle(), message.getContent(),
                     message.getType(), message.getCategory(), message.getFunctionality(), EMPTY, EMPTY, 0L);
         }
+        knownLanguage.validate(targetLanguage);
         var scope = cacheScope(snapshot, applicationId, environmentId);
         var cached = cache.findTranslation(message.getCode(), scope, snapshot.sourceLanguage(), targetLanguage);
         if (cached.isPresent()) {
@@ -44,7 +48,15 @@ public final class ConsumerMessageTranslationStrategy {
         var request = MessageTranslationRequestData.create(message.getCode(), snapshot.sourceLanguage(),
                 targetLanguage, message.getTitle(), message.getContent(), message.getType(),
                 message.getCategory(), applicationId, message.getFunctionality());
-        var translation = translator.translate(request);
+        MessageTranslationResponseData translation;
+        try {
+            translation = translator.translate(request);
+        } catch (BusinessException unavailable) {
+            // Traducción apagada, modelo caído u ocupado, o respuesta que no pasó las validaciones:
+            // la aplicación consumidora recibe el texto original y nada se guarda en caché.
+            return MessageTranslationResponseData.untranslated(message.getTitle(), message.getContent(),
+                    message.getType(), message.getCategory(), message.getFunctionality());
+        }
         cache.saveTranslation(message.getCode(), scope, snapshot.sourceLanguage(), targetLanguage, translation);
         return translation;
     }
