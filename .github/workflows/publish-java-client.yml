@@ -2,7 +2,7 @@ name: Publish MessageUcoLab Java client
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - 'clients/java/**'
 
