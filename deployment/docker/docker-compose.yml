@@ -295,14 +295,21 @@ services:
   pulsar:
     image: apachepulsar/pulsar:3.2.2
     container_name: pulsar
+    # Nombre fijo: Pulsar identifica su almacenamiento con el nombre del equipo (useHostNameAsBookieID). Sin él,
+    # al recrear el contenedor cambia el nombre y Pulsar deja de poder leer sus datos.
     hostname: pulsar
     command: >
-      /bin/bash -c " 
-      bin/apply-config-from-env.py conf/standalone.conf && 
-      bin/apply-config-from-env.py conf/client.conf && 
+      /bin/bash -c "
+      bin/apply-config-from-env.py conf/standalone.conf &&
+      bin/apply-config-from-env.py conf/bookkeeper.conf &&
+      bin/apply-config-from-env.py conf/client.conf &&
       bin/pulsar standalone -nss -nfw"
+    # Pulsar responde a cada cliente con la dirección a la que debe reconectarse. Por eso anuncia dos:
+    #   internal -> pulsar://pulsar:${PULSAR_PORTEXIT}  para MessageUcoLab y los consumidores que corren en Docker
+    #   external -> pulsar://localhost:${PULSAR_PORT}   para los consumidores que corren en el PC (IntelliJ)
+    # Cada cliente recibe la del puerto por el que entró, así que no configura nada adicional.
     ports:
-      - "${PULSAR_PORT}:${PULSAR_PORTEXIT}"
+      - "${PULSAR_PORT}:6651"
       - "${PULSAR_GENERALPORT}:${PULSAR_GENERALPORT}"
     volumes:
       - pulsar-data:/pulsar/data
@@ -311,6 +318,11 @@ services:
       PULSAR_MEM: "-Xms1g -Xmx1g -XX:MaxDirectMemorySize=2g"
       PULSAR_PREFIX_allowAutoTopicCreationType: "partitioned"
       PULSAR_PREFIX_useHostNameAsBookieID: "true"
+      PULSAR_PREFIX_advertisedListeners: "internal:pulsar://pulsar:${PULSAR_PORTEXIT},external:pulsar://localhost:${PULSAR_PORT}"
+      PULSAR_PREFIX_internalListenerName: "internal"
+      PULSAR_PREFIX_bindAddresses: "external:pulsar://0.0.0.0:6651"
+      # Se vacía por si un volumen de configuración anterior lo tenía: no puede usarse junto con advertisedListeners.
+      PULSAR_PREFIX_advertisedAddress: ""
     networks:
       - pulsar-network
       - app-network
