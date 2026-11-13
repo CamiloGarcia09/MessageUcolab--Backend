@@ -130,11 +130,13 @@ Cuando un mensaje se crea, se edita o se elimina, MessageUcoLab publica un aviso
 domain_events → proyector → Publisher<MessageEvent>
                                  └─ CompositeMessageEventPublisher
                                        ├─ InMemoryMessageEventAdapter (SSE administrativo)
-                                       └─ PulsarMessageEventPublisher → topic <prefijo>-<environmentId>
+                                       └─ PulsarMessageEventPublisher → topic <prefijo>-<clientId> de cada identidad
+                                                                        asociada al ambiente (environment_service_identity)
+                                                                        y topic <prefijo>-<environmentId> (compatibilidad)
 ```
 
 - El proyector depende solo de `Publisher<MessageEvent>` (puerto en `core`). El adaptador de Pulsar y el compuesto viven en `infrastructure`, y `MessageEventPublisherConfig` registra el compuesto como bean primario.
-- **Aislamiento por ambiente:** cada ambiente tiene su propio topic. Un consumidor que lee mensajes de Develop se suscribe solo al topic de Develop y no recibe avisos de Produccion. Solo se publican los eventos por ambiente que emite el proyector; los eventos por aplicación mezclan ambientes y no se publican.
+- **Aislamiento por ambiente sin copiar ids:** el aviso de un ambiente se publica en el topic de cada identidad de servicio asociada a ese ambiente. Un consumidor se suscribe al topic de su propio `client_id`; si su identidad lee Develop, no recibe avisos de Produccion. Solo se publican los eventos por ambiente que emite el proyector; los eventos por aplicación mezclan ambientes y no se publican.
 - Quitar la asociación de un mensaje a un ambiente genera un aviso solo para ese ambiente.
 - Publicar en Pulsar es independiente del SSE: si Pulsar falla, el SSE y la proyección siguen funcionando. El publicador nunca lanza excepciones hacia el proyector y crea sus productores de forma perezosa, por lo que Pulsar no es requisito de arranque.
 - `pulsar.events-enabled=false` desactiva solo estos avisos.

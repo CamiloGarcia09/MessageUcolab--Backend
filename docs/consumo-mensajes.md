@@ -126,11 +126,11 @@ La traducción se separa por aplicación, ambiente, idiomas y huella del mensaje
 
 ## Avisos de cambios
 
-Si la aplicación consumidora guarda mensajes en su propia caché, puede enterarse de los cambios sin consultar el catálogo de forma repetitiva suscribiéndose al topic de Pulsar de su ambiente. El detalle del topic y del mensaje está en el [contrato de la API](contrato-api.md#avisos-de-cambios-para-aplicaciones-consumidoras).
+Si la aplicación consumidora guarda mensajes en su propia caché, puede enterarse de los cambios sin consultar el catálogo de forma repetitiva suscribiéndose al topic de Pulsar de su identidad de servicio. El detalle del topic y del mensaje está en el [contrato de la API](contrato-api.md#avisos-de-cambios-para-aplicaciones-consumidoras).
 
 Cómo reaccionar:
 
-1. Suscribirse solo al topic del ambiente que se consume (`<prefijo>-<environmentId>`). Los avisos de otros ambientes no llegan a ese topic.
+1. Suscribirse al topic de su propio `client_id` (`<prefijo>-<clientId>`). MessageUcoLab publica ahí solo los avisos del ambiente asociado a esa identidad: no hay que configurar el id del ambiente.
 2. Ante `MessageCreated` o `MessageUpdated`, invalidar la entrada de caché del `messageCode` (en cada idioma) y consultar de nuevo el mensaje. Un `404` indica que ya no está disponible: retirarlo de la caché.
 3. Ante `MessageDeleted`, retirar el mensaje de la caché.
 4. Ante `MessagesChanged` (código vacío), refrescar todo el ambiente.

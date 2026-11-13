@@ -4,6 +4,7 @@ import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.event.MessageEvent;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
+import co.edu.uco.application.secondaryports.repository.ServiceIdentityRepository;
 import co.edu.uco.crosscutting.helpers.json.UtilMapperJson;
 import co.edu.uco.infraestructure.config.PulsarProperties;
 import org.apache.pulsar.client.api.MessageId;
@@ -57,6 +58,7 @@ class PulsarMessageEventPublisherTest {
     @Mock CatalogPort catalogPort;
     @Mock LoggingPortFactory loggerFactory;
     @Mock LoggingPort log;
+    @Mock ServiceIdentityRepository identities;
 
     private final UtilMapperJson mapperJson = new UtilMapperJson();
     private PulsarProperties properties;
@@ -70,6 +72,8 @@ class PulsarMessageEventPublisherTest {
         when(catalogPort.getMessage("TCH_107")).thenReturn("publish-error");
         when(catalogPort.getMessage("TCH_108")).thenReturn("producer-error");
         when(catalogPort.getMessage("TCH_039")).thenReturn("serialization-error");
+        when(catalogPort.getMessage("TCH_109")).thenReturn("identities-error");
+        when(identities.findClientIdsByEnvironmentId(anyString())).thenReturn(List.of());
         when(client.newProducer(Schema.STRING)).thenReturn(builder);
         when(builder.topic(anyString())).thenReturn(builder);
         when(builder.createAsync()).thenReturn(CompletableFuture.completedFuture(producer));
@@ -77,7 +81,7 @@ class PulsarMessageEventPublisherTest {
         when(typedMessage.value(anyString())).thenReturn(typedMessage);
         when(typedMessage.key(anyString())).thenReturn(typedMessage);
         when(typedMessage.sendAsync()).thenReturn(CompletableFuture.completedFuture(messageId));
-        publisher = new PulsarMessageEventPublisher(client, properties, mapperJson, CLOCK, catalogPort, loggerFactory);
+        publisher = new PulsarMessageEventPublisher(client, properties, mapperJson, CLOCK, catalogPort, loggerFactory, identities);
     }
 
     private static MessageEvent environmentEvent(String type, String environmentId, String code) {
@@ -184,6 +188,78 @@ class PulsarMessageEventPublisherTest {
     }
 
     @Nested
+    @DisplayName("topic por identidad de servicio")
+    class IdentityTopics {
+
+        @Test
+        @DisplayName("Publica el aviso en el topic de cada identidad asociada al ambiente, además del topic del ambiente")
+        void publishesToEachIdentityTopicOfTheEnvironment() {
+            when(identities.findClientIdsByEnvironmentId("env-test")).thenReturn(List.of("svc-app-inv-test", "svc-app-otro-test"));
+
+            publisher.publish(environmentEvent("MessageUpdated", "env-test", "MSG_001"));
+
+            ArgumentCaptor<String> topics = ArgumentCaptor.forClass(String.class);
+            verify(builder, times(3)).topic(topics.capture());
+            assertThat(topics.getAllValues()).containsExactly(
+                    PREFIX + "-env-test", PREFIX + "-svc-app-inv-test", PREFIX + "-svc-app-otro-test");
+            ArgumentCaptor<String> payloads = ArgumentCaptor.forClass(String.class);
+            verify(typedMessage, times(3)).value(payloads.capture());
+            assertThat(payloads.getAllValues()).allSatisfy(json -> assertThat(json)
+                    .contains("\"environmentId\":\"env-test\"").contains("\"messageCode\":\"MSG_001\""));
+        }
+
+        @Test
+        @DisplayName("Un cambio en Testing no llega al topic de la identidad de Produccion")
+        void identityOfAnotherEnvironmentDoesNotReceiveTheEvent() {
+            when(identities.findClientIdsByEnvironmentId("env-test")).thenReturn(List.of("svc-app-inv-test"));
+            when(identities.findClientIdsByEnvironmentId("env-prod")).thenReturn(List.of("svc-app-inv-prod"));
+
+            publisher.publish(environmentEvent("MessageUpdated", "env-test", "MSG_001"));
+
+            verify(builder).topic(PREFIX + "-svc-app-inv-test");
+            verify(builder, never()).topic(PREFIX + "-svc-app-inv-prod");
+            verify(builder, never()).topic(PREFIX + "-env-prod");
+        }
+
+        @Test
+        @DisplayName("Descarta client_id vacíos o con caracteres no válidos para un topic")
+        void skipsUnsafeClientIds() {
+            when(identities.findClientIdsByEnvironmentId("env-1")).thenReturn(List.of("svc/../otro", "", "svc ok", "svc-valido"));
+
+            publisher.publish(environmentEvent("MessageUpdated", "env-1", "MSG_001"));
+
+            ArgumentCaptor<String> topics = ArgumentCaptor.forClass(String.class);
+            verify(builder, times(2)).topic(topics.capture());
+            assertThat(topics.getAllValues()).containsExactly(PREFIX + "-env-1", PREFIX + "-svc-valido");
+        }
+
+        @Test
+        @DisplayName("Si no puede leer las identidades, igual publica en el topic del ambiente y registra el error")
+        void repositoryFailureStillPublishesEnvironmentTopic() {
+            when(identities.findClientIdsByEnvironmentId("env-1")).thenThrow(new IllegalStateException("surreal down"));
+
+            assertThatCode(() -> publisher.publish(environmentEvent("MessageUpdated", "env-1", "MSG_001")))
+                    .doesNotThrowAnyException();
+
+            verify(builder).topic(PREFIX + "-env-1");
+            verify(typedMessage).sendAsync();
+            verify(log).error(eq("identities-error"), any(Throwable.class));
+        }
+
+        @Test
+        @DisplayName("Reutiliza el productor del topic de cada identidad")
+        void reusesIdentityProducer() {
+            when(identities.findClientIdsByEnvironmentId("env-1")).thenReturn(List.of("svc-inv-1"));
+
+            publisher.publish(environmentEvent("MessageUpdated", "env-1", "MSG_001"));
+            publisher.publish(environmentEvent("MessageUpdated", "env-1", "MSG_002"));
+
+            verify(client, times(2)).newProducer(Schema.STRING);
+            verify(typedMessage, times(4)).sendAsync();
+        }
+    }
+
+    @Nested
     @DisplayName("eventos no publicables")
     class NotPublishable {
 
@@ -284,7 +360,7 @@ class PulsarMessageEventPublisherTest {
             UtilMapperJson failingMapper = org.mockito.Mockito.mock(UtilMapperJson.class);
             when(failingMapper.execute(any(Object.class))).thenReturn(Optional.empty());
             PulsarMessageEventPublisher failing = new PulsarMessageEventPublisher(
-                    client, properties, failingMapper, CLOCK, catalogPort, loggerFactory);
+                    client, properties, failingMapper, CLOCK, catalogPort, loggerFactory, identities);
 
             assertThatCode(() -> failing.publish(environmentEvent("MessageUpdated", "env-1", "MSG_001")))
                     .doesNotThrowAnyException();

@@ -60,6 +60,17 @@ public class ServiceIdentitySurrealAdapter extends SurrealCatalogSupport impleme
     }
 
     @Override
+    public List<String> findClientIdsByEnvironmentId(final String environmentId) {
+        String sql = "SELECT client_id FROM " + TABLE + " WHERE environment_id = "
+                + recordIdLiteral("environment", environmentId) + ";";
+        try {
+            return query(sql, catalog.getMessage(TCH_109.getCode()), row -> stringOf(row.get("client_id")));
+        } catch (final RuntimeException exception) {
+            throw failure(exception);
+        }
+    }
+
+    @Override
     public void register(final String clientId, final String applicationId, final String environmentId) {
         String sql = "CREATE " + TABLE + " CONTENT { client_id: " + quote(clientId)
                 + ", application_id: " + recordIdLiteral("application", applicationId)

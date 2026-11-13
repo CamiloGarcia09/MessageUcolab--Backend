@@ -5,6 +5,7 @@ import co.edu.uco.application.secondaryports.event.MessageEvent;
 import co.edu.uco.application.secondaryports.event.Publisher;
 import co.edu.uco.application.secondaryports.logging.LoggingPort;
 import co.edu.uco.application.secondaryports.logging.LoggingPortFactory;
+import co.edu.uco.application.secondaryports.repository.ServiceIdentityRepository;
 import co.edu.uco.crosscutting.catalog.MessageCatalogCodeEnum;
 import co.edu.uco.crosscutting.helpers.UtilText;
 import co.edu.uco.crosscutting.helpers.json.UtilMapperJson;
@@ -17,7 +18,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -28,10 +32,15 @@ import static co.edu.uco.crosscutting.helpers.UtilObject.isNullObject;
  * Publica en Pulsar un aviso por cada cambio de mensaje, para que los componentes consumidores
  * se enteren sin consultar el catalogo de forma repetitiva.
  *
- * <p>Aislamiento: cada ambiente tiene su propio topic ({@code <prefijo>-<environmentId>}). Un
- * consumidor se suscribe solo al topic de su ambiente y nunca recibe avisos de otros. Solo se
- * publican los eventos por ambiente que emite el proyector; los eventos por aplicacion mezclan
- * ambientes y no se publican.</p>
+ * <p>Aislamiento: cada aviso de un ambiente se publica en el topic de cada identidad de servicio
+ * asociada a ese ambiente ({@code <prefijo>-<clientId>}). El consumidor se suscribe al topic de su
+ * propio client_id, que ya conoce, y MessageUcoLab decide a quien le llega segun la tabla
+ * {@code environment_service_identity}: no hay que copiar el id del ambiente y, si la identidad cambia
+ * de ambiente, los avisos la siguen. Tambien se publica en el topic del ambiente
+ * ({@code <prefijo>-<environmentId>}) para los consumidores que ya se suscribieron asi.</p>
+ *
+ * <p>Solo se publican los eventos por ambiente que emite el proyector; los eventos por aplicacion
+ * mezclan ambientes y no se publican.</p>
  *
  * <p>Este publicador nunca lanza excepciones: el proyector que lo invoca no las controla y un fallo
  * del broker no debe interrumpir la proyeccion ni el SSE administrativo. Los productores se crean
@@ -51,6 +60,7 @@ public final class PulsarMessageEventPublisher implements Publisher<MessageEvent
     private final UtilMapperJson mapperJson;
     private final Clock clock;
     private final CatalogPort catalogPort;
+    private final ServiceIdentityRepository identities;
     private final Map<String, CompletableFuture<Producer<String>>> producers = new ConcurrentHashMap<>();
 
     public PulsarMessageEventPublisher(
@@ -59,13 +69,15 @@ public final class PulsarMessageEventPublisher implements Publisher<MessageEvent
             final UtilMapperJson mapperJson,
             final Clock clock,
             final CatalogPort catalogPort,
-            final LoggingPortFactory loggerFactory) {
+            final LoggingPortFactory loggerFactory,
+            final ServiceIdentityRepository identities) {
         this.log = loggerFactory.getLogger(PulsarMessageEventPublisher.class);
         this.client = client;
         this.properties = properties;
         this.mapperJson = mapperJson;
         this.clock = clock;
         this.catalogPort = catalogPort;
+        this.identities = identities;
     }
 
     @Override
@@ -79,20 +91,7 @@ public final class PulsarMessageEventPublisher implements Publisher<MessageEvent
                 log.error(catalogPort.getMessage(MessageCatalogCodeEnum.TCH_039.getCode()));
                 return;
             }
-            producer(topicFor(event.environmentId()))
-                    .thenCompose(producer -> {
-                        final var message = producer.newMessage().value(payload.get());
-                        // La clave conserva el orden de los avisos de un mismo mensaje.
-                        if (!UtilText.isEmpty(event.messageCode())) {
-                            message.key(event.messageCode());
-                        }
-                        return message.sendAsync();
-                    })
-                    .whenComplete((messageId, error) -> {
-                        if (!isNullObject(error)) {
-                            logPublishFailure(event, error);
-                        }
-                    });
+            topicsFor(event).forEach(topic -> send(topic, event, payload.get()));
         } catch (Exception exception) {
             logPublishFailure(event, exception);
         }
@@ -105,8 +104,47 @@ public final class PulsarMessageEventPublisher implements Publisher<MessageEvent
                 && SAFE_TOPIC_SEGMENT.matcher(event.environmentId()).matches();
     }
 
-    private String topicFor(final String environmentId) {
-        return properties.getEventsTopicPrefix() + TOPIC_SEPARATOR + environmentId;
+    // Topic del ambiente y topic de cada identidad asociada al ambiente, sin repetir.
+    private Set<String> topicsFor(final MessageEvent event) {
+        final Set<String> topics = new LinkedHashSet<>();
+        topics.add(topic(event.environmentId()));
+        clientIdsOf(event.environmentId()).stream()
+                .filter(clientId -> !UtilText.isEmpty(clientId) && SAFE_TOPIC_SEGMENT.matcher(clientId).matches())
+                .map(this::topic)
+                .forEach(topics::add);
+        return topics;
+    }
+
+    // Si no se pueden leer las identidades, el aviso igual sale por el topic del ambiente.
+    private List<String> clientIdsOf(final String environmentId) {
+        try {
+            final var clientIds = identities.findClientIdsByEnvironmentId(environmentId);
+            return isNullObject(clientIds) ? List.of() : clientIds;
+        } catch (RuntimeException exception) {
+            log.error(catalogPort.getMessage(MessageCatalogCodeEnum.TCH_109.getCode()), exception);
+            return List.of();
+        }
+    }
+
+    private String topic(final String segment) {
+        return properties.getEventsTopicPrefix() + TOPIC_SEPARATOR + segment;
+    }
+
+    private void send(final String topic, final MessageEvent event, final String payload) {
+        producer(topic)
+                .thenCompose(producer -> {
+                    final var message = producer.newMessage().value(payload);
+                    // La clave conserva el orden de los avisos de un mismo mensaje.
+                    if (!UtilText.isEmpty(event.messageCode())) {
+                        message.key(event.messageCode());
+                    }
+                    return message.sendAsync();
+                })
+                .whenComplete((messageId, error) -> {
+                    if (!isNullObject(error)) {
+                        logPublishFailure(event, error);
+                    }
+                });
     }
 
     private CompletableFuture<Producer<String>> producer(final String topic) {
