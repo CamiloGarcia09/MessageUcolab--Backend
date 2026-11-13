@@ -251,11 +251,20 @@ Canal asíncrono (Pulsar) para que una aplicación consumidora sepa que cambió 
 ### Topic y aislamiento
 
 ```text
-<pulsar.events-topic-prefix>-<environmentId>
-persistent://public/default/message-events-<environmentId>   (prefijo por defecto)
+<pulsar.events-topic-prefix>-<clientId>
+persistent://public/default/message-events-<clientId>        (prefijo por defecto)
 ```
 
-Hay un topic por ambiente. El consumidor se suscribe únicamente al topic del ambiente que consume; nunca recibe avisos de otros ambientes ni de otras aplicaciones. Si cambia de ambiente, debe cambiar de topic y refrescar su caché de ese ambiente.
+El consumidor se suscribe al topic de **su propio `client_id`**, el de la identidad de servicio con la que ya
+consulta los mensajes. No necesita conocer ni configurar el id del ambiente: MessageUcoLab busca en
+`environment_service_identity` qué identidades están asociadas al ambiente del cambio y publica el aviso en el
+topic de cada una. Una identidad recibe solo los avisos del ambiente al que está asociada; nunca los de otros
+ambientes ni de otras aplicaciones. Si en **Identidades de servicio** se asocia la identidad a otro ambiente,
+los avisos siguientes llegan de ese ambiente sin cambiar nada en el consumidor (debe refrescar su caché).
+
+Por compatibilidad, el aviso también se publica en el topic del ambiente
+(`<pulsar.events-topic-prefix>-<environmentId>`), que exige conocer el id del ambiente. Los consumidores nuevos
+deben usar el topic de su `client_id`.
 
 ### Configuración
 
@@ -284,7 +293,7 @@ Ninguna es obligatoria. El servicio de Pulsar se configura con `pulsar.service-u
 | `eventId` | Identificador único del aviso; sirve para ignorar duplicados. |
 | `eventType` | `MessageCreated`, `MessageUpdated`, `MessageDeleted`, `MessagesChanged` o `MessageChanged`. |
 | `schemaVersion` | Versión del contrato. Los cambios compatibles solo añaden campos. |
-| `environmentId` | Ambiente afectado; coincide con el topic. |
+| `environmentId` | Ambiente afectado; es el ambiente asociado a la identidad del topic. |
 | `messageCode` | Código del mensaje. Vacío en `MessagesChanged`. |
 | `occurredAt` | Instante UTC en que se emitió el aviso (ISO-8601). |
 
@@ -304,7 +313,8 @@ La clave del mensaje de Pulsar es `messageCode`, por lo que los avisos de un mis
 - **Duplicados y desorden posibles:** deduplicar por `eventId` y tolerar avisos fuera de orden.
 - **Retraso:** el aviso se emite después de proyectar el cambio, con el intervalo del procesador (2 segundos) más cola y procesamiento.
 - **Suscripciones:** una *subscription* por consumidor. Si cada instancia mantiene su propia caché, cada instancia necesita su propia suscripción; si comparten una caché distribuida, basta una suscripción compartida.
-- **Autorización:** la API no controla quién se suscribe a un topic. Para impedir que un consumidor lea el topic de otro ambiente hay que conceder permisos por topic en Pulsar (dependencia operativa, fuera de este repositorio).
+- **Autorización:** la API no controla quién se suscribe a un topic. El `client_id` no es secreto, así que para impedir que un consumidor lea el topic de otra identidad hay que conceder permisos por topic en Pulsar (dependencia operativa, fuera de este repositorio).
+- **Identidades:** una identidad sin ambiente asociado no recibe avisos. Si no se pueden leer las identidades del ambiente, el aviso sale solo por el topic del ambiente y se registra `TCH_109`.
 - Los textos de log nuevos (`TCH_107` a `TCH_109`) se cargan con `CatalogMessageInit.sh`.
 
 ## Consulta administrativa
