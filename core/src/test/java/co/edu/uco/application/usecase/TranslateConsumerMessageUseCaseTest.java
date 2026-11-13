@@ -51,7 +51,9 @@ class TranslateConsumerMessageUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        var strategy = new ConsumerMessageTranslationStrategy(cache, translator, catalog);
+        var strategy = new ConsumerMessageTranslationStrategy(cache, translator, catalog,
+                new co.edu.uco.application.common.parameter.TranslationAvailability(
+                        name -> java.util.Optional.empty(), "TRADUCCION_HABILITADA", true));
         useCase = new TranslateConsumerMessageUseCase(resolver, languages, strategy,
                 new ConsumerTranslationLanguageValidator(catalog),
                 new ApplicationBaseLanguageValidator(catalog),
