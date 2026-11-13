@@ -7,7 +7,7 @@ import reactor.core.publisher.Mono;
  *
  * <p>Por defecto el starter usa la identidad de servicio que la aplicación ya configuró en el starter de
  * seguridad ({@code security.pep.service-identity.*}). Una aplicación puede registrar su propio bean de
- * este tipo si obtiene el token de otra forma.</p>
+ * este tipo si obtiene el token de otra forma</p>
  */
 @FunctionalInterface
 public interface MessageUcoLabAccessTokenProvider {
