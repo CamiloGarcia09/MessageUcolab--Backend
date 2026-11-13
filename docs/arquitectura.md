@@ -52,7 +52,7 @@ Los controllers traducen HTTP y delegan. Las reglas de negocio, propiedad y jera
 | API | Spring Boot 4.1.1, Spring Framework 7 y WebFlux | Transporte HTTP reactivo |
 | Persistencia | SurrealDB, imagen 3.1.4 y driver 2.1.1 | Fuente principal de datos |
 | Caché | Redis | Mensajes, traducciones, borradores y catálogo de textos |
-| Eventos | Pulsar 3.2.2 | Eventos de dominio y proyecciones |
+| Eventos | Pulsar 3.2.2 | Eventos de dominio, proyecciones y avisos de cambios a consumidores (un topic por ambiente) |
 | Tiempo real | SSE en memoria | Notificaciones al minifront |
 | Traducción | LangChain4j 1.15.1 | Integración con Ollama u OpenAI |
 | Seguridad | Sesión BFF y starter PEP 0.1.3 | Autenticación externa y autorización por ruta |
@@ -121,6 +121,31 @@ La implementación en memoria tiene límites explícitos:
 - Una reconexión no reproduce eventos perdidos: el cliente recupera el estado actual consultando el listado tras conectarse.
 - Varias réplicas no comparten automáticamente el flujo.
 - No reemplaza Pulsar ni constituye una garantía de entrega.
+
+## Avisos de cambios a componentes consumidores
+
+Cuando un mensaje se crea, se edita o se elimina, MessageUcoLab publica un aviso en Pulsar para que los componentes que lo consumen actualicen su caché sin consultar el catálogo de forma repetitiva. El aviso es una señal sin contenido: el consumidor vuelve a consultar el mensaje por los endpoints de consumo.
+
+```text
+domain_events → proyector → Publisher<MessageEvent>
+                                 └─ CompositeMessageEventPublisher
+                                       ├─ InMemoryMessageEventAdapter (SSE administrativo)
+                                       └─ PulsarMessageEventPublisher → topic <prefijo>-<environmentId>
+```
+
+- El proyector depende solo de `Publisher<MessageEvent>` (puerto en `core`). El adaptador de Pulsar y el compuesto viven en `infrastructure`, y `MessageEventPublisherConfig` registra el compuesto como bean primario.
+- **Aislamiento por ambiente:** cada ambiente tiene su propio topic. Un consumidor que lee mensajes de Develop se suscribe solo al topic de Develop y no recibe avisos de Produccion. Solo se publican los eventos por ambiente que emite el proyector; los eventos por aplicación mezclan ambientes y no se publican.
+- Quitar la asociación de un mensaje a un ambiente genera un aviso solo para ese ambiente.
+- Publicar en Pulsar es independiente del SSE: si Pulsar falla, el SSE y la proyección siguen funcionando. El publicador nunca lanza excepciones hacia el proyector y crea sus productores de forma perezosa, por lo que Pulsar no es requisito de arranque.
+- `pulsar.events-enabled=false` desactiva solo estos avisos.
+
+Límites actuales:
+
+- La entrega es de mejor esfuerzo: si Pulsar no está disponible en ese instante, el aviso se registra como error y se pierde. Un patrón *outbox* con reintentos queda como mejora futura.
+- Hay un retraso de hasta el intervalo del proyector (2 segundos) más el tiempo de procesamiento.
+- El aislamiento por topic evita el cruce por error. Impedir que un consumidor se suscriba al topic de otro ambiente requiere permisos por topic en Pulsar, que se configuran en el broker.
+
+El contrato del aviso y la guía para consumidores están en [contrato-api.md](contrato-api.md#avisos-de-cambios-para-aplicaciones-consumidoras) y [consumo-mensajes.md](consumo-mensajes.md#avisos-de-cambios).
 
 ## Seguridad y propiedad
 

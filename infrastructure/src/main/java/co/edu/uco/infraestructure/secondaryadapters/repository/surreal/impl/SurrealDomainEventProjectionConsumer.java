@@ -243,7 +243,7 @@ public final class SurrealDomainEventProjectionConsumer {
         final List<com.surrealdb.Object> environments = messageEnvironmentRows(event.aggregateId());
         deleteDocument(COLLECTION_MESSAGE_DOCUMENT, messageId);
         execute("DELETE " + COLLECTION_MESSAGE_ENVIRONMENT_READMODEL
-                + " WHERE message_id = " + quote(event.aggregateId()) + ";");
+                + " WHERE message_id = " + quote(readModelMessageId(event.aggregateId())) + ";");
         final String code = snapshot.map(row -> stringOf(row.get("code"))).orElse("");
         if (!code.isBlank()) {
             messageCatalogStrategy.evictMessage(code);
@@ -269,7 +269,7 @@ public final class SurrealDomainEventProjectionConsumer {
                 + ", message.status = " + catalogLiteral(statusId, findByRecordId(statusId), "name")
                 + ", message.functionality = " + catalogLiteral(functionalityId, findByRecordId(functionalityId), "name")
                 + ", message.updated_at = " + literal(record.get("updated_at"))
-                + " WHERE message_id = " + quote(messageRecordId) + ";";
+                + " WHERE message_id = " + quote(readModelMessageId(messageRecordId)) + ";";
         execute(sql);
         final String messageCode = stringOf(record.get("code"));
         messageCatalogStrategy.evictMessage(messageCode);
@@ -283,7 +283,16 @@ public final class SurrealDomainEventProjectionConsumer {
 
     private List<com.surrealdb.Object> messageEnvironmentRows(final String messageRecordId) {
         return queryObjects("SELECT environment_id FROM " + COLLECTION_MESSAGE_ENVIRONMENT_READMODEL
-                + " WHERE message_id = " + quote(messageRecordId) + ";");
+                + " WHERE message_id = " + quote(readModelMessageId(messageRecordId)) + ";");
+    }
+
+    // El aggregate_id de domain_events puede venir con el identificador entre comillas invertidas
+    // (message:`uuid`), mientras la proyeccion guarda message_id sin ellas (message:uuid). Sin
+    // normalizar, estas consultas no encuentran filas y no se emiten los eventos por ambiente.
+    private static String readModelMessageId(final String messageRecordId) {
+        return RecordRef.from(messageRecordId)
+                .map(ref -> ref.table() + ":" + ref.id())
+                .orElse(messageRecordId);
     }
 
     private void publishEnvironmentMessageEvent(final String type, final String environmentId,
@@ -340,8 +349,25 @@ public final class SurrealDomainEventProjectionConsumer {
                 .filter(row -> !recordString(row.get("message_id")).isBlank()).or(() -> findOne(
                 "SELECT * FROM " + recordIdLiteral(COLLECTION_MESSAGE_ENVIRONMENT_READMODEL, relationId) + ";"));
         deleteDocument(COLLECTION_MESSAGE_ENVIRONMENT_READMODEL, relationId);
-        existing.ifPresent(row -> findByRecordId(recordString(row.get("message_id")))
-                .ifPresent(message -> publishMessageEnvironmentUpdated(message, recordString(row.get("environment_id")))));
+        existing.ifPresent(row -> {
+            final String messageRecordId = recordString(row.get("message_id"));
+            final String environmentId = recordString(row.get("environment_id"));
+            findByRecordId(messageRecordId).ifPresentOrElse(
+                    message -> publishMessageEnvironmentUpdated(message, environmentId),
+                    () -> publishEnvironmentMessageDeleted(messageRecordId, environmentId));
+        });
+    }
+
+    // Si el mensaje ya no existe en la fuente, la relacion se elimino porque se borro el mensaje completo.
+    // Este evento llega antes que MESSAGE_DELETED y retira la fila del ambiente, por lo que ese paso ya no
+    // encontraria el ambiente para avisar. El codigo se toma de la proyeccion del mensaje, que aun existe.
+    private void publishEnvironmentMessageDeleted(final String messageRecordId, final String environmentId) {
+        RecordRef.from(messageRecordId)
+                .flatMap(ref -> findOne("SELECT * FROM "
+                        + recordIdLiteral(COLLECTION_MESSAGE_DOCUMENT, ref.id()) + ";"))
+                .map(document -> stringOf(document.get("code")))
+                .filter(code -> !code.isBlank())
+                .ifPresent(code -> publishEnvironmentMessageEvent("MessageDeleted", environmentId, code));
     }
 
     private void publishMessageEnvironmentUpdated(final com.surrealdb.Object message, final String environmentId) {
