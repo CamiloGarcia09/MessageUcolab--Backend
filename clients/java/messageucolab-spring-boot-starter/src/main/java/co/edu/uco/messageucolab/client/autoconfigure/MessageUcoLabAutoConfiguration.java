@@ -4,7 +4,10 @@ import co.edu.uco.messageucolab.client.api.DefaultMessageReader;
 import co.edu.uco.messageucolab.client.api.MessageReader;
 import co.edu.uco.messageucolab.client.api.port.MessageFallbackPort;
 import co.edu.uco.messageucolab.client.api.port.MessageQueryPort;
+import co.edu.uco.messageucolab.client.http.MessageUcoLabAccessTokenProvider;
 import co.edu.uco.messageucolab.client.http.MessageUcoLabHttpAdapter;
+import co.edu.uco.messageucolab.client.http.SecurityServiceIdentityTokenProvider;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -18,10 +21,20 @@ import reactor.core.publisher.Mono;
 @EnableConfigurationProperties(MessageUcoLabProperties.class)
 public class MessageUcoLabAutoConfiguration {
 
+    /**
+     * Token de la identidad de servicio que la aplicación configuró en el starter de seguridad.
+     */
     @Bean
     @ConditionalOnMissingBean
-    MessageQueryPort messageQueryPort(WebClient.Builder builder, MessageUcoLabProperties properties) {
-        return new MessageUcoLabHttpAdapter(builder, properties);
+    MessageUcoLabAccessTokenProvider messageUcoLabAccessTokenProvider(BeanFactory beans) {
+        return new SecurityServiceIdentityTokenProvider(beans);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    MessageQueryPort messageQueryPort(WebClient.Builder builder, MessageUcoLabProperties properties,
+                                      MessageUcoLabAccessTokenProvider tokenProvider) {
+        return new MessageUcoLabHttpAdapter(builder, properties, tokenProvider);
     }
 
     @Bean

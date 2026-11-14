@@ -105,4 +105,50 @@ class InMemoryMessageEventAdapterTest {
                 .assertNext(event -> org.assertj.core.api.Assertions.assertThat(event.id()).isEqualTo("3"))
                 .verifyComplete();
     }
+
+    @Test
+    @DisplayName("Aísla suscripciones por aplicación aunque compartan ambiente")
+    void subscribeToApplication_isolatesApplicationsSharingEnvironment() {
+        var events = Flux.from(org.reactivestreams.FlowAdapters.toPublisher(
+                adapter.subscribeToApplication("app-a", java.util.Set.of("env-1"))));
+        MessageEvent forOtherApp = new MessageEvent("other", "MessagesChanged", "", "", "app-b");
+        MessageEvent forSameApp = new MessageEvent("same", "MessagesChanged", "", "", "app-a");
+
+        StepVerifier.create(events.take(1))
+                .then(() -> {
+                    adapter.publish(forOtherApp);
+                    adapter.publish(forSameApp);
+                })
+                .expectNext(forSameApp)
+                .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("No entrega eventos sin aplicación ni ambiente autorizado")
+    void subscribeToApplication_doesNotLeakEventsWithoutMatchingScope() {
+        var events = Flux.from(org.reactivestreams.FlowAdapters.toPublisher(
+                adapter.subscribeToApplication("app-a", java.util.Set.of("env-1"))));
+
+        StepVerifier.create(events)
+                .then(() -> {
+                    adapter.publish(new MessageEvent("unknown", "MessagesChanged", "", ""));
+                    adapter.publish(new MessageEvent("wrong-env", "MessageUpdated", "env-2", "CODE"));
+                })
+                .expectNoEvent(Duration.ofMillis(50))
+                .thenCancel()
+                .verify();
+    }
+
+    @Test
+    @DisplayName("No acepta una aplicación vacía para suscripción")
+    void subscribeToApplication_emptyApplicationNeverReceivesEvents() {
+        var events = Flux.from(org.reactivestreams.FlowAdapters.toPublisher(
+                adapter.subscribeToApplication(" ", java.util.Set.of("env-1"))));
+
+        StepVerifier.create(events)
+                .then(() -> adapter.publish(new MessageEvent("id", "MessageUpdated", "env-1", "CODE", "app-a")))
+                .expectNoEvent(Duration.ofMillis(50))
+                .thenCancel()
+                .verify();
+    }
 }

@@ -1,4 +1,7 @@
 package co.edu.uco.application.secondaryports.event;
 
-public record MessageEvent(String id, String type, String environmentId, String messageCode) {
+public record MessageEvent(String id, String type, String environmentId, String messageCode, String applicationId) {
+    public MessageEvent(String id, String type, String environmentId, String messageCode) {
+        this(id, type, environmentId, messageCode, "");
+    }
 }

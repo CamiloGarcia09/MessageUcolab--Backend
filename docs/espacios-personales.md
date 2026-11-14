@@ -1,6 +1,6 @@
 # Espacios personales de MessageUcoLab
 
-> **Última actualización:** 31 de octubre de 2026
+> **Última actualización:** 8 de noviembre de 2026
 > **Estado:** Documento oficial vigente
 > **Fuente de verdad funcional:** modelo de propiedad del backend y contrato OpenAPI
 
@@ -54,6 +54,7 @@ Todas las rutas siguientes están bajo `/messageucolab/v1` y requieren sesión B
 | `POST` | `/organizations` | Crear organización personal |
 | `GET` | `/organizations/{organizationId}/applications` | Aplicaciones de una organización propia |
 | `POST` | `/application` | Crear aplicación y sus ambientes |
+| `DELETE` | `/application/{applicationId}` | Eliminar aplicación propia y todos sus datos de gestión |
 | `GET` | `/session/applications` | Aplicaciones propias de la sesión |
 
 El servidor toma el propietario de la sesión. No acepta propietario, correo o identidad enviados por el navegador.
@@ -71,6 +72,8 @@ Mis organizaciones
 ```
 
 Al cambiar de aplicación, el frontend debe limpiar catálogos dependientes, selección, paginación y suscripciones SSE. La aplicación seleccionada se envía mediante `X-Application-Id`, pero el backend siempre vuelve a validar su propiedad.
+
+«Mis aplicaciones» permite eliminar una aplicación tras escribir su nombre y confirmar el impacto en todos los ambientes. El backend valida propiedad y borra los datos de gestión en una transacción; conserva la organización, las otras aplicaciones, los catálogos compartidos y la auditoría. El permiso DELETE debe habilitarlo el responsable del PEP. Ver [contrato de eliminación](contrato-api.md#eliminación-de-aplicaciones), incluidos el alcance de caché y los pasos de activación.
 
 ## Inicialización
 

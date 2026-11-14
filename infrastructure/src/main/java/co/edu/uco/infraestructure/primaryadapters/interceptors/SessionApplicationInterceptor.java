@@ -33,14 +33,16 @@ import static co.edu.uco.infraestructure.config.InfrastructureConstant.WORKSPACE
  * El servidor valida la propiedad antes de fijar la aplicacion
  * de negocio; nunca acepta una aplicacion ajena. El ambiente es un dato de
  * cada mensaje y solo se valida cuando la peticion lo envia explicitamente.
- * Las rutas publicas de consumo no usan sesion: validan aplicacion y ambiente en su caso de uso.
+ * Las rutas de consumo tambien aceptan aplicaciones consumidoras sin sesion, con su identidad de servicio:
+ * este filtro las deja pasar y el controlador saca la aplicacion y el ambiente del client_id del token,
+ * despues de que el PEP lo valide.
  */
 @Component
 @Order(0)
 public final class SessionApplicationInterceptor implements WebFilter {
 
     private static final String API_PREFIX = "/messageucolab/v1/";
-    private static final String PUBLIC_PREFIX = API_PREFIX + "public/";
+    private static final String CONSUMER_PATH = API_PREFIX + "messages/consumer";
     private final SessionApplicationUseCaseFacade facade;
     private final PersonalWorkspaceUseCaseFacade workspace;
 
@@ -53,11 +55,15 @@ public final class SessionApplicationInterceptor implements WebFilter {
     @Override
     public Mono<Void> filter(final ServerWebExchange exchange, final WebFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
-        if (!path.startsWith(API_PREFIX) || path.startsWith(PUBLIC_PREFIX)) {
+        if (!path.startsWith(API_PREFIX)) {
             return chain.filter(exchange);
         }
         HttpCookie cookie = exchange.getRequest().getCookies().getFirst(SECURITY_SESSION_COOKIE);
         String session = cookie == null ? null : cookie.getValue();
+        // Sin sesion, una ruta de consumo es de una identidad de servicio: la resuelve el controlador tras el PEP.
+        if (isConsumerOperation(path) && (session == null || session.isBlank())) {
+            return chain.filter(exchange);
+        }
         var headers = exchange.getRequest().getHeaders();
         String applicationId = headers.getFirst(REQUEST_HEADER_APPLICATION_ID);
         String environmentId = headers.getFirst(REQUEST_HEADER_ENVIRONMENT_ID);
@@ -103,6 +109,10 @@ public final class SessionApplicationInterceptor implements WebFilter {
             return HttpStatus.UNPROCESSABLE_ENTITY;
         }
         return HttpStatus.SERVICE_UNAVAILABLE;
+    }
+
+    private boolean isConsumerOperation(final String path) {
+        return CONSUMER_PATH.equals(path) || path.startsWith(CONSUMER_PATH + "/");
     }
 
     private boolean isMessageOperation(final String path) {

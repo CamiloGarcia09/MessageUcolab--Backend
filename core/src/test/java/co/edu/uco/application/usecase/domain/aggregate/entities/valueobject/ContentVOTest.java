@@ -2,8 +2,8 @@ package co.edu.uco.application.usecase.domain.aggregate.entities.valueobject;
 
 import co.edu.uco.application.common.catalog.CatalogPortStaticRef;
 import co.edu.uco.application.crosscutting.exceptions.ContentCanNotBeEmptyException;
-import co.edu.uco.application.crosscutting.exceptions.SizeContentLessThanTenException;
-import co.edu.uco.application.crosscutting.exceptions.SizeContentMoreThanOneHundred;
+import co.edu.uco.application.crosscutting.exceptions.ContentBelowMinimumLengthException;
+import co.edu.uco.application.crosscutting.exceptions.ContentExceedsMaximumLengthException;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,19 +31,19 @@ class ContentVOTest {
     }
 
     @Test
-    void constructor_acceptsTenCharacterContent() {
-        ContentVO vo = new ContentVO("1234567890");
+    void constructor_acceptsFiveCharacterContent() {
+        ContentVO vo = new ContentVO("12345");
 
-        assertThat(vo.getContent()).hasSize(10);
+        assertThat(vo.getContent()).hasSize(5);
     }
 
     @Test
-    void constructor_acceptsOneHundredCharacterContent() {
-        String content = "a".repeat(100);
+    void constructor_acceptsTwoThousandCharacterContent() {
+        String content = "a".repeat(2000);
 
         ContentVO vo = new ContentVO(content);
 
-        assertThat(vo.getContent()).hasSize(100);
+        assertThat(vo.getContent()).hasSize(2000);
     }
 
     @Test
@@ -59,15 +59,15 @@ class ContentVOTest {
     }
 
     @Test
-    void constructor_rejectsContentShorterThanTen() {
-        assertThatThrownBy(() -> new ContentVO("corto"))
-                .isInstanceOf(SizeContentLessThanTenException.class);
+    void constructor_rejectsContentShorterThanFive() {
+        assertThatThrownBy(() -> new ContentVO("abcd"))
+                .isInstanceOf(ContentBelowMinimumLengthException.class);
     }
 
     @Test
-    void constructor_rejectsContentLongerThanOneHundred() {
-        assertThatThrownBy(() -> new ContentVO("a".repeat(101)))
-                .isInstanceOf(SizeContentMoreThanOneHundred.class);
+    void constructor_rejectsContentLongerThanTwoThousand() {
+        assertThatThrownBy(() -> new ContentVO("a".repeat(2001)))
+                .isInstanceOf(ContentExceedsMaximumLengthException.class);
     }
 
     @Test

@@ -25,6 +25,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
 
 import static co.edu.uco.crosscutting.helpers.UtilObject.isNullObject;
 import static co.edu.uco.crosscutting.helpers.UtilText.isEmptyOrNull;
@@ -37,6 +38,7 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
     private final CatalogPort catalogPort;
     private final TranslationAiProperties properties;
     private final ObjectMapper objectMapper;
+    private final Semaphore permits;
     private ChatModel chatModel;
 
     public LangChain4jMessageTranslationAdapter(
@@ -47,9 +49,11 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
         this.catalogPort = catalogPort;
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.permits = new Semaphore(Math.max(1, properties.getMaxConcurrentRequests()));
     }
 
     private static final String PROVIDER_OPEN_AI = "openai";
+    private static final String MODEL_BUSY = "El modelo de traducción alcanzó el máximo de traducciones simultáneas";
 
     @Override
     public MessageTranslationResponseData translate(MessageTranslationRequestData requestData) {
@@ -67,13 +71,26 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
         }
 
         var startedAt = System.nanoTime();
+        var permitAcquired = false;
         try {
-            var response = model().chat(buildChatRequest(requestData));
+            // Límite de traducciones simultáneas: si el modelo ya está ocupado no se encola la petición
+            // (OWASP LLM06); la ruta de consumo entrega entonces el texto original.
+            permitAcquired = permits.tryAcquire();
+            if (!permitAcquired) {
+                throw new IllegalStateException(MODEL_BUSY);
+            }
+            var texts = new ProtectedTranslationTexts(requestData);
+            var response = model().chat(buildChatRequest(requestData, texts));
             var output = response.aiMessage().text();
             var translated = objectMapper.readValue(output, TranslationModelResponse.class);
             if (!translated.isComplete()) {
                 throw BusinessException.buildUserException(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_048.getCode()));
             }
+            var restoredTitle = texts.restoreTitle(translated.translatedTitle());
+            var restoredContent = texts.restoreContent(translated.translatedContent());
+            var restoredType = texts.restoreType(translated.translatedType());
+            var restoredCategory = texts.restoreCategory(translated.translatedCategory());
+            var restoredFunctionality = texts.restoreFunctionality(translated.translatedFunctionality());
             var elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
             var providerLabel = providerName();
             log.info(
@@ -85,11 +102,11 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
                     elapsedMillis
             );
             return MessageTranslationResponseData.create(
-                    translated.translatedTitle(),
-                    translated.translatedContent(),
-                    translated.translatedType(),
-                    translated.translatedCategory(),
-                    translated.translatedFunctionality(),
+                    restoredTitle,
+                    restoredContent,
+                    restoredType,
+                    restoredCategory,
+                    restoredFunctionality,
                     providerLabel,
                     properties.getModelName(),
                     elapsedMillis
@@ -104,6 +121,10 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
                     exception
             );
             throw BusinessException.buildUserException(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_048.getCode()));
+        } finally {
+            if (permitAcquired) {
+                permits.release();
+            }
         }
     }
 
@@ -148,7 +169,8 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
                 : catalogPort.getMessage(MessageCatalogCodeEnum.FUN_059.getCode()).formatted(properties.getProvider());
     }
 
-    private ChatRequest buildChatRequest(MessageTranslationRequestData requestData) throws JsonProcessingException {
+    private ChatRequest buildChatRequest(MessageTranslationRequestData requestData, ProtectedTranslationTexts texts)
+            throws JsonProcessingException {
         var translatedTypeField = catalogPort.getMessage(MessageCatalogCodeEnum.FUN_203.getCode());
         var translatedCategoryField = catalogPort.getMessage(MessageCatalogCodeEnum.FUN_204.getCode());
         var translatedFunctionalityField = catalogPort.getMessage(MessageCatalogCodeEnum.FUN_205.getCode());
@@ -171,30 +193,36 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
 
         return ChatRequest.builder()
                 .messages(SystemMessage.from(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_201.getCode())),
-                        UserMessage.from(buildPrompt(requestData)))
+                        UserMessage.from(buildPrompt(requestData, texts)))
                 .responseFormat(responseFormat)
                 .build();
     }
 
-    private String buildPrompt(MessageTranslationRequestData requestData) throws JsonProcessingException {
+    /**
+     * El texto de los campos solo viaja dentro del bloque JSON de FUN_202. La plantilla FUN_054 del catálogo
+     * actual usa únicamente los cuatro primeros argumentos (contexto); los demás se siguen enviando para que
+     * una plantilla anterior que aún esté en Redis no falle por argumentos faltantes.
+     */
+    private String buildPrompt(MessageTranslationRequestData requestData, ProtectedTranslationTexts texts)
+            throws JsonProcessingException {
         return catalogPort.getMessage(MessageCatalogCodeEnum.FUN_054.getCode()).formatted(
                 requestData.getCode(),
                 requestData.getSourceLanguage(),
                 requestData.getTargetLanguage(),
                 requestData.getApplication(),
-                requestData.getFunctionality(),
-                requestData.getType(),
-                requestData.getCategory(),
-                trim(requestData.getTitle()),
-                trim(requestData.getContent())
+                trim(texts.functionality()),
+                trim(texts.type()),
+                trim(texts.category()),
+                trim(texts.title()),
+                trim(texts.content())
         ) + catalogPort.getMessage(MessageCatalogCodeEnum.FUN_202.getCode()).formatted(
                 requestData.getTargetLanguage(),
                 objectMapper.writeValueAsString(Map.of(
-                        "title", trim(requestData.getTitle()),
-                        "content", trim(requestData.getContent()),
-                        "type", trim(requestData.getType()),
-                        "category", trim(requestData.getCategory()),
-                        "functionality", trim(requestData.getFunctionality())
+                        "title", trim(texts.title()),
+                        "content", trim(texts.content()),
+                        "type", trim(texts.type()),
+                        "category", trim(texts.category()),
+                        "functionality", trim(texts.functionality())
                 )));
     }
 

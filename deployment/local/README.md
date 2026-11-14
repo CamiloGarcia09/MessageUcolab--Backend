@@ -18,6 +18,33 @@ Las contraseñas (`SURREALDBUSER`, `SURREALDBPASSWORD`, `REDISPASSWORD`, `GF_SEC
 doppler run -- docker compose -p messageucolab up -d
 ```
 
+## Conectarse a Pulsar desde tu aplicación
+
+Pulsar anuncia dos direcciones y cada cliente recibe la del puerto por el que entró. No hay que configurar nada
+más que la dirección:
+
+| Dónde corre tu aplicación | `PULSAR_URL` | Además |
+|---|---|---|
+| En tu PC (IntelliJ o terminal) | `pulsar://localhost:6800` | Nada |
+| En un contenedor de Docker | `pulsar://pulsar:6650` | Conectar el contenedor a la red `messageucolab_pulsar-network` |
+
+Si actualizas desde un kit anterior, recrea Pulsar una vez para que tome esta configuración. Pulsar solo guarda
+los avisos de paso (los mensajes están en SurrealDB); si al arrancar el log dice
+`Not enough non-faulty bookies available`, su almacenamiento quedó con el nombre del contenedor anterior y hay que
+empezarlo de cero:
+
+```bash
+docker compose -p messageucolab rm -sf pulsar
+```
+
+```bash
+docker volume rm messageucolab_pulsar-data
+```
+
+```bash
+doppler run -- docker compose -p messageucolab up -d pulsar
+```
+
 ## Publicar una versión (equipo MessageUcoLab)
 
 1. Desde la raíz del backend, en `develop`, construye y publica la imagen (pide `docker login` antes):

@@ -4,7 +4,9 @@ import co.edu.uco.application.primaryports.dto.message.UpdateMessageDTO;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.entity.ApplicationData;
 import co.edu.uco.application.secondaryports.entity.FunctionalityData;
+import co.edu.uco.application.secondaryports.entity.StatusMessageData;
 import co.edu.uco.application.secondaryports.repository.FunctionalityCatalogRepository;
+import co.edu.uco.application.secondaryports.repository.MessageStateCatalogRepository;
 import co.edu.uco.application.secondaryports.repository.RecordExistsCatalogPort;
 import co.edu.uco.application.usecase.validator.message.environment.MessageEnvironmentSelectionCompositeValidator;
 import co.edu.uco.crosscutting.exceptions.BusinessRuleException;
@@ -46,6 +48,8 @@ class UpdateMessageCompositeValidatorEnvironmentsTest {
     @Mock
     private FunctionalityCatalogRepository functionalityCatalogRepository;
     @Mock
+    private MessageStateCatalogRepository messageStateCatalogRepository;
+    @Mock
     private MessageEnvironmentSelectionCompositeValidator environmentSelectionValidator;
 
     private UpdateMessageCompositeValidator validator;
@@ -55,11 +59,14 @@ class UpdateMessageCompositeValidatorEnvironmentsTest {
         when(recordExistsCatalogPort.exists(any(), anyString())).thenReturn(true);
         FunctionalityData functionality = FunctionalityData.build();
         functionality.setId(FUNCTIONALITY_ID);
+        functionality.setState("Active");
         functionality.setApplication(ApplicationData.build(APPLICATION_ID, "App"));
         when(functionalityCatalogRepository.findAllByApplicationId(APPLICATION_ID.toString()))
                 .thenReturn(List.of(functionality));
+        when(messageStateCatalogRepository.findAll()).thenReturn(List.of(new StatusMessageData(
+                UUID.fromString("123e4567-e89b-12d3-a456-426614175012"), "Active")));
         validator = new UpdateMessageCompositeValidator(catalogPort, recordExistsCatalogPort,
-                functionalityCatalogRepository, environmentSelectionValidator);
+                functionalityCatalogRepository, messageStateCatalogRepository, environmentSelectionValidator);
     }
 
     @Test

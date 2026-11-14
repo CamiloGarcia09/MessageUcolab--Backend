@@ -6,24 +6,33 @@ import co.edu.uco.messageucolab.client.api.model.MessageCollection;
 import co.edu.uco.messageucolab.client.api.model.MessageDetails;
 import co.edu.uco.messageucolab.client.api.port.MessageQueryPort;
 import co.edu.uco.messageucolab.client.autoconfigure.MessageUcoLabProperties;
+import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Map;
 
+/**
+ * Consulta las rutas de consumo de MessageUcoLab con el Bearer de la identidad de servicio de la aplicación.
+ * El PEP de MessageUcoLab solo deja pasar identidades a las que MessageUcoLab concedió esas rutas, y
+ * MessageUcoLab saca la aplicación y el ambiente del client_id del token: no se envían identificadores.
+ */
 public final class MessageUcoLabHttpAdapter implements MessageQueryPort {
 
-    private static final String APPLICATION_HEADER = "X-Application-Id";
-    private static final String ENVIRONMENT_HEADER = "X-Environment-Id";
-    private static final String MESSAGES_PATH = "/messageucolab/v1/public/messages";
+    private static final String CONSUMER_PATH = "/messageucolab/v1/messages/consumer";
+    private static final String TRANSLATIONS_PATH = CONSUMER_PATH + "/translations";
 
     private final WebClient client;
     private final MessageUcoLabProperties properties;
+    private final MessageUcoLabAccessTokenProvider tokenProvider;
 
-    public MessageUcoLabHttpAdapter(WebClient.Builder builder, MessageUcoLabProperties properties) {
+    public MessageUcoLabHttpAdapter(WebClient.Builder builder, MessageUcoLabProperties properties,
+                                    MessageUcoLabAccessTokenProvider tokenProvider) {
         this.client = builder.baseUrl(properties.url()).build();
         this.properties = properties;
+        this.tokenProvider = tokenProvider;
     }
 
     @Override
@@ -31,19 +40,29 @@ public final class MessageUcoLabHttpAdapter implements MessageQueryPort {
         return findByCode(code, null);
     }
 
+    /**
+     * Sin idioma entrega el texto original; con idioma, la traducción de MessageUcoLab.
+     */
     @Override
     public Mono<MessageDetails> findByCode(String code, String language) {
-        return client.get()
-                .uri(uriBuilder -> {
-                    uriBuilder.path(MESSAGES_PATH + "/{code}");
-                    if (language != null && !language.isBlank()) {
-                        uriBuilder.queryParam("language", language);
+        boolean translate = language != null && !language.isBlank();
+        return tokenProvider.token()
+                .flatMap(token -> {
+                    if (!translate) {
+                        return client.get()
+                                .uri(uriBuilder -> uriBuilder.path(CONSUMER_PATH).queryParam("code", code).build())
+                                .headers(headers -> headers.setBearerAuth(token))
+                                .retrieve()
+                                .bodyToMono(MessageResponse.class);
                     }
-                    return uriBuilder.build(code);
+                    return client.post()
+                            .uri(uriBuilder -> uriBuilder.path(TRANSLATIONS_PATH).queryParam("code", code).build())
+                            .headers(headers -> headers.setBearerAuth(token))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(Map.of("targetLanguage", language))
+                            .retrieve()
+                            .bodyToMono(MessageResponse.class);
                 })
-                .headers(this::addContextHeaders)
-                .retrieve()
-                .bodyToMono(MessageResponse.class)
                 .timeout(properties.timeout())
                 .map(MessageUcoLabHttpAdapter::toDetails)
                 .onErrorMap(WebClientResponseException.class, this::toResponseException)
@@ -52,20 +71,16 @@ public final class MessageUcoLabHttpAdapter implements MessageQueryPort {
 
     @Override
     public Mono<MessageCollection> findAll() {
-        return client.get()
-                .uri(MESSAGES_PATH)
-                .headers(this::addContextHeaders)
-                .retrieve()
-                .bodyToMono(MessageListResponse.class)
+        return tokenProvider.token()
+                .flatMap(token -> client.get()
+                        .uri(CONSUMER_PATH)
+                        .headers(headers -> headers.setBearerAuth(token))
+                        .retrieve()
+                        .bodyToMono(MessageListResponse.class))
                 .timeout(properties.timeout())
                 .map(MessageUcoLabHttpAdapter::toCollection)
                 .onErrorMap(WebClientResponseException.class, this::toResponseException)
                 .onErrorMap(this::isTransportError, MessageClientTransportException::new);
-    }
-
-    private void addContextHeaders(org.springframework.http.HttpHeaders headers) {
-        headers.set(APPLICATION_HEADER, properties.applicationId());
-        headers.set(ENVIRONMENT_HEADER, properties.environmentId());
     }
 
     private MessageClientResponseException toResponseException(WebClientResponseException error) {

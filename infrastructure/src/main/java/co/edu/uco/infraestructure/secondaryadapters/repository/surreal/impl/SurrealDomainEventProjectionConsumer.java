@@ -180,7 +180,7 @@ public final class SurrealDomainEventProjectionConsumer {
     private void projectMessage(final DomainEvent event) {
         final RecordRef aggregate = RecordRef.from(event.aggregateId()).orElseThrow();
         if (event.isDelete()) {
-            deleteDocument(COLLECTION_MESSAGE_DOCUMENT, aggregate.id());
+            projectMessageDeletion(event, aggregate.id());
             return;
         }
 
@@ -221,6 +221,37 @@ public final class SurrealDomainEventProjectionConsumer {
 
         upsertDocument(COLLECTION_MESSAGE_DOCUMENT, aggregate.id(), content);
         propagateMessageUpdateToEnvironmentReadmodel(event.aggregateId(), record);
+        // The administrative list is now readable, even when no environment projection exists yet.
+        final String notificationType = event.isCollectiveChange() ? "MessagesChanged" : toMessageEventType(event.eventType());
+        final String messageCode = event.isCollectiveChange() ? "" : stringOf(record.get("code"));
+        publishApplicationMessageEvent(notificationType, applicationId, messageCode);
+        publishMessageEventsForEnvironments(event.aggregateId(), messageCode, notificationType);
+    }
+
+    private void publishApplicationMessageEvent(final String type, final String applicationRecordId,
+                                                 final String messageCode) {
+        final String applicationId = cleanRecordId(applicationRecordId);
+        if (!applicationId.isBlank()) {
+            publisher.publish(new MessageEvent(UUID.randomUUID().toString(), type, "", messageCode, applicationId));
+        }
+    }
+
+    private void projectMessageDeletion(final DomainEvent event, final String messageId) {
+        final Optional<com.surrealdb.Object> snapshot = objectOf(event.payload())
+                .filter(row -> !stringOf(row.get("code")).isBlank()).or(() -> findOne(
+                "SELECT * FROM " + recordIdLiteral(COLLECTION_MESSAGE_DOCUMENT, messageId) + ";"));
+        final List<com.surrealdb.Object> environments = messageEnvironmentRows(event.aggregateId());
+        deleteDocument(COLLECTION_MESSAGE_DOCUMENT, messageId);
+        execute("DELETE " + COLLECTION_MESSAGE_ENVIRONMENT_READMODEL
+                + " WHERE message_id = " + quote(readModelMessageId(event.aggregateId())) + ";");
+        final String code = snapshot.map(row -> stringOf(row.get("code"))).orElse("");
+        if (!code.isBlank()) {
+            messageCatalogStrategy.evictMessage(code);
+        }
+        snapshot.ifPresent(row -> publishApplicationMessageEvent("MessageDeleted",
+                recordString(row.get("application_id")), code));
+        environments.forEach(row -> publishEnvironmentMessageEvent("MessageDeleted",
+                recordString(row.get("environment_id")), code));
     }
 
     private void propagateMessageUpdateToEnvironmentReadmodel(final String messageRecordId,
@@ -238,53 +269,43 @@ public final class SurrealDomainEventProjectionConsumer {
                 + ", message.status = " + catalogLiteral(statusId, findByRecordId(statusId), "name")
                 + ", message.functionality = " + catalogLiteral(functionalityId, findByRecordId(functionalityId), "name")
                 + ", message.updated_at = " + literal(record.get("updated_at"))
-                + " WHERE message_id = " + quote(messageRecordId) + ";";
+                + " WHERE message_id = " + quote(readModelMessageId(messageRecordId)) + ";";
         execute(sql);
         final String messageCode = stringOf(record.get("code"));
         messageCatalogStrategy.evictMessage(messageCode);
-        publishMessageUpdatedEventsForEnvironments(messageRecordId, messageCode);
     }
 
-    private void publishMessageUpdatedEventsForEnvironments(final String messageRecordId, final String messageCode) {
-        final String querySql = "SELECT environment_id FROM " + COLLECTION_MESSAGE_ENVIRONMENT_READMODEL
-                + " WHERE message_id = " + quote(messageRecordId) + ";";
-        queryObjects(querySql).forEach(row -> {
-            final String environmentId = recordString(row.get("environment_id"));
-            if (!environmentId.isBlank()) {
-                publisher.publish(new MessageEvent(
-                        UUID.randomUUID().toString(),
-                        "MessageUpdated",
-                        cleanRecordId(environmentId),
-                        messageCode
-                ));
-            }
-        });
+    private void publishMessageEventsForEnvironments(final String messageRecordId, final String messageCode,
+                                                      final String type) {
+        messageEnvironmentRows(messageRecordId).forEach(row -> publishEnvironmentMessageEvent(type,
+                recordString(row.get("environment_id")), messageCode));
+    }
+
+    private List<com.surrealdb.Object> messageEnvironmentRows(final String messageRecordId) {
+        return queryObjects("SELECT environment_id FROM " + COLLECTION_MESSAGE_ENVIRONMENT_READMODEL
+                + " WHERE message_id = " + quote(readModelMessageId(messageRecordId)) + ";");
+    }
+
+    // El aggregate_id de domain_events puede venir con el identificador entre comillas invertidas
+    // (message:`uuid`), mientras la proyeccion guarda message_id sin ellas (message:uuid). Sin
+    // normalizar, estas consultas no encuentran filas y no se emiten los eventos por ambiente.
+    private static String readModelMessageId(final String messageRecordId) {
+        return RecordRef.from(messageRecordId)
+                .map(ref -> ref.table() + ":" + ref.id())
+                .orElse(messageRecordId);
+    }
+
+    private void publishEnvironmentMessageEvent(final String type, final String environmentId,
+                                                 final String messageCode) {
+        if (!environmentId.isBlank()) {
+            publisher.publish(new MessageEvent(UUID.randomUUID().toString(), type, cleanRecordId(environmentId), messageCode));
+        }
     }
 
     private void projectMessageEnvironment(final DomainEvent event) {
         final RecordRef aggregate = RecordRef.from(event.aggregateId()).orElseThrow();
         if (event.isDelete()) {
-            final Optional<com.surrealdb.Object> existing = findOne(
-                    "SELECT * FROM " + recordIdLiteral(COLLECTION_MESSAGE_ENVIRONMENT_READMODEL, aggregate.id()) + ";");
-            deleteDocument(COLLECTION_MESSAGE_ENVIRONMENT_READMODEL, aggregate.id());
-            existing.ifPresent(doc -> {
-                final String environmentId = recordString(doc.get("environment_id"));
-                final Value messageValue = doc.get("message");
-                final String messageCode = (!isNullObject(messageValue) && messageValue.isObject())
-                        ? stringOf(messageValue.getObject().get("code"))
-                        : "";
-                if (!messageCode.isBlank()) {
-                    messageCatalogStrategy.evictMessage(messageCode);
-                }
-                if (!environmentId.isBlank()) {
-                    publisher.publish(new MessageEvent(
-                            UUID.randomUUID().toString(),
-                            "MessageDeleted",
-                            cleanRecordId(environmentId),
-                            messageCode
-                    ));
-                }
-            });
+            projectMessageEnvironmentDeletion(event, aggregate.id());
             return;
         }
 
@@ -300,9 +321,11 @@ public final class SurrealDomainEventProjectionConsumer {
         final String stateId = recordString(record.get("state_data_id"));
 
         final Optional<com.surrealdb.Object> message = findByRecordId(messageId);
-        final String messageLiteral = message
-                .map(value -> messageEmbeddedLiteral(messageId, value))
-                .orElse("{ id: " + quote(messageId) + " }");
+        if (message.isEmpty()) {
+            deleteDocument(COLLECTION_MESSAGE_ENVIRONMENT_READMODEL, aggregate.id());
+            return;
+        }
+        final String messageLiteral = messageEmbeddedLiteral(messageId, message.get());
 
         final String content = "{ "
                 + projectionHeader(event, "message_environment_id")
@@ -318,17 +341,44 @@ public final class SurrealDomainEventProjectionConsumer {
                 + " }";
 
         upsertDocument(COLLECTION_MESSAGE_ENVIRONMENT_READMODEL, aggregate.id(), content);
-        publishProjectedMessageEvent(event, environmentId, message.map(value -> stringOf(value.get("code"))).orElse(""));
+        publishMessageEnvironmentUpdated(message.get(), environmentId);
     }
 
-    private void publishProjectedMessageEvent(final DomainEvent event, final String environmentId,
-                                              final String messageCode) {
-        publisher.publish(new MessageEvent(
-                UUID.randomUUID().toString(),
-                toMessageEventType(event.eventType()),
-                cleanRecordId(environmentId),
-                messageCode
-        ));
+    private void projectMessageEnvironmentDeletion(final DomainEvent event, final String relationId) {
+        final Optional<com.surrealdb.Object> existing = objectOf(event.payload())
+                .filter(row -> !recordString(row.get("message_id")).isBlank()).or(() -> findOne(
+                "SELECT * FROM " + recordIdLiteral(COLLECTION_MESSAGE_ENVIRONMENT_READMODEL, relationId) + ";"));
+        deleteDocument(COLLECTION_MESSAGE_ENVIRONMENT_READMODEL, relationId);
+        existing.ifPresent(row -> {
+            final String messageRecordId = recordString(row.get("message_id"));
+            final String environmentId = recordString(row.get("environment_id"));
+            findByRecordId(messageRecordId).ifPresentOrElse(
+                    message -> publishMessageEnvironmentUpdated(message, environmentId),
+                    () -> publishEnvironmentMessageDeleted(messageRecordId, environmentId));
+        });
+    }
+
+    // Si el mensaje ya no existe en la fuente, la relacion se elimino porque se borro el mensaje completo.
+    // Este evento llega antes que MESSAGE_DELETED y retira la fila del ambiente, por lo que ese paso ya no
+    // encontraria el ambiente para avisar. El codigo se toma de la proyeccion del mensaje, que aun existe.
+    private void publishEnvironmentMessageDeleted(final String messageRecordId, final String environmentId) {
+        RecordRef.from(messageRecordId)
+                .flatMap(ref -> findOne("SELECT * FROM "
+                        + recordIdLiteral(COLLECTION_MESSAGE_DOCUMENT, ref.id()) + ";"))
+                .map(document -> stringOf(document.get("code")))
+                .filter(code -> !code.isBlank())
+                .ifPresent(code -> publishEnvironmentMessageEvent("MessageDeleted", environmentId, code));
+    }
+
+    private void publishMessageEnvironmentUpdated(final com.surrealdb.Object message, final String environmentId) {
+        final String code = stringOf(message.get("code"));
+        messageCatalogStrategy.evictMessage(code);
+        publishApplicationMessageEvent("MessageUpdated", recordString(message.get("application_id")), code);
+        publishEnvironmentMessageEvent("MessageUpdated", environmentId, code);
+    }
+
+    private static Optional<com.surrealdb.Object> objectOf(final Value value) {
+        return !isNullObject(value) && value.isObject() ? Optional.of(value.getObject()) : Optional.empty();
     }
 
     private static String toMessageEventType(final String eventType) {
@@ -481,7 +531,11 @@ public final class SurrealDomainEventProjectionConsumer {
     }
 
     private void execute(final String sql) {
-        query(sql);
+        final Response response = query(sql);
+        // Native driver errors may be deferred until a statement result is consumed.
+        for (int index = 0; index < response.size(); index++) {
+            response.take(index);
+        }
     }
 
     private void markProcessed(final DomainEvent event) {
@@ -655,6 +709,12 @@ public final class SurrealDomainEventProjectionConsumer {
 
         boolean isDelete() {
             return eventType.endsWith(DELETE_SUFFIX);
+        }
+
+        boolean isCollectiveChange() {
+            return objectOf(metadata)
+                    .map(value -> "MessagesChanged".equals(stringOf(value.get("notification_type"))))
+                    .orElse(false);
         }
     }
 

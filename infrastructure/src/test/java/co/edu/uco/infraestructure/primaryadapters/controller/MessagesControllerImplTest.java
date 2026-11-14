@@ -231,12 +231,17 @@ class MessagesControllerImplTest {
         @DisplayName("Emite el evento del stream como ServerSentEvent")
         void emitsStreamEventAsServerSentEvent() {
             SubmissionPublisher<MessageEvent> publisher = new SubmissionPublisher<>();
-            when(eventStream.subscribe(Set.of())).thenReturn(publisher);
+            when(eventStream.subscribeToApplication(eq("app-1"), anySet())).thenReturn(publisher);
             MessageEvent event = new MessageEvent("id-1", "MessageCreated", "env-1", "CODE");
 
             try {
-                StepVerifier.create(controller.events(exchange()).take(1))
-                        .then(() -> publisher.submit(event))
+                StepVerifier.create(controller.events(exchange()).take(2))
+                        .assertNext(connected -> {
+                            assertAll(
+                                    () -> assertThat(connected.event()).isEqualTo("connected"),
+                                    () -> assertThat(connected.data().applicationId()).isEqualTo("app-1"));
+                            publisher.submit(event);
+                        })
                         .assertNext(serverSentEvent -> assertAll(
                                 () -> assertThat(serverSentEvent.id()).isEqualTo("id-1"),
                                 () -> assertThat(serverSentEvent.event()).isEqualTo("MessageCreated"),
@@ -251,11 +256,12 @@ class MessagesControllerImplTest {
         @DisplayName("Emite un heartbeat cuando no hay eventos del stream")
         void emitsHeartbeatWhenNoStreamEvent() {
             SubmissionPublisher<MessageEvent> publisher = new SubmissionPublisher<>();
-            when(eventStream.subscribe(Set.of())).thenReturn(publisher);
+            when(eventStream.subscribeToApplication(eq("app-1"), anySet())).thenReturn(publisher);
 
             try {
-                StepVerifier.withVirtualTime(() -> controller.events(exchange()).take(1))
-                        .thenAwait(Duration.ofSeconds(31))
+                StepVerifier.create(controller.events(exchange()).take(2))
+                        .expectNextMatches(event -> event.event().equals("connected"))
+                        .thenAwait(Duration.ofSeconds(16))
                         .assertNext(serverSentEvent -> assertAll(
                                 () -> assertThat(serverSentEvent.event()).isEqualTo("heartbeat"),
                                 () -> assertThat(serverSentEvent.data().environmentId()).isEmpty(),
@@ -278,8 +284,7 @@ class MessagesControllerImplTest {
                     .expectError(UnauthorizedException.class)
                     .verify();
 
-            verify(eventStream, never()).subscribe(anyString());
-            verify(eventStream, never()).subscribe(anySet());
+            verify(eventStream, never()).subscribeToApplication(anyString(), anySet());
         }
 
         @Test
@@ -293,12 +298,14 @@ class MessagesControllerImplTest {
             when(catalogFacade.findEnvironmentsByApplication("app-1", sessionApplications)).thenReturn(List.of(
                     CatalogItemDTO.create("env-dev", "Develop"), CatalogItemDTO.create("env-prod", "Production")));
             SubmissionPublisher<MessageEvent> publisher = new SubmissionPublisher<>();
-            when(eventStream.subscribe(Set.of("env-dev", "env-prod"))).thenReturn(publisher);
+            when(eventStream.subscribeToApplication(eq("app-1"), eq(Set.of("env-dev", "env-prod"))))
+                    .thenReturn(publisher);
             MessageEvent event = new MessageEvent("id-2", "MessageCreated", "env-prod", "CODE");
 
             try {
-                StepVerifier.create(controller.events(exchange).take(1))
+                StepVerifier.create(controller.events(exchange).take(2))
                         .then(() -> publisher.submit(event))
+                        .expectNextMatches(serverSentEvent -> serverSentEvent.event().equals("connected"))
                         .assertNext(serverSentEvent -> assertThat(serverSentEvent.data()).isSameAs(event))
                         .verifyComplete();
             } finally {

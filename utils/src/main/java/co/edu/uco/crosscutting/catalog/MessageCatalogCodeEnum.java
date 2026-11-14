@@ -255,16 +255,16 @@ public enum MessageCatalogCodeEnum {
     /** El contenido no puede estar vacío. */
     FUN_017("FUN_017"),
 
-    /** El tamaño del contenido no debe ser menor a 10. */
+    /** El contenido debe tener al menos 5 caracteres. */
     FUN_018("FUN_018"),
 
-    /** El tamaño del contenido no puede ser mayor a 100. */
+    /** El contenido no puede superar los 2000 caracteres. */
     FUN_019("FUN_019"),
 
-    /** El tamaño del título no puede ser menor a 10. */
+    /** El título debe tener al menos 5 caracteres. */
     FUN_020("FUN_020"),
 
-    /** El tamaño del título no puede ser mayor a 50. */
+    /** El título no puede superar los 1000 caracteres. */
     FUN_021("FUN_021"),
 
     /** El título no puede estar vacío. */
@@ -789,6 +789,32 @@ public enum MessageCatalogCodeEnum {
     FUN_224("FUN_224"),
     /** Faltan parametros obligatorios o el cuerpo no se puede leer. */
     FUN_225("FUN_225"),
+    /** La funcionalidad no existe en la aplicacion indicada. */
+    FUN_226("FUN_226"),
+    /** Estado de funcionalidad actualizado. */
+    FUN_227("FUN_227"),
+    /** Falta el estado inactivo de mensajes en el catalogo. */
+    FUN_228("FUN_228"),
+    /** No se puede activar un mensaje bajo una funcionalidad inactiva. */
+    FUN_229("FUN_229"),
+    /** Aplicacion eliminada junto con sus datos dependientes. */
+    FUN_230("FUN_230"),
+    /** La aplicacion no existe o no pertenece al usuario autenticado. */
+    FUN_231("FUN_231"),
+    /** La identidad de servicio del token no esta asociada a ningun ambiente. */
+    FUN_232("FUN_232"),
+    /** El client_id de la identidad de servicio es obligatorio. */
+    FUN_233("FUN_233"),
+    /** El client_id de la identidad de servicio tiene un formato invalido. */
+    FUN_234("FUN_234"),
+    /** La identidad de servicio ya esta asociada a un ambiente. */
+    FUN_235("FUN_235"),
+    /** Identidad de servicio asociada al ambiente. */
+    FUN_236("FUN_236"),
+    /** La identidad de servicio no esta asociada a la aplicacion. */
+    FUN_237("FUN_237"),
+    /** Identidad de servicio retirada del ambiente. */
+    FUN_238("FUN_238"),
     TCH_076("TCH_076"),
     TCH_077("TCH_077"),
     /** Error al consultar mensajes por aplicacion en SurrealDB. */
@@ -836,7 +862,15 @@ public enum MessageCatalogCodeEnum {
     TCH_102("TCH_102"),
     TCH_103("TCH_103"),
     TCH_104("TCH_104"),
-    TCH_105("TCH_105");
+    TCH_105("TCH_105"),
+    /** Error al actualizar el estado de una funcionalidad y sus mensajes. */
+    TCH_106("TCH_106"),
+    /** Error al eliminar una aplicacion y sus datos en SurrealDB. */
+    TCH_107("TCH_107"),
+    /** Aplicacion eliminada; no se pudo completar la limpieza de su cache. */
+    TCH_108("TCH_108"),
+    /** Error al gestionar las identidades de servicio en SurrealDB. */
+    TCH_109("TCH_109");
 
     // =========================================================================
 

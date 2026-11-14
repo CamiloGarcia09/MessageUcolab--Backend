@@ -26,8 +26,6 @@ tags:
     description: Excel contextualizado, validacion sin escrituras de mensajes y confirmacion atomica e idempotente.
   - name: Mensajes
     description: Consulta y traduccion de mensajes.
-  - name: Consumo publico
-    description: Consulta de mensajes para aplicaciones consumidoras, sin sesion BFF ni PEP.
   - name: Sesion
     description: Identidad validada del usuario y sus aplicaciones de negocio propias.
   - name: Catalogos
@@ -236,132 +234,21 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /messageucolab/v1/public/messages:
-    get:
-      tags: [Consumo publico]
-      summary: Listar los mensajes disponibles de una aplicacion en un ambiente
-      operationId: listPublicMessages
-      security: []
-      description: |
-        Publico mientras seguridad no autorice aplicacion a aplicacion: no requiere cookie ni pasa por el PEP.
-        Valida que la aplicacion exista y que el ambiente le pertenezca; luego consulta el puerto de
-        autorizacion de consumidores (modo public: permite el acceso).
-        Devuelve los mensajes activos con asociacion activa al ambiente, ordenados por codigo y en el
-        idioma base de la aplicacion. Kong limita la ruta a 120 peticiones por minuto por IP.
-      parameters:
-        - $ref: '#/components/parameters/PublicApplicationId'
-        - $ref: '#/components/parameters/PublicEnvironmentId'
-      responses:
-        '200':
-          description: Mensajes disponibles; la lista puede estar vacia.
-          headers:
-            Cache-Control:
-              schema:
-                type: string
-                enum: [no-store]
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicMessageList'
-              example:
-                language: es
-                total: 1
-                messages:
-                  - code: MSG_PRODSAVED
-                    title: Producto guardado
-                    content: El producto {nombre} se guardo correctamente.
-                    type: Funcional
-                    category: Confirmación
-                    functionality: Gestion de inventario
-                    created_at: '2026-10-27T20:27:52Z'
-                    updated_at: '2026-10-27T20:27:52Z'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '406':
-          $ref: '#/components/responses/NotAcceptable'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
-  /messageucolab/v1/public/messages/{code}:
-    get:
-      tags: [Consumo publico]
-      summary: Consultar un mensaje en un idioma
-      operationId: findPublicMessage
-      security: []
-      description: |
-        Publico con las mismas condiciones del listado. Sin language devuelve el texto original en el
-        idioma base de la aplicacion. Con otro idioma traduce titulo, contenido, tipo, categoria y
-        funcionalidad con el traductor configurado y guarda la traduccion en Redis; la clave incluye
-        una huella del mensaje, asi que al editarlo se vuelve a traducir. No persiste la traduccion.
-      parameters:
-        - name: code
-          in: path
-          required: true
-          schema:
-            type: string
-            example: MSG_PRODSAVED
-        - name: language
-          in: query
-          required: false
-          description: Idioma destino (en, fr, pt-BR...). Si se omite se usa el idioma base de la aplicacion.
-          schema:
-            type: string
-            maxLength: 50
-            pattern: '^[a-zA-Z]{2,3}([_-][a-zA-Z0-9]{2,8})*$'
-            example: en
-        - $ref: '#/components/parameters/PublicApplicationId'
-        - $ref: '#/components/parameters/PublicEnvironmentId'
-      responses:
-        '200':
-          description: Mensaje disponible en el idioma solicitado.
-          headers:
-            Cache-Control:
-              schema:
-                type: string
-                enum: [no-store]
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ConsumerTranslatedMessage'
-              example:
-                code: MSG_PRODSAVED
-                sourceLanguage: es
-                targetLanguage: es
-                title: Producto guardado
-                content: El producto {nombre} se guardo correctamente.
-                type: Funcional
-                category: Confirmación
-                functionality: Gestion de inventario
-                created_at: '2026-10-27T20:27:52Z'
-                updated_at: '2026-10-27T20:27:52Z'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '406':
-          $ref: '#/components/responses/NotAcceptable'
-        '409':
-          $ref: '#/components/responses/Conflict'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-
   /messageucolab/v1/messages/consumer/translations:
     post:
       tags: [Mensajes]
       summary: Traducir un mensaje disponible para consumo
       operationId: translateConsumerMessage
+      security:
+        - sessionCookie: []
+        - serviceIdentityBearer: []
       description: |
         Devuelve un objeto JSON directo con los textos traducidos, sin IDs, estado ni datos del proveedor.
         El idioma origen proviene de application.language_id, nunca del body ni de deteccion automatica.
-        Exige propiedad de la aplicacion y pertenencia del ambiente mediante la sesion BFF existente.
+        Acepta la sesion BFF del propietario de la aplicacion o el Bearer de una identidad de servicio a la
+        que MessageUcoLab concedio esta ruta en el componente de seguridad. Con identidad de servicio la
+        aplicacion y el ambiente salen del client_id del token (claim azp), que el propietario asocio a un
+        ambiente; si no esta asociado responde 403 (FUN_232). Los encabezados solo se usan con sesion BFF.
         Solo traduce mensajes activos con asociacion activa al ambiente, incluso ante un hit de cache.
         Reutiliza MessageCatalogStrategy y el cache de traduccion Redis con scope de consumidor,
         aplicacion, ambiente y huella de la version, textos e idioma base. Las claves administrativas no cambian.
@@ -369,7 +256,7 @@ paths:
         Se comprueba de nuevo disponibilidad y version antes de responder: 404 si deja de estar disponible,
         409 si cambia su contenido, version o idioma base durante la operacion.
         Las fechas corresponden al mensaje original. No persiste la traduccion como mensaje.
-        Requiere registrar esta ruta y su permiso en el PEP externo; no implementa credenciales M2M.
+        Requiere registrar esta ruta en el PEP y conceder su permiso a cada identidad de servicio consumidora.
       parameters:
         - name: code
           in: query
@@ -379,13 +266,15 @@ paths:
             example: MSG_WELCOME
         - name: X-Application-Id
           in: header
-          required: true
+          required: false
+          description: Solo con sesion BFF. Con identidad de servicio se ignora.
           schema:
             type: string
             format: uuid
         - name: X-Environment-Id
           in: header
-          required: true
+          required: false
+          description: Solo con sesion BFF. Con identidad de servicio se ignora.
           schema:
             type: string
             format: uuid
@@ -440,35 +329,43 @@ paths:
   /messageucolab/v1/messages/consumer:
     get:
       tags: [Mensajes]
-      summary: Consultar un mensaje disponible para consumo
+      summary: Consultar un mensaje, o todos los disponibles, para consumo
       operationId: consumeMessage
+      security:
+        - sessionCookie: []
+        - serviceIdentityBearer: []
       description: |
         Reemplaza /messageucolab/v1/messages/resolve. Devuelve un objeto JSON directo,
         sin envelope administrativo, identificadores, estado ni listado de ambientes.
-        La sesion BFF debe ser propietaria de la aplicacion y el ambiente debe pertenecerle.
+        Acepta la sesion BFF del propietario de la aplicacion o el Bearer de una identidad de servicio a la
+        que MessageUcoLab concedio esta ruta en el componente de seguridad. Con sesion BFF el ambiente
+        debe pertenecer a la aplicacion; con identidad de servicio la aplicacion y el ambiente salen del
+        client_id del token (claim azp), que el propietario asocio a un ambiente, y si no esta asociado
+        responde 403 (FUN_232). Sin code devuelve todos los mensajes disponibles del ambiente, en el idioma base.
         Solo entrega mensajes activos con una asociacion activa al ambiente solicitado.
         Reutiliza MessageCatalogStrategy: Redis primero y SurrealDB ante ausencia o fallo de cache.
         Un acierto requiere verificar disponibilidad y version en SurrealDB; si cambia,
         se recarga el mensaje. No se sirve cache cuando falla esa verificacion.
-        La nueva ruta necesita su permiso en el PEP externo. No admite acceso maquina-a-maquina.
+        Kong limita las rutas de consumo a 120 peticiones por minuto por IP.
       parameters:
         - name: code
           in: query
-          required: true
+          required: false
+          description: Codigo del mensaje. Si se omite se listan todos los mensajes disponibles.
           schema:
             type: string
             example: MSG_WELCOME
         - name: X-Application-Id
           in: header
-          required: true
-          description: UUID de una aplicacion de una organizacion propia de la sesion BFF.
+          required: false
+          description: Solo con sesion BFF. UUID de una aplicacion propia; con identidad de servicio se ignora.
           schema:
             type: string
             format: uuid
         - name: X-Environment-Id
           in: header
-          required: true
-          description: UUID de un ambiente de la aplicacion indicada.
+          required: false
+          description: Solo con sesion BFF. UUID de un ambiente de la aplicacion; con identidad de servicio se ignora.
           schema:
             type: string
             format: uuid
@@ -483,7 +380,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ConsumerMessage'
+                oneOf:
+                  - $ref: '#/components/schemas/ConsumerMessage'
+                  - $ref: '#/components/schemas/ConsumerMessageList'
               example:
                 code: MSG_WELCOME
                 title: Bienvenido
@@ -663,6 +562,151 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /messageucolab/v1/application/{applicationId}/service-identities:
+    parameters:
+      - name: applicationId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Administracion]
+      summary: Listar las identidades de servicio de una aplicacion propia
+      operationId: listServiceIdentities
+      security:
+        - sessionCookie: []
+      description: |
+        Identidades de servicio (client_id del componente de seguridad) asociadas a los ambientes de la
+        aplicacion. Valida la propiedad con la sesion BFF. Devuelve un arreglo JSON directo.
+      responses:
+        '200':
+          description: Identidades asociadas, de la mas antigua a la mas reciente.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ServiceIdentity'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Administracion]
+      summary: Asociar una identidad de servicio a un ambiente
+      operationId: registerServiceIdentity
+      security:
+        - sessionCookie: []
+      description: |
+        Desde ese momento la identidad consume los mensajes del ambiente sin enviar identificadores.
+        Cada client_id se asocia a un solo ambiente; si ya esta asociado responde 409 (FUN_235).
+        El ambiente debe pertenecer a la aplicacion. La identidad necesita ademas el permiso de las
+        rutas de consumo en el componente de seguridad.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterServiceIdentity'
+      responses:
+        '200':
+          description: Identidad asociada (FUN_236).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /messageucolab/v1/application/{applicationId}/service-identities/{clientId}:
+    delete:
+      tags: [Administracion]
+      summary: Retirar una identidad de servicio
+      operationId: removeServiceIdentity
+      security:
+        - sessionCookie: []
+      description: La identidad deja de consumir los mensajes de la aplicacion. Si no estaba asociada responde 404 (FUN_237).
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: clientId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Identidad retirada (FUN_238).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /messageucolab/v1/application/{applicationId}:
+    delete:
+      tags: [Administracion]
+      summary: Eliminar una aplicacion propia y sus datos dependientes
+      operationId: deleteApplication
+      description: |
+        Eliminacion permanente: borra en una transaccion la aplicacion, sus ambientes,
+        funcionalidades, mensajes, relaciones de ambientes, recibos de importacion y proyecciones.
+        No elimina la organizacion, otras aplicaciones, catalogos compartidos ni el historial de auditoria.
+        Valida la identidad de la sesion BFF y la propiedad actual, tambien dentro de la transaccion.
+        applicationId se obtiene de la ruta; no requiere cuerpo ni X-Application-Id ni X-Environment-Id.
+        Una aplicacion ajena o inexistente responde 403 sin revelar su existencia. Requiere el
+        permiso especifico DELETE en el PEP. No repite automaticamente una solicitud destructiva.
+        Tras confirmar la transaccion intenta eliminar caches de mensajes, traducciones y borradores
+        solo de la aplicacion. Si Redis falla se registra TCH_108; los datos temporales caducan
+        y no habilitan acceso a una aplicacion inexistente. Redis no participa en la transaccion.
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Aplicacion y datos de gestion eliminados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+              example:
+                data: ["La aplicación y sus funcionalidades, mensajes y ambientes se eliminaron correctamente."]
+                errors: []
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Falta permiso PEP, o la aplicacion es ajena o inexistente (FUN_231).
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          description: Sesion o dependencia de identidad no disponible.
+
   /messageucolab/v1/application/functionality:
     post:
       tags: [Administracion]
@@ -708,6 +752,70 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /messageucolab/v1/application/functionality/{functionalityId}/state:
+    patch:
+      tags: [Administracion]
+      summary: Activar o inactivar una funcionalidad
+      description: |
+        Valida que applicationId pertenezca al usuario de la sesion BFF y que la funcionalidad
+        pertenezca a esa aplicacion. Requiere el permiso de la nueva ruta en el PEP.
+        Al inactivar, cambia el estado global de todos sus mensajes a Inactivo en la misma
+        transaccion; conservan sus ambientes y dejan de estar disponibles para consumo.
+        Al activar, los mensajes conservan su estado: no se reactivan automaticamente.
+        Repetir la solicitud no duplica mensajes ni relaciones.
+      operationId: updateFunctionalityState
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: functionalityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFunctionalityStateRequest'
+      responses:
+        '200':
+          description: Estado actualizado; la inactivacion incluye todos los mensajes asociados.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+              example:
+                data: [Estado de funcionalidad actualizado correctamente.]
+                errors: []
+            application/yaml:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/CreationResponse'
+            text/plain:
+              schema:
+                type: string
+            text/html:
+              schema:
+                type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '406':
           $ref: '#/components/responses/NotAcceptable'
         '422':
@@ -874,6 +982,62 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '406':
+          $ref: '#/components/responses/NotAcceptable'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /messageucolab/v1/messages/events:
+    get:
+      tags: [Mensajes]
+      summary: Recibir cambios del listado por SSE
+      description: |
+        Requiere sesion BFF, permiso PEP GET de esta ruta y propiedad de la aplicacion.
+        Emite connected al abrir y heartbeat para mantener el canal.
+        Las operaciones individuales emiten MessageCreated, MessageUpdated o MessageDeleted
+        con applicationId y messageCode despues de confirmar las escrituras de la proyeccion.
+        Un cambio de ambientes de un mensaje existente es MessageUpdated, no MessageDeleted.
+        MessagesChanged se reserva para cambios colectivos, como inactivar los mensajes de una
+        funcionalidad; en la senal por aplicacion environmentId y messageCode estan vacios.
+        MessageChanged es una senal individual generica para un tipo de origen desconocido.
+        Conserva notificaciones por ambiente; una accion puede producir varias senales.
+        El campo applicationId es aditivo y puede estar vacio en eventos por ambiente.
+        El cliente debe consultar GET /messages al conectar, reconectar y recibir cambios.
+        No hay replay de eventos ni garantia de entrega entre replicas. La proyeccion es asincrona.
+      operationId: messageEvents
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: X-Application-Id
+          in: header
+          required: true
+          description: UUID de una aplicacion propia validada contra la sesion BFF.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Flujo SSE; cada campo data contiene un objeto MessageEvent en JSON.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: no-cache
+          content:
+            text/event-stream:
+              schema:
+                type: string
+              example: |
+                event: MessageUpdated
+                id: 1f37237a-13fa-4386-b328-d00265244541
+                data: {"id":"1f37237a-13fa-4386-b328-d00265244541","type":"MessageUpdated","environmentId":"","messageCode":"MSG_BIENVENIDA","applicationId":"123e4567-e89b-12d3-a456-426614174000"}
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '406':
           $ref: '#/components/responses/NotAcceptable'
         '422':
@@ -1165,24 +1329,13 @@ components:
       in: cookie
       name: SECURITY_BASELINE_SESSION
       description: Sesion BFF externa. El PEP conserva la autorizacion por ruta.
+    serviceIdentityBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token client_credentials de la identidad de servicio de una aplicacion consumidora.
 
   parameters:
-    PublicApplicationId:
-      name: X-Application-Id
-      in: header
-      required: true
-      description: UUID de la aplicacion de MessageUcoLab cuyos mensajes se consultan.
-      schema:
-        type: string
-        format: uuid
-    PublicEnvironmentId:
-      name: X-Environment-Id
-      in: header
-      required: true
-      description: UUID de un ambiente de esa aplicacion (Develop, Testing o Produccion).
-      schema:
-        type: string
-        format: uuid
     ImportApplicationId:
       name: X-Application-Id
       in: header
@@ -1399,6 +1552,50 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
+    ServiceIdentity:
+      type: object
+      properties:
+        clientId:
+          type: string
+          example: inventario-dev-a-messageucolab
+        environmentId:
+          type: string
+          format: uuid
+        environmentName:
+          type: string
+          example: develop
+        createdAt:
+          type: string
+          format: date-time
+    RegisterServiceIdentity:
+      type: object
+      required: [environmentId, clientId]
+      properties:
+        environmentId:
+          type: string
+          format: uuid
+        clientId:
+          type: string
+          maxLength: 255
+          pattern: '^[A-Za-z0-9][A-Za-z0-9._:@-]{0,254}$'
+    MessageEvent:
+      type: object
+      required: [id, type, environmentId, messageCode]
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum: [connected, heartbeat, MessagesChanged, MessageCreated, MessageUpdated, MessageDeleted, MessageChanged]
+        applicationId:
+          type: string
+          description: UUID de la aplicacion; puede estar vacio en eventos anteriores por ambiente.
+        environmentId:
+          type: string
+          description: UUID del ambiente o cadena vacia para eventos por aplicacion.
+        messageCode:
+          type: string
+          description: Codigo del mensaje o cadena vacia para invalidar el listado completo.
     MessageImportPreview:
       type: object
       required: [importId, applicationId, environmentIds, rows, expiresAt]
@@ -1516,7 +1713,7 @@ components:
         completedAt:
           type: string
           format: date-time
-    PublicMessageList:
+    ConsumerMessageList:
       type: object
       additionalProperties: false
       required: [language, total, messages]
@@ -1815,6 +2012,21 @@ components:
         stateId:
           type: string
           format: uuid
+    UpdateFunctionalityStateRequest:
+      type: object
+      required: [applicationId, stateId]
+      properties:
+        applicationId:
+          type: string
+          format: uuid
+          description: Aplicacion propia a la que pertenece la funcionalidad.
+        stateId:
+          type: string
+          format: uuid
+          description: UUID del catalogo functionality_state correspondiente a Activo o Inactivo.
+      example:
+        applicationId: 123e4567-e89b-12d3-a456-426614174000
+        stateId: 505cde87-96f2-4926-8dc6-b04529469bd3
     CreateMessageRequest:
       type: object
       required: [code, title, content, typeId, categoryId, statusId, functionalityId, environmentIds]
@@ -1834,18 +2046,18 @@ components:
           type: string
           description: Sufijo para construir MSG_{sufijo}; los espacios se normalizan a guiones bajos. No enviar el prefijo MSG_.
           minLength: 1
-          maxLength: 10
+          maxLength: 500
           pattern: '^[A-Za-z0-9 ]+$'
           example: BIENVENIDA
         title:
           type: string
-          minLength: 10
-          maxLength: 50
+          minLength: 5
+          maxLength: 1000
           example: Mensaje de bienvenida
         content:
           type: string
-          minLength: 10
-          maxLength: 100
+          minLength: 5
+          maxLength: 2000
           example: Te damos la bienvenida a MessageUcoLab.
         typeId:
           type: string
@@ -1904,11 +2116,11 @@ components:
             environmentsOnly:
               enum: [false]
             title:
-              minLength: 10
-              maxLength: 50
+              minLength: 5
+              maxLength: 1000
             content:
-              minLength: 10
-              maxLength: 100
+              minLength: 5
+              maxLength: 2000
             typeId:
               format: uuid
             categoryId:

@@ -37,7 +37,7 @@ class MessageContentMinLengthRuleTest {
 
     @Test
     void validate_throwsBusinessRuleException_whenContentIsShorterThanMinimum() {
-        CreateMessageDTO dto = CreateMessageDTO.builder().content("Short").build();
+        CreateMessageDTO dto = CreateMessageDTO.builder().content("abcd").build();
 
         assertThrows(BusinessRuleException.class, () -> rule.validate(dto));
     }

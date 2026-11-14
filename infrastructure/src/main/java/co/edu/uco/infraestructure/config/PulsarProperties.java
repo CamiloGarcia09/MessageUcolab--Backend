@@ -14,4 +14,8 @@ import static co.edu.uco.infraestructure.config.InfrastructureConstant.PULSAR_CO
 public class PulsarProperties {
     private String serviceUrl;
     private String topicName;
+    // Prefijo del topic de avisos; se publica en un topic por ambiente: <prefijo>-<environmentId>.
+    private String eventsTopicPrefix = "persistent://public/default/message-events";
+    // Interruptor para desactivar la publicacion de avisos sin tocar el resto del broker.
+    private boolean eventsEnabled = true;
 } 

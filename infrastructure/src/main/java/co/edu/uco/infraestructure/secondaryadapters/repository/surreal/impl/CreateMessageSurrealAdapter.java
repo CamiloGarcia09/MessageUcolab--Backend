@@ -73,13 +73,18 @@ public class CreateMessageSurrealAdapter implements CreateMessageRepository {
         }
 
         String transactionSql = "BEGIN TRANSACTION;"
+                + SurrealFunctionalityWriteGuard.requireActive(funcId, appId,
+                        CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.FUN_217.getCode()))
                 + upsertMessageSql
                 + upsertMessageEnvSql
                 + "COMMIT TRANSACTION;";
 
         try {
             log.info(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_099.getCode()), messageId);
-            surreal.query(transactionSql);
+            var response = surreal.query(transactionSql);
+            for (int index = 0; index < response.size(); index++) {
+                response.take(index);
+            }
         } catch (Exception ex) {
             log.error(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_066.getCode()), ex);
             throw BusinessException.buildTechnicalException(

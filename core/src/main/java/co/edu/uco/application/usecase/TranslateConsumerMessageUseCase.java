@@ -46,7 +46,10 @@ public final class TranslateConsumerMessageUseCase implements TranslateConsumerM
         var translation = translations.translate(before, context.applicationId(), environmentId, target);
         var after = snapshot(code, environmentId, context);
         consistencyValidator.validate(new ConsumerTranslationComparison(before, after));
-        return new ConsumerTranslatedMessageDTO(before.message(), before.sourceLanguage(), target, translation);
+        // Si se entregó el original, se informa el idioma de origen para que el consumidor sepa que no se tradujo.
+        var deliveredLanguage = translation.isTranslated() ? target : before.sourceLanguage();
+        return new ConsumerTranslatedMessageDTO(before.message(), before.sourceLanguage(), deliveredLanguage,
+                translation);
     }
 
     private ConsumerTranslationSnapshot snapshot(String code, String environmentId, MessageAccessContext context) {

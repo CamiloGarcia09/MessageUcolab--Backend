@@ -182,26 +182,18 @@ Rutas principales:
 
 No se debe usar el correo del navegador como identidad ni aceptar un propietario enviado por el cliente. La identidad estable se deriva de `identity_source + tenantId + subject` de la sesión BFF.
 
-### Consulta pública para consumidores
+### Consumo con identidad de servicio
 
-Mientras el componente de seguridad no ofrezca autorización aplicación-a-aplicación, estas dos rutas son públicas y no pasan por el PEP:
+Las aplicaciones consumidoras usan las rutas de consumo con el token de su identidad de servicio:
 
 ```http
-GET /messageucolab/v1/public/messages
-GET /messageucolab/v1/public/messages/{code}?language=en
-X-Application-Id: <uuid-aplicacion>
-X-Environment-Id: <uuid-ambiente>
+GET  /messageucolab/v1/messages/consumer
+GET  /messageucolab/v1/messages/consumer?code={code}
+POST /messageucolab/v1/messages/consumer/translations?code={code}
+Authorization: Bearer <token-de-la-identidad-de-servicio>
 ```
 
-Ejemplo:
-
-```bash
-curl -H "X-Application-Id: <uuid-aplicacion>" \
-     -H "X-Environment-Id: <uuid-ambiente>" \
-     http://localhost:8000/messageucolab/v1/public/messages
-```
-
-Kong limita este acceso a 120 solicitudes por minuto y por IP. La API solo devuelve mensajes activos y habilitados para el ambiente indicado. Consulte [`docs/consumo-mensajes.md`](docs/consumo-mensajes.md) antes de integrar un consumidor.
+MessageUcoLab concede esas rutas a cada identidad en el componente de seguridad, y el propietario asocia el `client_id` de la identidad al ambiente que consume (**Identidades de servicio** en la pantalla de aplicaciones). Con eso, MessageUcoLab deduce la aplicación y el ambiente del token: el consumidor no envía identificadores. Kong limita estas rutas a 120 solicitudes por minuto y por IP. Consulte [`docs/consumo-mensajes.md`](docs/consumo-mensajes.md) antes de integrar un consumidor.
 
 ## Cliente Java
 
@@ -224,13 +216,25 @@ Los consumidores con Java 25 y Spring Boot 4.1.1 pueden usar el starter publicad
 
 Configure las credenciales de lectura de GitHub Packages en el `settings.xml` o gestor de secretos del consumidor, nunca en el POM.
 
+El consumidor también necesita el starter de seguridad con su identidad de servicio:
+
+```properties
+# Identidad de servicio de la aplicación consumidora (los valores llegan desde el gestor de secretos)
+security.pep.service-identity.enabled=true
+security.pep.service-identity.token-uri=${KEYCLOAK_TOKEN_URI}
+security.pep.service-identity.client-id=${MESSAGEUCOLAB_CLIENT_ID}
+security.pep.service-identity.client-secret=${MESSAGEUCOLAB_CLIENT_SECRET}
+```
+
+El starter de MessageUcoLab obtiene el token con el `ServiceAccessTokenProvider` del starter de seguridad, que lo guarda en caché y lo renueva antes de vencer. Si la aplicación obtiene el token de otra forma, puede registrar su propio bean `MessageUcoLabAccessTokenProvider`.
+
 ```yaml
 messageucolab:
   url: ${MESSAGEUCOLAB_URL:http://localhost:8000}
-  application-id: ${MESSAGEUCOLAB_APPLICATION_ID}
-  environment-id: ${MESSAGEUCOLAB_ENVIRONMENT_ID}
   timeout: 60s
 ```
+
+El consumidor no configura identificadores de aplicación ni de ambiente: MessageUcoLab los deduce del `client_id` de su identidad.
 
 El bean `MessageReader` permite consultar el catálogo o un mensaje específico:
 

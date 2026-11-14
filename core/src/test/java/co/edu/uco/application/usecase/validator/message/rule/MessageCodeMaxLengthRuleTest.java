@@ -23,7 +23,7 @@ import static org.mockito.Mockito.when;
 class MessageCodeMaxLengthRuleTest {
 
     private static final String FUN_198_USER_MESSAGE =
-            "El sufijo del código del mensaje supera los 10 caracteres.";
+            "El sufijo del código del mensaje supera los 50 caracteres.";
 
     @Mock
     private CatalogPort catalogPort;
@@ -49,8 +49,8 @@ class MessageCodeMaxLengthRuleTest {
     }
 
     @ParameterizedTest(name = "sufijo \"{0}\" dentro del límite")
-    @ValueSource(strings = {"W", "WELCOME", "ABCDEFGHIJ"})
-    void validate_doesNotThrow_whenSuffixIsAtMostTenCharacters(String code) {
+    @ValueSource(strings = {"W", "WELCOME", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"})
+    void validate_doesNotThrow_whenSuffixIsAtMostFiftyCharacters(String code) {
         CreateMessageDTO dto = CreateMessageDTO.builder().code(code).build();
 
         assertThatCode(() -> rule.validate(dto))
@@ -62,7 +62,7 @@ class MessageCodeMaxLengthRuleTest {
 
     @Test
     void validate_doesNotThrow_whenOnlySurroundingWhitespaceExceedsTheLimit() {
-        CreateMessageDTO dto = CreateMessageDTO.builder().code("  ABCDEFGHIJ  ").build();
+        CreateMessageDTO dto = CreateMessageDTO.builder().code("  " + "A".repeat(50) + "  ").build();
 
         assertThatCode(() -> rule.validate(dto))
                 .as("Los espacios envolventes no deben contar para la longitud máxima")
@@ -83,9 +83,9 @@ class MessageCodeMaxLengthRuleTest {
     }
 
     @Test
-    void validate_throwsBusinessRuleUsingFun198_whenSuffixExceedsTenCharacters() {
+    void validate_throwsBusinessRuleUsingFun198_whenSuffixExceedsFiftyCharacters() {
         stubFun198Message();
-        CreateMessageDTO dto = CreateMessageDTO.builder().code("ABCDEFGHIJK").build();
+        CreateMessageDTO dto = CreateMessageDTO.builder().code("A".repeat(501)).build();
 
         assertThatThrownBy(() -> rule.validate(dto))
                 .satisfies(MessageCodeMaxLengthRuleTest::assertFun198Failure);

@@ -56,6 +56,13 @@ class UtilMessageCodeTest {
     }
 
     @Test
+    void normalize_preservesSuffixAtMaximumLengthAndAllowsFourCharacterPrefix() {
+        String suffix = "A".repeat(MAX_SUFFIX_LENGTH);
+
+        assertThat(normalize(suffix)).isEqualTo("MSG_" + suffix).hasSize(504);
+    }
+
+    @Test
     void normalize_usesRootLocale_whenDefaultLocaleUppercasesDottedI() {
         Locale previousDefault = Locale.getDefault();
         try {

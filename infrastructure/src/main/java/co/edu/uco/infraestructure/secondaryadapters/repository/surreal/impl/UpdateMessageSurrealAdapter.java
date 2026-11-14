@@ -53,7 +53,10 @@ public class UpdateMessageSurrealAdapter extends SurrealCatalogSupport implement
                 + "functionality_id: " + toRecordId(TABLE_FUNCTIONALITY, funcId)
                 + " };";
 
-        executeUpdate(messageId, updateSql, environmentIds, messageEnvironmentStateId);
+        String guard = SurrealFunctionalityWriteGuard.requireActiveForStatus(funcId,
+                message.getFunctionality().getApplication().getId().toString(), statusId,
+                CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.FUN_229.getCode()));
+        executeUpdate(messageId, guard + updateSql, environmentIds, messageEnvironmentStateId);
     }
 
     @Override
@@ -66,14 +69,13 @@ public class UpdateMessageSurrealAdapter extends SurrealCatalogSupport implement
                                String messageEnvironmentStateId) {
         try {
             log.info(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_095.getCode()), messageId);
-            if (environmentIds == null) {
-                surreal.query(updateSql);
-                return;
-            }
-            surreal.query("BEGIN TRANSACTION;"
+            var response = surreal.query("BEGIN TRANSACTION;"
                     + updateSql
-                    + replaceEnvironmentsSql(messageId, environmentIds, messageEnvironmentStateId)
+                    + (environmentIds == null ? "" : replaceEnvironmentsSql(messageId, environmentIds, messageEnvironmentStateId))
                     + "COMMIT TRANSACTION;");
+            for (int index = 0; index < response.size(); index++) {
+                response.take(index);
+            }
         } catch (Exception ex) {
             log.error(CatalogPortStaticRef.getMessage(MessageCatalogCodeEnum.TCH_072.getCode()), ex);
             throw BusinessException.buildTechnicalException(
