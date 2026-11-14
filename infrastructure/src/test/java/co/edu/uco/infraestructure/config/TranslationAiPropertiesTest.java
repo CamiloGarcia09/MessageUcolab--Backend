@@ -10,7 +10,9 @@ class TranslationAiPropertiesTest {
     void defaults_areApplied() {
         TranslationAiProperties properties = new TranslationAiProperties();
 
-        assertThat(properties.isEnabled()).isTrue();
+        // Apagada por defecto: la enciende el parámetro TRADUCCION_HABILITADA o TRANSLATION_AI_ENABLED.
+        assertThat(properties.isEnabled()).isFalse();
+        assertThat(properties.getParameterName()).isEqualTo("TRADUCCION_HABILITADA");
         assertThat(properties.getProvider()).isEqualTo("ollama");
         assertThat(properties.getBaseUrl()).isEqualTo("http://ollama:11434");
         assertThat(properties.getModelName()).isEqualTo("llama3.2");

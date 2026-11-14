@@ -52,6 +52,7 @@ service_identity_messages() {
   redis_hset "FUN_237" "Identidad de servicio no encontrada" "La identidad de servicio no está asociada a esta aplicación." "FUNCTIONAL" "ERROR"
   redis_hset "FUN_238" "Identidad de servicio retirada" "La identidad de servicio ya no puede consumir mensajes del ambiente." "FUNCTIONAL" "INFORMATION"
   redis_hset "TCH_109" "Error con las identidades de servicio" "No fue posible consultar o guardar las identidades de servicio en SurrealDB." "TECHNICAL" "ERROR"
+  redis_hset "TCH_110" "Error al consultar el componente de Parámetros" "No fue posible consultar el Catálogo de Parámetros ({}); se usan los últimos valores conocidos o los valores por defecto." "TECHNICAL" "WARNING"
 }
 
 if [ "${1:-}" = "--service-identities-only" ]; then

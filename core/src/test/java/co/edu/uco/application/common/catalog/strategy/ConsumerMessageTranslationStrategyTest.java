@@ -1,5 +1,6 @@
 package co.edu.uco.application.common.catalog.strategy;
 
+import co.edu.uco.application.common.parameter.TranslationAvailability;
 import co.edu.uco.application.primaryports.dto.message.ResolvedMessageDTO;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.entity.MessageTranslationResponseData;
@@ -32,7 +33,22 @@ class ConsumerMessageTranslationStrategyTest {
 
     @BeforeEach
     void setUp() {
-        strategy = new ConsumerMessageTranslationStrategy(cache, translator, catalog);
+        strategy = new ConsumerMessageTranslationStrategy(cache, translator, catalog,
+                new TranslationAvailability(name -> Optional.empty(), "TRADUCCION_HABILITADA", true));
+    }
+
+    @Test
+    void translate_returnsOriginalWithoutCacheOrTranslator_whenTranslationIsDisabledByParameter() {
+        var disabled = new ConsumerMessageTranslationStrategy(cache, translator, catalog,
+                new TranslationAvailability(name -> Optional.of("false"), "TRADUCCION_HABILITADA", true));
+
+        var result = disabled.translate(snapshot("source"), "app", "env", "es");
+
+        assertThat(result.getTranslatedTitle()).isEqualTo("Title");
+        assertThat(result.getTranslatedContent()).isEqualTo("Content");
+        verify(cache, never()).findTranslation(any(), any(), any(), any());
+        verify(translator, never()).translate(any());
+        verify(cache, never()).saveTranslation(any(), any(), any(), any(), any());
     }
 
     @Test

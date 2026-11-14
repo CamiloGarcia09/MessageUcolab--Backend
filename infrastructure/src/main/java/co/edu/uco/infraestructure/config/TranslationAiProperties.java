@@ -10,7 +10,13 @@ import org.springframework.stereotype.Component;
 @Component
 @ConfigurationProperties(prefix = "translation.ai")
 public class TranslationAiProperties {
-    private boolean enabled = true;
+    /**
+     * Valor por defecto. Manda el parámetro {@link #parameterName} del componente de Parámetros cuando existe;
+     * este valor solo se usa si el parámetro no está configurado o el componente no responde.
+     */
+    private boolean enabled = false;
+    /** Nombre del parámetro que, en el componente de Parámetros, habilita o deshabilita la traducción. */
+    private String parameterName = "TRADUCCION_HABILITADA";
     private String provider = "ollama";
     private String apiKey;
     private String baseUrl = "http://ollama:11434";
