@@ -55,7 +55,11 @@ class LangChain4jMessageTranslationAdapterTest {
     @BeforeEach
     void setUp() {
         when(loggerFactory.getLogger(LangChain4jMessageTranslationAdapter.class)).thenReturn(log);
-        adapter = new LangChain4jMessageTranslationAdapter(catalogPort, properties, objectMapper, loggerFactory);
+        // La habilitación se lee en cada traducción: el parámetro devuelve lo que diga properties en ese momento.
+        var availability = new co.edu.uco.application.common.parameter.TranslationAvailability(
+                name -> java.util.Optional.of(String.valueOf(properties.isEnabled())), "TRADUCCION_HABILITADA", false);
+        adapter = new LangChain4jMessageTranslationAdapter(catalogPort, properties, objectMapper, loggerFactory,
+                availability);
     }
 
     private MessageTranslationRequestData request() {

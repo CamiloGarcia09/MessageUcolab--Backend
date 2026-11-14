@@ -1,5 +1,6 @@
 package co.edu.uco.infraestructure.secondaryadapters.translation;
 
+import co.edu.uco.application.common.parameter.TranslationAvailability;
 import co.edu.uco.application.secondaryports.entity.MessageTranslationRequestData;
 import co.edu.uco.application.secondaryports.entity.MessageTranslationResponseData;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
@@ -37,14 +38,17 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
     private final LoggingPort log;
     private final CatalogPort catalogPort;
     private final TranslationAiProperties properties;
+    private final TranslationAvailability availability;
     private final ObjectMapper objectMapper;
     private final Semaphore permits;
     private ChatModel chatModel;
 
     public LangChain4jMessageTranslationAdapter(
             CatalogPort catalogPort, TranslationAiProperties properties,
-            ObjectMapper objectMapper, LoggingPortFactory loggerFactory
+            ObjectMapper objectMapper, LoggingPortFactory loggerFactory,
+            TranslationAvailability availability
     ) {
+        this.availability = availability;
         this.log = loggerFactory.getLogger(LangChain4jMessageTranslationAdapter.class);
         this.catalogPort = catalogPort;
         this.properties = properties;
@@ -63,7 +67,7 @@ public class LangChain4jMessageTranslationAdapter implements MessageTranslationP
                     catalogPort.getMessage(MessageCatalogCodeEnum.TCH_037.getCode())
             );
         }
-        if (!properties.isEnabled()) {
+        if (!availability.isEnabled()) {
             throw BusinessException.buildUserException(catalogPort.getMessage(MessageCatalogCodeEnum.FUN_046.getCode()));
         }
         if (isOpenAiProvider() && isEmptyOrNull(properties.getApiKey())) {

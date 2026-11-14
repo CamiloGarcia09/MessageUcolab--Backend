@@ -1,5 +1,8 @@
 package co.edu.uco.infraestructure.config;
 
+import co.edu.uco.application.common.parameter.TranslationAvailability;
+import co.edu.uco.application.secondaryports.parameter.ParameterValuePort;
+
 import co.edu.uco.application.common.catalog.strategy.ConsumerMessageTranslationStrategy;
 import co.edu.uco.application.primaryports.facade.message.ResolveMessageUseCaseFacade;
 import co.edu.uco.application.primaryports.facade.message.TranslateConsumerMessageUseCaseFacade;
@@ -16,10 +19,18 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class ConsumerMessageTranslationConfig {
+    /** Habilitación de la traducción: parámetro del componente de Parámetros o, si no hay, la configuración local. */
+    @Bean
+    public TranslationAvailability translationAvailability(ParameterValuePort parameters,
+                                                           TranslationAiProperties properties) {
+        return new TranslationAvailability(parameters, properties.getParameterName(), properties.isEnabled());
+    }
+
     @Bean
     public ConsumerMessageTranslationStrategy consumerMessageTranslationStrategy(
-            MessageTranslationCachePort cache, MessageTranslationPort translator, CatalogPort catalog) {
-        return new ConsumerMessageTranslationStrategy(cache, translator, catalog);
+            MessageTranslationCachePort cache, MessageTranslationPort translator, CatalogPort catalog,
+            TranslationAvailability availability) {
+        return new ConsumerMessageTranslationStrategy(cache, translator, catalog, availability);
     }
 
     @Bean

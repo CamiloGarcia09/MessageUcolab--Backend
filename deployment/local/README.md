@@ -45,6 +45,28 @@ docker volume rm messageucolab_pulsar-data
 doppler run -- docker compose -p messageucolab up -d pulsar
 ```
 
+## Habilitar la traducción desde el componente de Parámetros (opcional)
+
+La traducción con IA viene apagada (`TRANSLATION_AI_ENABLED=false`). Si tu equipo usa el Catálogo de Parámetros, la
+puede encender o apagar desde allí, sin reiniciar MessageUcoLab:
+
+1. En el Catálogo, crea en la aplicación de MessageUcoLab el parámetro **`TRADUCCION_HABILITADA`** con valor `true`
+   o `false`.
+2. En **Tokens → Nuevo**, crea un token para esa aplicación y ese ambiente, y copia su ID y su secreto.
+3. En el `.env` de este kit pon la dirección del Catálogo y el ID del token; el secreto va en Doppler:
+
+| Variable | Dónde | Valor |
+|---|---|---|
+| `CATALOGO_PARAMETROS_BASE_URL` | `.env` | `http://host.docker.internal:8081/catalogo-parametros/api/v1` |
+| `CATALOGO_PARAMETROS_TOKEN_ID` | `.env` | El ID del token |
+| `CATALOGO_PARAMETROS_SECRETO` | Doppler | El secreto del token |
+
+4. Recrea MessageUcoLab: `doppler run -- docker compose -p messageucolab up -d messageucolab`.
+
+MessageUcoLab consulta el parámetro cada 60 segundos. Si el Catálogo no responde, conserva el último valor
+conocido; si nunca lo pudo leer, usa `TRANSLATION_AI_ENABLED`. Para traducir de verdad, además debe estar Ollama
+(`COMPOSE_PROFILES=ollama`) o un proveedor configurado.
+
 ## Publicar una versión (equipo MessageUcoLab)
 
 1. Desde la raíz del backend, en `develop`, construye y publica la imagen (pide `docker login` antes):

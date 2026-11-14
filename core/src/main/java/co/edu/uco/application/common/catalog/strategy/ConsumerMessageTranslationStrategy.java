@@ -1,5 +1,6 @@
 package co.edu.uco.application.common.catalog.strategy;
 
+import co.edu.uco.application.common.parameter.TranslationAvailability;
 import co.edu.uco.application.secondaryports.catalog.CatalogPort;
 import co.edu.uco.application.secondaryports.entity.MessageTranslationRequestData;
 import co.edu.uco.application.secondaryports.entity.MessageTranslationResponseData;
@@ -23,12 +24,15 @@ public final class ConsumerMessageTranslationStrategy {
     private final MessageTranslationPort translator;
     private final CatalogPort catalog;
     private final ConsumerLanguageCodeKnownRule knownLanguage;
+    private final TranslationAvailability availability;
 
     public ConsumerMessageTranslationStrategy(MessageTranslationCachePort cache,
-                                               MessageTranslationPort translator, CatalogPort catalog) {
+                                               MessageTranslationPort translator, CatalogPort catalog,
+                                               TranslationAvailability availability) {
         this.cache = cache;
         this.translator = translator;
         this.catalog = catalog;
+        this.availability = availability;
         this.knownLanguage = new ConsumerLanguageCodeKnownRule(catalog, MessageCatalogCodeEnum.FUN_045);
     }
 
@@ -40,6 +44,12 @@ public final class ConsumerMessageTranslationStrategy {
                     message.getType(), message.getCategory(), message.getFunctionality(), EMPTY, EMPTY, 0L);
         }
         knownLanguage.validate(targetLanguage);
+        // Traducción apagada (parámetro del componente de Parámetros o configuración local): se entrega el texto
+        // original sin consultar el modelo ni la caché de traducciones.
+        if (!availability.isEnabled()) {
+            return MessageTranslationResponseData.untranslated(message.getTitle(), message.getContent(),
+                    message.getType(), message.getCategory(), message.getFunctionality());
+        }
         var scope = cacheScope(snapshot, applicationId, environmentId);
         var cached = cache.findTranslation(message.getCode(), scope, snapshot.sourceLanguage(), targetLanguage);
         if (cached.isPresent()) {

@@ -870,7 +870,9 @@ public enum MessageCatalogCodeEnum {
     /** Aplicacion eliminada; no se pudo completar la limpieza de su cache. */
     TCH_108("TCH_108"),
     /** Error al gestionar las identidades de servicio en SurrealDB. */
-    TCH_109("TCH_109");
+    TCH_109("TCH_109"),
+    /** No se pudo consultar el componente de Parametros; se usan los ultimos valores conocidos o los de defecto. */
+    TCH_110("TCH_110");
 
     // =========================================================================
 
