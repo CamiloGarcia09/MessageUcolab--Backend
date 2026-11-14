@@ -39,9 +39,8 @@ public final class TranslationAvailability {
             return Optional.empty();
         }
         try {
-            final var value = parameters.findValue(parameterName.trim());
-            return value == null ? Optional.empty() : value;
-        } catch (RuntimeException exception) {
+            return parameters.findValue(parameterName.trim());
+        } catch (RuntimeException _) {
             // El puerto no debería fallar; si lo hace, la traducción conserva su valor por defecto.
             return Optional.empty();
         }

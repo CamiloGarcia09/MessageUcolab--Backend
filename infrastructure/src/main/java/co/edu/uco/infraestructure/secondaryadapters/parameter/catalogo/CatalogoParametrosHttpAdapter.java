@@ -38,7 +38,7 @@ import java.util.Optional;
 @Component
 public final class CatalogoParametrosHttpAdapter implements ParameterValuePort {
 
-    private static final String PARAMETERS_PATH = "/tokens/%s/parametros";
+    private static final String PARAMETERS_PATH = "tokens/%s/parametros";
 
     private final HttpClient httpClient;
     private final CatalogoParametrosProperties properties;
@@ -112,7 +112,7 @@ public final class CatalogoParametrosHttpAdapter implements ParameterValuePort {
     private HttpRequest request() {
         final var tokenId = URLEncoder.encode(properties.getTokenId().trim(), StandardCharsets.UTF_8);
         final var uri = URI.create(properties.getBaseUrl().trim().replaceAll("/+$", "")
-                + PARAMETERS_PATH.formatted(tokenId));
+                + "/" + PARAMETERS_PATH.formatted(tokenId));
         return HttpRequest.newBuilder(uri)
                 .timeout(properties.getTimeout())
                 .header("Accept", "application/json")

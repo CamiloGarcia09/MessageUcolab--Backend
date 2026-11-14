@@ -48,10 +48,10 @@ class TranslationAvailabilityTest {
     }
 
     @Test
-    @DisplayName("Si el puerto falla o devuelve null, se usa el valor por defecto")
+    @DisplayName("Si el puerto falla, se usa el valor por defecto")
     void portFailureUsesDefault() {
         assertThat(with(name -> { throw new IllegalStateException("caído"); }, true).isEnabled()).isTrue();
-        assertThat(with(name -> null, false).isEnabled()).isFalse();
+        assertThat(with(name -> { throw new IllegalStateException("caído"); }, false).isEnabled()).isFalse();
     }
 
     @Test
