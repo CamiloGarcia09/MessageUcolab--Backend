@@ -28,10 +28,37 @@ más que la dirección:
 | En tu PC (IntelliJ o terminal) | `pulsar://localhost:6800` | Nada |
 | En un contenedor de Docker | `pulsar://pulsar:6650` | Conectar el contenedor a la red `messageucolab_pulsar-network` |
 
-Si actualizas desde un kit anterior, recrea Pulsar una vez para que tome esta configuración. Pulsar solo guarda
-los avisos de paso (los mensajes están en SurrealDB); si al arrancar el log dice
-`Not enough non-faulty bookies available`, su almacenamiento quedó con el nombre del contenedor anterior y hay que
-empezarlo de cero:
+El puerto de entrada externo está asociado al listener `external`; no hace falta configurar `listenerName` en
+el cliente. No uses `host.docker.internal:6800` desde otro contenedor mientras se anuncie `localhost`: el broker
+lo redirigiría al propio contenedor consumidor. Usa la red compartida o un DNS accesible desde ambos.
+
+### Consumidores en otra máquina
+
+Configura `PULSAR_ADVERTISED_HOST` con el DNS del host donde corre Pulsar, sin esquema ni puerto, y
+`PULSAR_BIND_ADDRESS` con la interfaz del host accesible desde esa red privada. Recrea solo Pulsar con
+`doppler run -- docker compose -p messageucolab up -d --no-deps --force-recreate --wait pulsar`.
+El consumidor usará `PULSAR_URL=pulsar://<ese-dns>:6800` (o el `PULSAR_PORT` elegido).
+El DNS debe resolver desde el consumidor y el firewall debe permitir ese puerto.
+
+Por defecto solo se publica en `127.0.0.1`. **Este kit de desarrollo no configura TLS, autenticación ni
+autorización por topic en Pulsar. No lo publiques en Internet ni en una red no confiable.** Para consumidores
+externos en producción se necesita un broker o proxy protegido, certificados y permisos por identidad/topic;
+cambiar el DNS no sustituye esos controles. La identidad de servicio HTTP de MessageUcoLab no autentica por
+sí sola al cliente Pulsar. El puerto administrativo 8080 permanece limitado al host.
+
+### Persistencia y actualización desde un kit anterior
+
+BookKeeper utiliza el nombre fijo `pulsar` y el puerto 3181. Su cookie debe contener `bookieHost: "pulsar:3181"`,
+no una IP efímera de Docker. Se conserva `/pulsar/data`; `/pulsar/conf` se genera de nuevo desde la imagen
+y las variables en cada recreación. No cambies el hostname de una instalación con datos existentes.
+
+Un volumen antiguo puede conservar una IP o identidad incompatible. Errores como
+`Error while recovering ledger` o `Not enough non-faulty bookies available` requieren revisar logs y cookies;
+no demuestran por sí solos corrupción ni autorizan borrar datos.
+
+**Solo si los datos de Pulsar son desechables y se autoriza perder eventos, topics y suscripciones**, puede
+reinicializarse el volumen. Los mensajes de negocio siguen en SurrealDB; no se reproducen automáticamente
+los avisos eliminados. El prefijo `messageucolab` debe coincidir con el proyecto Compose real:
 
 ```bash
 docker compose -p messageucolab rm -sf pulsar
@@ -44,6 +71,12 @@ docker volume rm messageucolab_pulsar-data
 ```bash
 doppler run -- docker compose -p messageucolab up -d pulsar
 ```
+
+Usa `up -d --no-deps --wait pulsar` para esperar disponibilidad sin intervenir otras dependencias.
+El antiguo volumen `messageucolab_pulsar-conf` ya no se monta y puede retirarse, previa comprobación de que
+ningún contenedor lo usa. Nunca uses `down -v` para esta operación.
+Si un consumidor ya agotó sus intentos de suscripción durante el fallo, reinicia solo ese consumidor después
+de que Pulsar esté disponible. Las conexiones establecidas usan la reconexión del cliente Pulsar.
 
 ## Publicar una versión (equipo MessageUcoLab)
 

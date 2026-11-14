@@ -73,6 +73,39 @@ Consulte `deployment/local/README.md` para preparar el paquete local. La imagen 
 
 Los valores reales están parametrizados. No copie credenciales desde Doppler para completar archivos locales.
 
+### Pulsar: identidad persistente y direcciones de consumo
+
+Los Compose de `deployment/docker` y `deployment/local` separan el almacenamiento de los puntos de entrada:
+
+- BookKeeper conserva la identidad `pulsar:3181`, con hostname y puerto estables. No se almacena como identidad
+  una IP efímera de Docker. En Pulsar 3.2.2, el standalone carga la configuración del bookie desde
+  `standalone.conf`; por eso `useHostNameAsBookieID` y `allowEphemeralPorts` se aplican allí. Esta última
+  propiedad permite que el `BKCluster` embebido respete `--bookkeeper-port 3181`.
+- Se persiste `/pulsar/data`, incluidos los metadatos y cookies. La configuración de `/pulsar/conf` no se
+  monta como volumen: se genera desde la imagen y las variables al recrear el contenedor.
+- Los clientes en la red Docker usan `pulsar://pulsar:${PULSAR_PORTEXIT:-6650}`.
+- Los clientes en el host usan `pulsar://localhost:${PULSAR_PORT:-6800}`. El puerto publicado entra por un
+  listener externo separado (6651 en el contenedor), que anuncia la dirección externa, no `pulsar:6650`.
+- `PULSAR_ADVERTISED_HOST` permite sustituir `localhost` por un DNS alcanzable desde los consumidores de
+  otra máquina. `PULSAR_BIND_ADDRESS` determina la interfaz del host publicada; por defecto es `127.0.0.1`.
+  El puerto administrativo también se limita al host.
+
+El despliegue local no configura TLS ni autenticación/autorización de Pulsar. No exponerlo en Internet:
+un entorno compartido no confiable requiere un broker o proxy protegido y permisos por identidad/topic.
+La autenticación HTTP de MessageUcoLab no protege automáticamente el protocolo Pulsar.
+
+Para actualizar únicamente Pulsar, desde `deployment/docker`:
+
+```powershell
+doppler run --project messageucolab --config dev -- docker compose up -d --no-deps --force-recreate --wait pulsar
+```
+
+Esto conserva datos y no migra cookies de instalaciones antiguas. Si una cookie contiene una IP anterior,
+revisar su recuperación antes de recrear: cambiar el Compose no reescribe referencias de ledgers.
+La eliminación del volumen solo corresponde a datos desechables y con autorización explícita; nunca usar
+`down -v`. Ver [el procedimiento y las opciones de red](../deployment/local/README.md#conectarse-a-pulsar-desde-tu-aplicación).
+El healthcheck comprueba disponibilidad del broker, no certifica entrega de eventos de negocio.
+
 ## Inicializadores y persistencia
 
 El Compose incluye:
